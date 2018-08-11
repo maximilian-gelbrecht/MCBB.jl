@@ -19,4 +19,4 @@ echo "------------------------------------------------------------"
 
 module load julia/0.6.2
 module load hpc/2015
-julia /p/tmp/maxgelbr/julia-test/montecarlo/run_mc.jl $SLURM_NTASKS
+julia /p/tmp/maxgelbr/code/HighBifLib.jl/run_mc.jl $SLURM_NTASKS

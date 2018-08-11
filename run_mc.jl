@@ -10,7 +10,7 @@ if isdefined(:cluster)
     N_tasks = parse(Int, ARGS[1])
     N_worker = N_tasks 
     addprocs(SlurmManager(N_worker), max_parallel=N_worker)
-    @everywhere include("/p/tmp/maxgelbr/julia-test/HighBifLib.jl")
+    @everywhere include("/p/tmp/maxgelbr/code/HighBifLib.jl/HighBifLib.jl")
 else
 
     addprocs(1)
