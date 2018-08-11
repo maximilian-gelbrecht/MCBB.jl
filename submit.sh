@@ -6,7 +6,7 @@
 #SBATCH --output=julia-test2-%j-%N.out
 #SBATCH --error=julia-test2-%j-%N.err
 #SBATCH --nodes=2
-#SBATCH --ntasks-per-node=4
+#SBATCH --ntasks-per-node=8
 #SBATCH --workdir=/p/tmp/maxgelbr
 #SBATCH --mail-type=END
 #SBATCH --mail-user=gelbrecht@pik-potsdam.de

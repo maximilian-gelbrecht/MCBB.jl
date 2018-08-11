@@ -8,18 +8,75 @@ cluster = true
 if isdefined(:cluster)
     using ClusterManagers
     N_tasks = parse(Int, ARGS[1])
-    N_worker = N_tasks - 1
-    ddprocs(SlurmManager(N_worker)) # -1 cause one process is the master
-    @everywhere include("/p/tmp/maxgelbr/julia-test/montecarlo/myLib.jl")
+    N_worker = N_tasks 
+    addprocs(SlurmManager(N_worker), max_parallel=N_worker)
+    @everywhere include("/p/tmp/maxgelbr/julia-test/HighBifLib.jl")
 else
-    addprocs(3)
-    @everywhere include("myLib.jl")
+
+    addprocs(1)
+    @everywhere include("HighBifLib.jl")
 end
 
+@everywhere using LSODA
+@everywhere using LightGraphs
 using JLD2, FileIO
 @everywhere using DifferentialEquations
 @everywhere using Distributions
-@everywhere using myLib
+@everywhere using HighBifLib  
+
+# these imports invoke a lot of warnings when executed with multiple processes
+# this seems to me to be more a bug of julia than an actual problem with this code
+# imported on a single process there are no warnings
+
+   
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+   
+       
+@everywhere N = 5
+
+@everywhere k = 2
+@everywhere p = 0.2
+@everywhere net = watts_strogatz(N, k, p)
+
+#@everywhere A = [0 1 1 
+#    1 0 1 
+#    1 1 0 ]
+#@everywhere net = Graph(A)
+
+@everywhere L = laplacian_matrix(net)
+
+@everywhere a = ones(N).*0.2
+@everywhere b = ones(N).*0.2
+@everywhere c = ones(N).*7.0
+
+tail_frac = 0.8
+
+# for reference get the synchronizable range of Ks
+evals = eig(full(L))[1]
+evals = sort!(evals[evals .> 1e-5])
+lambda_min = evals[end]
+lambda_max = evals[1]
+K_sync = (0.1232/lambda_min, 4.663/lambda_max)
 
    
 
@@ -27,42 +84,37 @@ using JLD2, FileIO
 
    
        
-N = 500
-K = 0.5
-nd = Normal(0.5, 0.5)   # mean = 0.5Hz, std = 0.5Hz
-ud = Uniform(-pi,pi)
-pars = kuramoto_parameters(K, rand(nd, N), N)
-rp = ODEProblem(kuramoto, rand(ud, N), (0.,100.), pars)
+#@everywhere K_range = [0.002, 0.004, 0.006, 0.008, 0.010, 0.03, 0.05, 0.1, 0.2, 0.5, 1, 2, 4]
+#@everywhere K_range = [0.002, 0.004, 0.03, 0.5, 1, 4]
+@everywhere K_range = [0.002, 0.005, 0.01, 0.025, 0.05, 0.07, 0.5, 1, 2]
+@everywhere ic_gen_xy = Uniform(-15.,15.)
+@everywhere ic_gen_z = Uniform(-5.,35.)
 
-K = collect(0.1:0.025:10)
-N_mc = size(K)[1]
+@everywhere ic_gens = [()->rand(ic_gen_xy), ()-> rand(ic_gen_xy), () -> rand(ic_gen_z)]
+@everywhere N_ic = 100
 
-# For MonteCarlo simulations we have to build a new problem every time. This takes a base problem,
-# and gives back a new one, to illustrate, the following just gives back the same problem:
-@everywhere inc_coupling_problem = (prob,i,repeat) -> ODEProblem(prob.f, rand(ud, N), prob.tspan, kuramoto_parameters(K[i],rand(nd,N),N))
-# The parameter prob is the base problem we are varying.
-# The parameter i is the index of the Monte Carlo run we are generating the problem for.
-# The repeat parameter indicates whether we are rerunning an experiment. Ignore it for now.
-@everywhere output_func = (sol, i) -> (order_parameter(sol[:,end], N), false)
-# define the MC Problem
-mcp = MonteCarloProblem(rp, prob_func=inc_coupling_problem, output_func=output_func)
 
-# solve it, the :pmap symbol defines the way the problem is parallized by julia
-#sol_mc = @time solve(mcp, num_monte=2, parallel_type=:pmap)
-sol_mc = @time solve(mcp, num_monte=N_mc, collect_result = Val{true}, parallel_type=:parfor)
-#sol_mc = @time solve(mcp, num_monte=2, parallel_type=:none)
-# save the solutions, analyze them later
-#@save "mc_roes_coupled.jld2" sol_mc
+@everywhere rp = ODEProblem(roessler_network, zeros(3*N), (0.,100.), roessler_parameters(a,b,c,0.05,L,N))
+@everywhere (ic_coupling_problem, ic_par, N_mc) = setup_ic_par_mc_problem(rp, ic_gens, N_ic, roessler_parameters(a,b,c,0.05,L,N),(:K,K_range))
+rn_mcp = MonteCarloProblem(rp, prob_func=ic_coupling_problem, output_func=eval_ode_run)
+rn_emcp = EqMCProblem(rn_mcp, N_mc, tail_frac)
+@time rn_sol = solve(rn_emcp, lsoda())
 
+if defined(:cluster)
+    @save "mc_log.jld2" rn_sol
+end 
 
    
 
 
 
-   
-       
-writedlm("orderparameter.txt", sol_mc[:])
 
 
-   
+
+
+
+
+
+
+
 
