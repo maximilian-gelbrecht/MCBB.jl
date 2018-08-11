@@ -2,14 +2,14 @@
 
 
 
-   
+
 cluster = true
-       
+
 if isdefined(:cluster)
     using ClusterManagers
     N_tasks = parse(Int, ARGS[1])
-    N_worker = N_tasks 
-    addprocs(SlurmManager(N_worker), max_parallel=N_worker)
+    N_worker = N_tasks
+    addprocs(SlurmManager(N_worker))
     @everywhere include("/p/tmp/maxgelbr/code/HighBifLib.jl/HighBifLib.jl")
 else
 
@@ -22,13 +22,12 @@ end
 using JLD2, FileIO
 @everywhere using DifferentialEquations
 @everywhere using Distributions
-@everywhere using HighBifLib  
+@everywhere using HighBifLib
 
 # these imports invoke a lot of warnings when executed with multiple processes
 # this seems to me to be more a bug of julia than an actual problem with this code
 # imported on a single process there are no warnings
 
-   
 
 
 
@@ -50,16 +49,17 @@ using JLD2, FileIO
 
 
 
-   
-       
+
+
+
 @everywhere N = 5
 
 @everywhere k = 2
 @everywhere p = 0.2
 @everywhere net = watts_strogatz(N, k, p)
 
-#@everywhere A = [0 1 1 
-#    1 0 1 
+#@everywhere A = [0 1 1
+#    1 0 1
 #    1 1 0 ]
 #@everywhere net = Graph(A)
 
@@ -78,12 +78,12 @@ lambda_min = evals[end]
 lambda_max = evals[1]
 K_sync = (0.1232/lambda_min, 4.663/lambda_max)
 
-   
 
 
 
-   
-       
+
+
+
 #@everywhere K_range = [0.002, 0.004, 0.006, 0.008, 0.010, 0.03, 0.05, 0.1, 0.2, 0.5, 1, 2, 4]
 #@everywhere K_range = [0.002, 0.004, 0.03, 0.5, 1, 4]
 @everywhere K_range = [0.002, 0.005, 0.01, 0.025, 0.05, 0.07, 0.5, 1, 2]
@@ -102,19 +102,4 @@ rn_emcp = EqMCProblem(rn_mcp, N_mc, tail_frac)
 
 if defined(:cluster)
     @save "mc_log.jld2" rn_sol
-end 
-
-   
-
-
-
-
-
-
-
-
-
-
-
-
-
+end
