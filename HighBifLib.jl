@@ -28,7 +28,7 @@ export k_dist, cluster_measures
 #################
 ##### Systems
 #################
-# The systems are all defined here, because it makes saving and loading results much easier (with e.g. JLD) if they are part of the library as well.
+# The systems are all defined here, because it makes saving and loading results much easier (with e.g. JLD2) if they are part of the library as well.
 # TO-DO: also defining all the jacobians would improve the performance of some of the solvers used
 #################
 abstract type DEParameters end
@@ -250,7 +250,7 @@ function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, ic_ranges::Array{T,1}, var_pa
     (ic_par, N_mc)
 end
 
-# help
+# helper function for setup_ic_par_mc_problem()
 # uses (random) generator functions for the initial cond.
 function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, N_ic::Int, ic_gens::Array{T,1},  var_par::Tuple{Symbol,AbstractArray}) where T<:Function
 
@@ -528,7 +528,7 @@ end
 ###########
 
 # compute the distance matrix used for the dbSCAN clustering. here, we could experiment with different ways how to setup this matrix
-#
+# TO-DO: use symmetry: optimize for less memory consuption and computation time
 function distance_matrix(sol::myMCSol, distance_func::Function)
     D = zeros((sol.N_mc, sol.N_mc))
     for i=1:sol.N_mc
