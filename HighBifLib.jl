@@ -475,15 +475,16 @@ function ecdf_pc(X::AbstractArray, Xu::AbstractArray, eps::BigFloat)
                 end
             end
         end
-        if X[Nu-1]!=X[Nu]
+        if X[N-1]!=X[N]
             push!(iu, Nu-1)
         end
         push!(iu, N)
-        x_fnu = X[i_fnu] - eps
+        x_fnu = X[i_fnu] .- eps
         ecdf_fnu = ecdf[i_fnu]
 
         # we also add 0 and 1 for a good asymptotic Behaviour
         # this way of array construction is quite slow, could replace with something that performs better instead
+
         itp = interpolate((sort([X[1]-2*dat_range,Xu...,x_fnu...,X[end]+2*dat_range]),), sort([0,ecdf[iu]...,ecdf[i_fnu]...,1]), Gridded(Linear()))
     else
         itp = interpolate((X,), ecdf, Gridded(Linear()))
