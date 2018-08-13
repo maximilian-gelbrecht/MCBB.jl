@@ -4,7 +4,7 @@ As of now this is only tested with Julia 0.6.2, but will be probably ported and 
 
 * HighBifLib.jl: Library file containing all relevant functions
 * run_mc.ipynb: Jupyter notebook with examples
-* nbconv.tpl: Template heling to convert the jupyter notebook to a regular Julia script for usage on a hpc
+* nbconv.tpl: Template to convert the jupyter notebook to a regular Julia script for usage on a hpc
 * run_mc.jl: Converted notebook (not meant for direct editing)
 * submit.sh: SLURM submit file
 * test_sub_functions.ipynb: Test of some functions (e.g. KL-divergence)

@@ -240,6 +240,10 @@ function define_new_problem(prob::DiscreteProblem, ic_par::AbstractArray, parame
     function new_problem(prob, i, repeat)
         if repeat > 1
             if repeat > 10
+                warn("------------------")
+                warn("Error with IC/Par:")
+                warn(ic_par[i,:])
+                warn("------------------")
                 error("More than 10 Repeats of a Problem in the Monte Carlo Run, there might me something wrong here!")
             else
                 ic_par[i,1:N_dim_ic] = _new_ics(N_dim_ic,ic_gens)
