@@ -13,7 +13,7 @@ import StatsBase, Distributions
 import DifferentialEquations.solve # this needs to be directly importet in order to extend it with our own solve() for our own problem struct
 
 # export all functions declared
-export kuramoto_parameters, kuramoto, kuramoto_network_parameters, kuramoto_network, logistic_parameters, logistic, henon_parameters, henon, roessler_parameters, roessler_network
+export kuramoto_parameters, kuramoto, kuramoto_network_parameters, kuramoto_network, logistic_parameters, logistic, henon_parameters, henon, roessler_parameters, roessler_network, lotka_volterra, lotka_volterra_parameters
 export myMCProblem, EqMCProblem, myMCSol
 export setup_ic_par_mc_problem, eval_ode_run, eval_ode_run_repeat, eval_ode_run_inf, check_inf_nan
 export distance_matrix, weighted_norm
@@ -158,7 +158,22 @@ function roessler_network(::Type{Val{:jac}},J,u,p::roessler_parameters,t)
 end
 """
 
-function
+@with_kw struct lotka_volterra_parameters <: DEParameters
+    a::Matrix
+    b::AbstractArray
+    N::Int
+end
+
+function lotka_volterra(du, u, p::lotka_volterra_parameters, t)
+    for i=1:p.N
+        du[i] = 1.
+        for j=1:p.N
+            du[i] -= p.a[i,j]*p.N
+        end
+        du[i] *= p.b[i]*p.N
+    end
+end
+
 ###########
 ##### ODE Evaluation functions
 ###########
