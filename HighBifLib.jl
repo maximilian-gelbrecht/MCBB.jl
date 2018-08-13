@@ -15,7 +15,7 @@ import DifferentialEquations.solve # this needs to be directly importet in order
 # export all functions declared
 export kuramoto_parameters, kuramoto, kuramoto_network_parameters, kuramoto_network, logistic_parameters, logistic, henon_parameters, henon, roessler_parameters, roessler_network
 export myMCProblem, EqMCProblem, myMCSol
-export setup_ic_par_mc_problem, eval_ode_run, check_inf_nan
+export setup_ic_par_mc_problem, eval_ode_run, eval_ode_run_repeat, eval_ode_run_inf, check_inf_nan
 export distance_matrix, weighted_norm
 export order_parameter
 
@@ -176,6 +176,7 @@ struct myMCSol
     N_mc::Int   # number of solutions saved / Monte Carlo trials runs
     N_t::Int  # number of time steps for each solutions
     N_meas::Int # number of measures used
+    mc_prob::EqMCProblem # part of the struct to make saving/loading easier
 end
 
 
@@ -191,7 +192,6 @@ end
 #   ic_par :: N_mc x N_dim sized array that holds the values of the ICs and parameters for each Iteration
 #   N_mc :: int, number of ODEProblems to solve, needed for solve()
 function setup_ic_par_mc_problem(prob::ODEProblem, ic_ranges::Array{T,1}, parameters::DEParameters, var_par::Tuple{Symbol,AbstractArray}) where T <: AbstractArray
-
     N_dim_ic = length(ic_ranges)
     N_dim = N_dim_ic + 1
 
@@ -201,8 +201,8 @@ function setup_ic_par_mc_problem(prob::ODEProblem, ic_ranges::Array{T,1}, parame
     (ic_par_problem, ic_par, N_mc)
 end
 
+# TO-DO: one could probably combine both methods by using remake()
 function setup_ic_par_mc_problem(prob::DiscreteProblem, ic_ranges::Array{T,1}, parameters::DEParameters, var_par::Tuple{Symbol,AbstractArray}) where T <: AbstractArray
-
     N_dim_ic = length(ic_ranges)
     N_dim = N_dim_ic + 1
     (ic_par, N_mc) = _ic_par_matrix(N_dim_ic, N_dim, ic_ranges, var_par)
@@ -210,28 +210,50 @@ function setup_ic_par_mc_problem(prob::DiscreteProblem, ic_ranges::Array{T,1}, p
     (ic_par_problem, ic_par, N_mc)
 end
 
-function setup_ic_par_mc_problem(prob::ODEProblem, ic_gens::Array{T,1}, N_ic::Int, parameters::DEParameters, var_par::Tuple{Symbol,AbstractArray}) where T <: Function
-
+function setup_ic_par_mc_problem(prob::DEProblem, ic_gens::Array{T,1}, N_ic::Int, parameters::DEParameters, var_par::Tuple{Symbol,AbstractArray}) where T <: Function
     N_dim_ic = length(prob.u0)
     N_dim = N_dim_ic + 1
     (ic_par, N_mc) = _ic_par_matrix(N_dim_ic, N_dim, N_ic, ic_gens, var_par)
-    ic_par_problem = (prob, i, repeat) -> ODEProblem(prob.f, ic_par[i,1:N_dim_ic], prob.tspan, reconstruct(parameters; (var_par[1], ic_par[i,N_dim])))
+    #ic_par_problem = (prob, i, repeat) -> ODEProblem(prob.f, ic_par[i,1:N_dim_ic], prob.tspan, reconstruct(parameters; (var_par[1], ic_par[i,N_dim])))
+    ic_par_problem = define_new_problem(prob, ic_par, parameters, N_dim_ic, ic_gens, var_par)
     (ic_par_problem, ic_par, N_mc)
 end
 
-function setup_ic_par_mc_problem(prob::DiscreteProblem, ic_gens::Array{T,1}, N_ic::Int, parameters::DEParameters, var_par::Tuple{Symbol,AbstractArray}) where T <: Function
-
-    N_dim_ic = length(prob.u0)
-    N_dim = N_dim_ic + 1
-    (ic_par, N_mc) = _ic_par_matrix(N_dim_ic, N_dim, N_ic, ic_gens, var_par)
-    ic_par_problem = (prob, i, repeat) -> DiscreteProblem(prob.f, ic_par[i,1:N_dim_ic], prob.tspan, reconstruct(parameters; (var_par[1], ic_par[i,N_dim])))
-    (ic_par_problem, ic_par, N_mc)
+# functions defining new problems that generate new ics when the trial needs to be repeated
+function define_new_problem(prob::ODEProblem, ic_par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::Array{T,1}, var_par::Tuple{Symbol,AbstractArray}) where T <: Function
+    function new_problem(prob, i, repeat)
+        if repeat > 1
+            if repeat > 10
+                error("More than 10 Repeats of a Problem in the Monte Carlo Run, there might me something wrong here!")
+            else
+                ic_par[i,1:N_dim_ic] = _new_ics(N_dim_ic,ic_gens)
+            end
+        end
+        ODEProblem(prob.f, ic_par[i,1:N_dim_ic], prob.tspan,  reconstruct(parameters; (var_par[1], ic_par[i,N_dim_ic+1])))
+    end
+    new_problem
 end
+
+# same but for Discrete Problems
+# TO-DO: one could probably combine both methods by using remake()
+function define_new_problem(prob::DiscreteProblem, ic_par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::Array{T,1}, var_par::Tuple{Symbol,AbstractArray}) where T <: Function
+    function new_problem(prob, i, repeat)
+        if repeat > 1
+            if repeat > 10
+                error("More than 10 Repeats of a Problem in the Monte Carlo Run, there might me something wrong here!")
+            else
+                ic_par[i,1:N_dim_ic] = _new_ics(N_dim_ic,ic_gens)
+            end
+        end
+        DiscreteProblem(prob.f, ic_par[i,1:N_dim_ic], prob.tspan,  reconstruct(parameters; (var_par[1], ic_par[i,N_dim_ic+1])))
+    end
+    new_problem
+end
+
 
 # helper function for setup_ic_par_mc_problem()
 # uses ranges for the initial cond.
 function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, ic_ranges::Array{T,1}, var_par::Tuple{Symbol,AbstractArray}) where T <: AbstractArray
-
     N_ic_pars = zeros(Int, N_dim)
     for (i_range, ic_range) in enumerate(ic_ranges)
         N_ic_pars[i_range] = length(collect(ic_range))
@@ -278,6 +300,19 @@ function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, N_ic::Int, ic_gens::Array{T,1
     (ic_par, N_mc)
 end
 
+# helper functions, calculate new ICs in case the MonteCarlo trial needs to be repeated
+function _new_ics(N_dim_ic::Int, ic_gens::Array{T,1}) where T<:Function
+    N_gens = length(ic_gens)
+    N_gen_steps = Int(N_dim_ic / N_gens)
+    ics = zeros(N_dim_ic)
+    for i_gen_steps=1:N_gen_steps
+        for i_gen=1:N_gens
+            ics[N_gens*i_gen_steps - (N_gens - i_gen)] = ic_gens[i_gen]()
+        end
+    end
+    ics
+end
+
 
 # custom solve for the EqMCProblem defined earlier. solves the MonteCarlo Problem for OrdinaryDiffEq, but saves and evaluates only the transient at a constant step size
 # prob :: MC Problem of type defined in this library
@@ -288,7 +323,7 @@ function solve(prob::EqMCProblem, alg=nothing, N_t=400::Int, kwargs...)
     else
         sol = solve(prob.p, num_monte=prob.N_mc, dense=false, save_everystep=false, saveat=t_save, savestart=false, parallel_type=:parfor; kwargs...)
     end
-    mysol = myMCSol(sol, prob.N_mc, N_t, length(sol[1]))
+    mysol = myMCSol(sol, prob.N_mc, N_t, length(sol[1]), prob)
 
     inf_nan = check_inf_nan(mysol)
     if (length(inf_nan["Inf"])>0) | (length(inf_nan["NaN"])>0)
@@ -328,6 +363,7 @@ end
 # i :: Int, number of iteration
 # state_filter :: array with indicies of all dimensions that should be evaluated
 function eval_ode_run(sol, i, state_filter::Array{Int64,1})
+
     (N_dim, N_t) = size(sol)
 
     m = zeros(Float64, N_dim)
@@ -360,6 +396,30 @@ function eval_ode_run(sol, i)
     (N_dim, __) = size(sol)
     state_filter = collect(1:N_dim)
     eval_ode_run(sol, i, state_filter)
+end
+
+# include a return code check and repeat if integration failed. if this is not used with randomly generated initial conditions, this could leed into an endless loop!
+function eval_ode_run_repeat(sol, i)
+    if (sol.retcode != :Success) & (sol.retcode != :Default)
+        return ((),true)
+    end
+    eval_ode_run(sol, i )
+end
+
+# include a return code check and set all results to Inf is the integration fails due to one or more variables exploding towards infitiy
+function eval_ode_run_inf(sol, i)
+    if (sol.retcode == :DtLessThanMin)
+        last = sol.u[end]
+        N_dim = length(last)
+        inf_flag = false
+        for i=1:N_dim
+            if abs(last[i]) > 1e12
+                inf_flag = true
+            end
+        end
+        return ((Inf,Inf,Inf,Inf),false)
+    end
+    eval_ode_run(sol,i)
 end
 
 # checks if any of the results is Inf or NaN and returns the indices in a dictionary
@@ -561,11 +621,11 @@ end
 # return mean values of all measures for each cluster
 function cluster_measures(sol::myMCSol, clusters::DbscanResult)
     N_cluster = length(clusters.seeds)
-    N_dim = length(sol.u[1][1])
+    N_dim = length(sol.sol.u[1][1])
     mean_measures = zeros((N_clusters,sol.N_meas,N_dim))
     for i_sol=1:sol.N_mc
         for i_meas=1:sol.N_meas
-            mean_measures[clusters.assignments[i_sol],i_meas,:] += sol.u[i_sol][i_meas]
+            mean_measures[clusters.assignments[i_sol],i_meas,:] += sol.sol.u[i_sol][i_meas]
         end
     end
     mean_measures ./ N_mc

@@ -1,11 +1,11 @@
 #!/bin/bash
 
 #SBATCH --qos=short
-#SBATCH --job-name=julia-test2
+#SBATCH --job-name=roess-net-repeat
 #SBATCH --account=brasnet
-#SBATCH --output=julia-test2-%j-%N.out
-#SBATCH --error=julia-test2-%j-%N.err
-#SBATCH --nodes=2
+#SBATCH --output=roess-net-repeat-%j-%N.out
+#SBATCH --error=roess-net-repeat-%j-%N.err
+#SBATCH --nodes=4
 #SBATCH --ntasks-per-node=8
 #SBATCH --workdir=/p/tmp/maxgelbr
 #SBATCH --mail-type=END
