@@ -10,7 +10,6 @@
 #SBATCH --workdir=/p/tmp/maxgelbr
 #SBATCH --mail-type=END
 #SBATCH --mail-user=gelbrecht@pik-potsdam.de
-#SBATCH --time 01:00:00
 
 echo "------------------------------------------------------------"
 echo "SLURM JOB ID: $SLURM_JOBID"
