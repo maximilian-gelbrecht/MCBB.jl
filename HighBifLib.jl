@@ -193,7 +193,6 @@ struct myMCSol
     N_mc::Int   # number of solutions saved / Monte Carlo trials runs
     N_t::Int  # number of time steps for each solutions
     N_meas::Int # number of measures used
-    mc_prob::EqMCProblem # part of the struct to make saving/loading easier
 end
 
 
@@ -344,7 +343,7 @@ function solve(prob::EqMCProblem, alg=nothing, N_t=400::Int, kwargs...)
     else
         sol = solve(prob.p, num_monte=prob.N_mc, dense=false, save_everystep=false, saveat=t_save, savestart=false, parallel_type=:parfor; kwargs...)
     end
-    mysol = myMCSol(sol, prob.N_mc, N_t, length(sol[1]), prob)
+    mysol = myMCSol(sol, prob.N_mc, N_t, length(sol[1]))
 
     inf_nan = check_inf_nan(mysol)
     if (length(inf_nan["Inf"])>0) | (length(inf_nan["NaN"])>0)
@@ -609,17 +608,49 @@ end
 ###########
 
 # compute the distance matrix used for the dbSCAN clustering. here, we could experiment with different ways how to setup this matrix
-# TO-DO: use symmetry: optimize for less memory consuption and computation time
+# TO-DO: use symmetry: optimize for less memory consuption and computation time, one could introduce a custom "symmetric matrix type" that only stores the upper triangle of the matrix but can still be used by all routines. one probably need to subtype AbstractMatrix for this and define a 'getindex' for this
 function distance_matrix(sol::myMCSol, distance_func::Function)
     D = zeros((sol.N_mc, sol.N_mc))
     for i=1:sol.N_mc
-        for j=1:sol.N_mc
+        for j=1:i
             D[i,j] = distance_func(sol.sol.u[i], sol.sol.u[j])
+        end
+    end
+
+    for i=1:sol.N_mc
+        for j=i:sol.N_mc
+            D[i,j] = D[j,i]
         end
     end
     D
 end
 distance_matrix(sol::myMCSol) = distance_matrix(sol, weighted_norm)
+
+# also includes the parameters into the distances calculation, thus favoring pairs that have similar parameters. uses the relative parameter distance. needs parameter from combined ic-par matrix as input, so that length(par)==N_mc
+function distance_matrix(sol::myMCSol, par::AbstractArray, distance_func::Function)
+    # transform parameter vector to measure the relative distances
+    min_par = minimum(par)
+    max_par = maximum(par)
+    par_range = max_par - min_par
+    par_rel = (par .- min_par)./par_range
+
+    D = zeros((sol.N_mc, sol.N_mc))
+    for i=1:sol.N_mc
+        xi = tuple(sol.sol.u[i]..., par_rel[i]) # deepcopy cause the push! would also modify the original sol object
+        for j=1:i
+            xj = tuple(sol.sol.u[j]..., par_rel[j])
+            D[i,j] = distance_func(xi,xj)
+        end
+    end
+
+    for i=1:sol.N_mc
+        for j=i:sol.N_mc
+            D[i,j] = D[j,i]
+        end
+    end
+    D
+end
+distance_matrix(sol::myMCSol, par::AbstractArray) = distance_matrix(sol, par, (x,y) -> weighted_norm(x,y,[1.,0.5,0.5,0.25,1]))
 
 # calculated the weighted norm between two trajectories, so one entry of the distance matrix
 # x, y :: Tuples or Arrays containing all measures of the trajectories (e.g. means, vars per spatial dimension)
@@ -633,7 +664,7 @@ function weighted_norm(x, y, norm_function::Function, weights::AbstractArray=[1.
     out
 end
 # use l1-norm by default
-weighted_norm(x, y, weights::AbstractArray=[1., 0.5, 0.5, 0.25, 0.125]) = weighted_norm(x,y, in -> sum(abs.(in)), weights)
+weighted_norm(x, y, weights::AbstractArray=[1., 0.5, 0.5, 0.25]) = weighted_norm(x,y, in -> sum(abs.(in)), weights)
 
 function cluster()
     false
