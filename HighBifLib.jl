@@ -438,7 +438,7 @@ function eval_ode_run_inf(sol, i)
                 inf_flag = true
             end
         end
-        return ((Inf,Inf,Inf,Inf),false)
+        return ((ones(N_dim).*Inf,ones(N_dim).*Inf,ones(N_dim).*Inf,ones(N_dim).*Inf),false)
     end
     eval_ode_run(sol,i)
 end

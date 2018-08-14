@@ -1,10 +1,10 @@
 #!/bin/bash
 
 #SBATCH --qos=short
-#SBATCH --job-name=roess-net-repeat
+#SBATCH --job-name=roess-net-inf
 #SBATCH --account=brasnet
-#SBATCH --output=roess-net-repeat-%j-%N.out
-#SBATCH --error=roess-net-repeat-%j-%N.err
+#SBATCH --output=roess-net-inf-%j-%N.out
+#SBATCH --error=roess-net-inf-%j-%N.err
 #SBATCH --nodes=4
 #SBATCH --ntasks-per-node=8
 #SBATCH --workdir=/p/tmp/maxgelbr
