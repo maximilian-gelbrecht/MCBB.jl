@@ -23,7 +23,7 @@ export order_parameter
 export empirical_1D_KL_divergence, ecdf_pc
 
 export curve_entropy
-export k_dist, cluster_measures
+export k_dist, cluster_measures, cluster_n_noise, cluster_membership
 
 #################
 ##### Systems
@@ -672,16 +672,45 @@ end
 
 # return mean values of all measures for each cluster
 function cluster_measures(sol::myMCSol, clusters::DbscanResult)
-    N_cluster = length(clusters.seeds)
+    N_cluster = length(clusters.seeds)+1 # plus 1 -> plus "noise cluster" / not clustered points
     N_dim = length(sol.sol.u[1][1])
     mean_measures = zeros((N_cluster,sol.N_meas,N_dim))
     for i_sol=1:sol.N_mc
         for i_meas=1:sol.N_meas
-            mean_measures[clusters.assignments[i_sol],i_meas,:] += sol.sol.u[i_sol][i_meas]
+            mean_measures[clusters.assignments[i_sol]+1,i_meas,:] += sol.sol.u[i_sol][i_meas]
         end
     end
-    mean_measures ./ N_mc
+    mean_measures ./ sol.N_mc
 end
+
+# returns the number of points assignt to the "noise" cluster (somehow this is not automaticlly returned by the routine)
+function cluster_n_noise(clusters::DbscanResult)
+    count = 0
+    for i=1:length(clusters.assignments)
+        if clusters.assignments[i]==0
+            count += 1
+        end
+    end
+    count
+end
+
+# counts how many solutions are part of the individual clusters for each parameter step
+# par needs to be 1d mapping each run to its parameter value, e.g. ic_par[:,end]
+function cluster_membership(par::AbstractArray, clusters::DbscanResult)
+    N_cluster = length(clusters.seeds) + 1  # plus 1 -> plus "noise cluster" / not clustered points
+    ca = clusters.assignments
+    N = length(ca)
+    par_u = unique(par)
+    N_par = length(par_u)
+
+    memberships = zeros(N_par, N_cluster)
+    for i=1:N
+        i_par = searchsortedfirst(par_u,par[i])
+        memberships[i_par, ca[i]+1] += 1
+    end
+    memberships
+end
+
 
 # helper function for estimating a espilon value for dbscan.
 # in the original paper, Ester et al. suggest to plot the k-dist graph (espaccially for k=4) to estimate a value for eps given minPts = k
