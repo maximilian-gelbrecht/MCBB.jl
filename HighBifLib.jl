@@ -674,7 +674,7 @@ end
 function cluster_measures(sol::myMCSol, clusters::DbscanResult)
     N_cluster = length(clusters.seeds)
     N_dim = length(sol.sol.u[1][1])
-    mean_measures = zeros((N_clusters,sol.N_meas,N_dim))
+    mean_measures = zeros((N_cluster,sol.N_meas,N_dim))
     for i_sol=1:sol.N_mc
         for i_meas=1:sol.N_meas
             mean_measures[clusters.assignments[i_sol],i_meas,:] += sol.sol.u[i_sol][i_meas]
