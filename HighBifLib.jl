@@ -279,6 +279,9 @@ function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, ic_ranges::Array{T,1}, var_pa
         N_ic_pars[i_range] = length(collect(ic_range))
     end
     N_ic_pars[N_dim] = length(collect(var_par[2]))
+    if prod(float(N_ic_pars)) > 1e10
+        warn("More than 1e10 initial cond. Are you sure what you are doing? Overflows might occur.")
+    end 
     N_mc = prod(N_ic_pars)
     N_ic_pars = tuple(N_ic_pars...) # need this as tuple for CartesianRange
 
