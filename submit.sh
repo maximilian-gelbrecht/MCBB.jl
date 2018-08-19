@@ -1,11 +1,11 @@
 #!/bin/bash
 
 #SBATCH --qos=short
-#SBATCH --job-name=roess-net-inf
+#SBATCH --job-name=log-bif
 #SBATCH --account=brasnet
-#SBATCH --output=roess-net-inf-%j-%N.out
-#SBATCH --error=roess-net-inf-%j-%N.err
-#SBATCH --nodes=4
+#SBATCH --output=log-bif-%j-%N.out
+#SBATCH --error=log-bif-%j-%N.err
+#SBATCH --nodes=5
 #SBATCH --ntasks-per-node=8
 #SBATCH --workdir=/p/tmp/maxgelbr
 #SBATCH --mail-type=END
