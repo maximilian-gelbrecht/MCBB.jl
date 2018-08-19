@@ -8,7 +8,7 @@
 
 module HighBifLib
 
-using DifferentialEquations, Miniball, Distances, Parameters, Clustering, Interpolations, LightGraphs
+using DifferentialEquations, Miniball, Distances, Parameters, Clustering, Interpolations, LightGraphs, PairwiseListMatrices
 import StatsBase, Distributions
 import DifferentialEquations.solve # this needs to be directly importet in order to extend it with our own solve() for our own problem struct
 
@@ -16,7 +16,7 @@ import DifferentialEquations.solve # this needs to be directly importet in order
 export kuramoto_parameters, kuramoto, kuramoto_network_parameters, kuramoto_network, logistic_parameters, logistic, henon_parameters, henon, roessler_parameters, roessler_network, lotka_volterra, lotka_volterra_parameters
 export myMCProblem, EqMCProblem, myMCSol
 export setup_ic_par_mc_problem, eval_ode_run, eval_ode_run_repeat, eval_ode_run_inf, check_inf_nan
-export distance_matrix, weighted_norm
+export distance_matrix, distance_matrix_dense, weighted_norm
 export order_parameter
 
 # internal functions, also exported for testing
@@ -281,8 +281,12 @@ function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, ic_ranges::Array{T,1}, var_pa
     N_ic_pars[N_dim] = length(collect(var_par[2]))
     if prod(float(N_ic_pars)) > 1e10
         warn("More than 1e10 initial cond. Are you sure what you are doing? Overflows might occur.")
-    end 
+    end
     N_mc = prod(N_ic_pars)
+    if N_mc==0
+        error("Zero inital conditions. Either at least one of the ranges has length 0 or an overflow occured")
+    end
+
     N_ic_pars = tuple(N_ic_pars...) # need this as tuple for CartesianRange
 
     ic_par = zeros((N_mc, N_dim))
@@ -483,7 +487,6 @@ end
 # estimate based on Perez-Cruz (IEEE, 2008)
 # estimates the KL divergence by using linearly interpolated empirical CDFs.
 # TO-DO: for large time series (N>10000) there is small risk that this yields Inf because the spacing between the samples becomes so small that the precision is not high enough to yield finite numbers.
-##
 function empirical_1D_KL_divergence(u::AbstractArray, mu::Number, sig::Number)
 
     N = length(u)
@@ -611,8 +614,8 @@ end
 ###########
 
 # compute the distance matrix used for the dbSCAN clustering. here, we could experiment with different ways how to setup this matrix
-# TO-DO: use symmetry: optimize for less memory consuption and computation time, one could introduce a custom "symmetric matrix type" that only stores the upper triangle of the matrix but can still be used by all routines. one probably need to subtype AbstractMatrix for this and define a 'getindex' for this
-function distance_matrix(sol::myMCSol, distance_func::Function)
+# OLD VERSION: returns a dense matrix instead of a PairwiseListMatrix
+function distance_matrix_dense(sol::myMCSol, distance_func::Function)
     D = zeros((sol.N_mc, sol.N_mc))
     for i=1:sol.N_mc
         for j=1:i
@@ -627,10 +630,10 @@ function distance_matrix(sol::myMCSol, distance_func::Function)
     end
     D
 end
-distance_matrix(sol::myMCSol) = distance_matrix(sol, weighted_norm)
+distance_matrix_dense(sol::myMCSol) = distance_matrix_dense(sol, weighted_norm)
 
 # also includes the parameters into the distances calculation, thus favoring pairs that have similar parameters. uses the relative parameter distance. needs parameter from combined ic-par matrix as input, so that length(par)==N_mc
-function distance_matrix(sol::myMCSol, par::AbstractArray, distance_func::Function)
+function distance_matrix_dense(sol::myMCSol, par::AbstractArray, distance_func::Function)
     # transform parameter vector to measure the relative distances
     min_par = minimum(par)
     max_par = maximum(par)
@@ -653,7 +656,47 @@ function distance_matrix(sol::myMCSol, par::AbstractArray, distance_func::Functi
     end
     D
 end
-distance_matrix(sol::myMCSol, par::AbstractArray) = distance_matrix(sol, par, (x,y) -> weighted_norm(x,y,[1.,0.5,0.5,0.25,1]))
+distance_matrix_dense(sol::myMCSol, par::AbstractArray) = distance_matrix_dense(sol, par, (x,y) -> weighted_norm(x,y,[1.,0.5,0.5,0.25,1]))
+
+# test distance matrix to output pairwisematrix to save memory.
+# also incorporates the parameter values as additonal weights
+function distance_matrix(sol::myMCSol, par::AbstractArray, distance_func::Function)
+    min_par = minimum(par)
+    max_par = maximum(par)
+    par_range = max_par - min_par
+    par_rel = (par .- min_par)./par_range
+    N_entries = (sol.N_mc * (sol.N_mc - 1)) / 2
+    mat_elements = zeros(N_entries)
+
+    # add parameter to solutions
+    i_tot = 0
+    for i=1:sol.N_mc
+        xi = tuple(sol.sol.u[i]..., par_rel[i])
+        for j=i+1:sol.N_mc
+            i_tot += 1
+            xj = tuple(sol.sol.u[j]..., par_rel[j])
+            mat_elements[i_tot] = distance_func(xi,xj)
+        end
+    end
+
+    PairwiseListMatrix(mat_elements)
+end
+distance_matrix(sol::myMCSol, par::AbstractArray) = distance_matrix(sol, par, (x,y) -> weighted_norm(x,y,[1,0.5,0.5,0.25,1]))
+
+function distance_matrix(sol::myMCSol, distance_func::Function)
+    N_entries = (sol.N_mc * (sol.N_mc - 1)) / 2
+    mat_elements = zeros(N_entries)
+    # add parameter to solutions
+    i_tot = 0
+    for i=1:sol.N_mc
+        for j=i+1:sol.N_mc
+            i_tot += 1
+            mat_elements[i_tot] = distance_func(sol.sol.u[i],sol.sol.u[j])
+        end
+    end
+    PairwiseListMatrix(mat_elements)
+end
+distance_matrix(sol::myMCSol) = distance_matrix(sol, weighted_norm)
 
 # calculated the weighted norm between two trajectories, so one entry of the distance matrix
 # x, y :: Tuples or Arrays containing all measures of the trajectories (e.g. means, vars per spatial dimension)
