@@ -218,7 +218,8 @@ function setup_ic_par_mc_problem(prob::ODEProblem, ic_ranges::Array{T,1}, parame
 end
 
 # TO-DO: one could probably combine both methods by using remake()
-function setup_ic_par_mc_problem(prob::DiscreteProblem, ic_ranges::Array{T,1}, parameters::DEParameters, var_par::Tuple{Symbol,AbstractArray}) where T <: AbstractArray
+# type unions
+function setup_ic_par_mc_problem(prob::DiscreteProblem, ic_ranges::Array{T,1}, parameters::DEParameters, var_par::Tuple{Symbol,Union{AbstractArray,Function}}) where T <: AbstractArray
     N_dim_ic = length(ic_ranges)
     N_dim = N_dim_ic + 1
     (ic_par, N_mc) = _ic_par_matrix(N_dim_ic, N_dim, ic_ranges, var_par)
@@ -226,7 +227,7 @@ function setup_ic_par_mc_problem(prob::DiscreteProblem, ic_ranges::Array{T,1}, p
     (ic_par_problem, ic_par, N_mc)
 end
 
-function setup_ic_par_mc_problem(prob::DEProblem, ic_gens::Array{T,1}, N_ic::Int, parameters::DEParameters, var_par::Tuple{Symbol,AbstractArray}) where T <: Function
+function setup_ic_par_mc_problem(prob::DEProblem, ic_gens::Array{T,1}, N_ic::Int, parameters::DEParameters, var_par::Tuple{Symbol,Union{AbstractArray,Function}}) where T <: Function
     N_dim_ic = length(prob.u0)
     N_dim = N_dim_ic + 1
     (ic_par, N_mc) = _ic_par_matrix(N_dim_ic, N_dim, N_ic, ic_gens, var_par)
@@ -236,10 +237,14 @@ function setup_ic_par_mc_problem(prob::DEProblem, ic_gens::Array{T,1}, N_ic::Int
 end
 
 # functions defining new problems that generate new ics when the trial needs to be repeated
-function define_new_problem(prob::ODEProblem, ic_par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::Array{T,1}, var_par::Tuple{Symbol,AbstractArray}) where T <: Function
+function define_new_problem(prob::ODEProblem, ic_par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::Array{T,1}, var_par::Tuple{Symbol,Union{AbstractArray,Function}}) where T <: Function
     function new_problem(prob, i, repeat)
         if repeat > 1
             if repeat > 10
+                println("------------------")
+                println("Error with IC/Par:")
+                println(ic_par[i,:])
+                println("------------------")
                 error("More than 10 Repeats of a Problem in the Monte Carlo Run, there might me something wrong here!")
             else
                 ic_par[i,1:N_dim_ic] = _new_ics(N_dim_ic,ic_gens)
@@ -252,7 +257,7 @@ end
 
 # same but for Discrete Problems
 # TO-DO: one could probably combine both methods by using remake()
-function define_new_problem(prob::DiscreteProblem, ic_par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::Array{T,1}, var_par::Tuple{Symbol,AbstractArray}) where T <: Function
+function define_new_problem(prob::DiscreteProblem, ic_par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::Array{T,1}, var_par::Tuple{Symbol,Union{AbstractArray,Function}}) where T <: Function
     function new_problem(prob, i, repeat)
         if repeat > 1
             if repeat > 10
@@ -300,9 +305,29 @@ function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, ic_ranges::Array{T,1}, var_pa
 end
 
 # helper function for setup_ic_par_mc_problem()
+# uses (random) generator functions for the initial cond. AND the parameter evaluated_solution
+function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, N_ic::Int, ic_gens::Array{T,1},  var_par::Tuple{Symbol,Function}) where T<:Function
+    N_gens = length(ic_gens) # without the parameter geneartor
+    if N_dim_ic % (N_gens) != 0
+        err("Number of initial cond. genators and Number of initial cond. doesn't fit together")
+    end
+    N_gen_steps = Int(N_dim_ic / N_gens)
+    ic_par = zeros((N_ic, N_dim))
+    for i_ic=1:N_ic
+        for i_gen_steps=1:N_gen_steps
+            for i_gen=1:N_gens
+                ic_par[i_ic, N_gens*i_gen_steps - (N_gens - i_gen)] = ic_gens[i_gen]()
+            end
+        end
+        ic_par[i_ic,N_dim] = var_par[2]()
+    end
+    (ic_par, N_ic)
+end
+
+
+# helper function for setup_ic_par_mc_problem()
 # uses (random) generator functions for the initial cond.
 function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, N_ic::Int, ic_gens::Array{T,1},  var_par::Tuple{Symbol,AbstractArray}) where T<:Function
-
     N_ic_pars = (N_ic, length(collect(var_par[2])))
     N_mc = prod(N_ic_pars)
     N_gens = length(ic_gens)
@@ -314,7 +339,7 @@ function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, N_ic::Int, ic_gens::Array{T,1
     for i_ic=1:N_ic # loop over ICs
         for i_gen_steps=1:N_gen_steps  # loops over phase space dim
             for i_gen=1:N_gens
-                ics[i_ic, N_gens*i_gen_steps - (N_gens - i_gen)] = ic_gens[i_gen]() # not like this!
+                ics[i_ic, N_gens*i_gen_steps - (N_gens - i_gen)] = ic_gens[i_gen]()
             end
         end
     end
@@ -659,7 +684,7 @@ end
 distance_matrix_dense(sol::myMCSol, par::AbstractArray) = distance_matrix_dense(sol, par, (x,y) -> weighted_norm(x,y,[1.,0.5,0.5,0.25,1]))
 
 # test distance matrix to output pairwisematrix to save memory.
-# also incorporates the parameter values as additonal weights
+# also incorporates the parameter values as additional weights
 function distance_matrix(sol::myMCSol, par::AbstractArray, distance_func::Function)
     min_par = minimum(par)
     max_par = maximum(par)
@@ -671,11 +696,12 @@ function distance_matrix(sol::myMCSol, par::AbstractArray, distance_func::Functi
     # add parameter to solutions
     i_tot = 0
     for i=1:sol.N_mc
-        xi = tuple(sol.sol.u[i]..., par_rel[i])
+        #xi = tuple(sol.sol.u[i]..., par_rel[i])
         for j=i+1:sol.N_mc
             i_tot += 1
-            xj = tuple(sol.sol.u[j]..., par_rel[j])
-            mat_elements[i_tot] = distance_func(xi,xj)
+            #xj = tuple(sol.sol.u[j]..., par_rel[j])
+            #mat_elements[i_tot] = distance_func(xi,xj)
+            mat_elements[i_tot] = distance_func(sol.sol.u[i], sol.sol.u[j], par[i], par[j])
         end
     end
 
@@ -703,7 +729,7 @@ distance_matrix(sol::myMCSol) = distance_matrix(sol, weighted_norm)
 #
 function weighted_norm(x, y, norm_function::Function, weights::AbstractArray=[1., 0.5, 0.5, 0.25])
     N_dim_meas::Int64 = length(x)
-    out::Float64 = 0
+    out::Float64 = 0.
     for i_dim=1:N_dim_meas
         out += weights[i_dim]*norm_function(x[i_dim] .- y[i_dim])
     end
@@ -711,6 +737,12 @@ function weighted_norm(x, y, norm_function::Function, weights::AbstractArray=[1.
 end
 # use l1-norm by default
 weighted_norm(x, y, weights::AbstractArray=[1., 0.5, 0.5, 0.25]) = weighted_norm(x,y, in -> sum(abs.(in)), weights)
+
+# weighted norm that also weights in the parameter values
+function weighted_norm(x, y, par1::Number, par2::Number, norm_function::Function, weights::AbstractArray=[1, 0.5, 0.5, 0.25, 1])
+    weighted_norm(x,y, norm_function, weights[1:(end-1)]) + weights[end]*norm_function(par1,par2)
+end
+weighted_norm(x,y,par1::Number,par2::Number, weights::AbstractArray=[1., 0.5, 0.5, 0.25, 1.]) = weighted_norm(x,y,par1,par2,in -> sum(abs.(in)), weights)
 
 function cluster()
     false
@@ -757,7 +789,10 @@ function cluster_membership(par::AbstractArray, clusters::DbscanResult)
     memberships
 end
 
-
+# sliding window
+function cluster_membership(par::AbstractArray, clusters::DbscanResult, stride::Number)
+    false
+end
 # helper function for estimating a espilon value for dbscan.
 # in the original paper, Ester et al. suggest to plot the k-dist graph (espaccially for k=4) to estimate a value for eps given minPts = k
 # it computes the distance to the k-th nearast neighbour for all data points given their distance matrix
