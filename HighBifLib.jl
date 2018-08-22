@@ -425,6 +425,10 @@ function eval_ode_run(sol, i, state_filter::Array{Int64,1})
 
     for i_dim in state_filter
         sol_i = sol[i_dim,2:end] # with the saveat solver option, tspan[1] is always saved as well but is not part of the transient.
+        println("-------")
+        println(i)
+        println("-------")
+        println(sol_i)
         (m[i_dim],std[i_dim]) = StatsBase.mean_and_std(sol_i; corrected=true)
         #skew[i_dim] = StatsBase.skewness(sol_i, m[i_dim])
 
@@ -545,6 +549,19 @@ function empirical_1D_KL_divergence(u::AbstractArray, mu::Number, sig::Number)
     for i=1:N
         dp = dpc(BigFloat(Us[i]))
         dq = dqc(BigFloat(Us[i]))
+        println("----")
+        println(Us[i])
+        println(eps)
+        println(dp)
+        println(dq)
+        println("----detail---")
+        println(ecdf_u[Us[i]])
+        println(ecdf_u[Us[i] - eps])
+        println(normal_cdf(BigFloat(Us[i])))
+        println(normal_cdf(BigFloat(Us[i]-eps)))
+
+        println("----")
+
         if (dp==0.) & (dq > 0.)
             kld += 0
         elseif (dp > 0.) & (dq > 0.)
