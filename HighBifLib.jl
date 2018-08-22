@@ -707,7 +707,7 @@ function distance_matrix(sol::myMCSol, par::AbstractArray, distance_func::Functi
 
     PairwiseListMatrix(mat_elements)
 end
-distance_matrix(sol::myMCSol, par::AbstractArray) = distance_matrix(sol, par, (x,y) -> weighted_norm(x,y,[1,0.5,0.5,0.25,1]))
+distance_matrix(sol::myMCSol, par::AbstractArray) = distance_matrix(sol, par, (x,y,p1,p2) -> weighted_norm(x,y,p1,p2,[1,0.5,0.5,0.25,1]))
 
 function distance_matrix(sol::myMCSol, distance_func::Function)
     N_entries = (sol.N_mc * (sol.N_mc - 1)) / 2
@@ -731,18 +731,18 @@ function weighted_norm(x, y, norm_function::Function, weights::AbstractArray=[1.
     N_dim_meas::Int64 = length(x)
     out::Float64 = 0.
     for i_dim=1:N_dim_meas
-        out += weights[i_dim]*norm_function(x[i_dim] .- y[i_dim])
+        out += weights[i_dim]*norm_function(x[i_dim],y[i_dim])
     end
     out
 end
 # use l1-norm by default
-weighted_norm(x, y, weights::AbstractArray=[1., 0.5, 0.5, 0.25]) = weighted_norm(x,y, in -> sum(abs.(in)), weights)
+weighted_norm(x, y, weights::AbstractArray=[1., 0.5, 0.5, 0.25]) = weighted_norm(x,y,(x,y) -> sum(abs.(x .- y)), weights)
 
 # weighted norm that also weights in the parameter values
 function weighted_norm(x, y, par1::Number, par2::Number, norm_function::Function, weights::AbstractArray=[1, 0.5, 0.5, 0.25, 1])
     weighted_norm(x,y, norm_function, weights[1:(end-1)]) + weights[end]*norm_function(par1,par2)
 end
-weighted_norm(x,y,par1::Number,par2::Number, weights::AbstractArray=[1., 0.5, 0.5, 0.25, 1.]) = weighted_norm(x,y,par1,par2,in -> sum(abs.(in)), weights)
+weighted_norm(x,y,par1::Number,par2::Number, weights::AbstractArray=[1., 0.5, 0.5, 0.25, 1.]) = weighted_norm(x,y,par1,par2,(x,y) -> sum(abs.(x .- y)), weights)
 
 function cluster()
     false
@@ -789,10 +789,52 @@ function cluster_membership(par::AbstractArray, clusters::DbscanResult)
     memberships
 end
 
-# sliding window
-function cluster_membership(par::AbstractArray, clusters::DbscanResult, stride::Number)
-    false
+# counts how many solutions are part of the individual clusters for each parameter step
+# -  par needs to be 1d mapping each run to its parameter value, e.g. ic_par[:,end]
+# this method uses a sliding window over the parameter axis.
+# should be used when parameters are randomly generated.
+# - normalize: normalize by number of parameters per window
+
+# NOT PROPERLY TESTET YET,
+# ONLY TESTED THAT IT OUTPUTS SOMETHING
+function cluster_membership(par::AbstractArray, clusters::DbscanResult, window_size::Number, window_offset::Number, normalize::Bool=true)
+    N_cluster = length(clusters.seeds) + 1  # plus 1 -> plus "noise cluster" / not clustered points
+    ca = clusters.assignments
+    N = length(ca)
+
+    min_par = minimum(par)
+    max_par = maximum(par)
+    par_range = max_par - min_par
+
+    N_windows = Int(ceil(par_range/window_offset)) - Int(ceil(window_size/window_offset)) + 1
+    if N_windows <= 1
+        warn("Only 1 or less Windows in cluster_membership")
+    end
+
+    p_windows = zeros(N_windows)
+    memberships = zeros(N_windows, N_cluster)
+
+    for i=1:N_windows
+        window_min = min_par + (i-1)*window_offset
+        window_max = window_min + window_size
+        p_windows[i] = 0.5*(window_min + window_max)
+
+        par_ind = (par .>= window_min) .& (par .<= window_max)
+        window_ca = ca[par_ind]
+
+        N_c_i = 0
+        for i_ca in eachindex(window_ca)
+            memberships[i, window_ca[i_ca]+1] += 1
+            N_c_i += 1
+        end
+        if normalize
+            memberships[i, :] /= N_c_i
+        end
+    end
+    (p_windows, memberships)
 end
+
+
 # helper function for estimating a espilon value for dbscan.
 # in the original paper, Ester et al. suggest to plot the k-dist graph (espaccially for k=4) to estimate a value for eps given minPts = k
 # it computes the distance to the k-th nearast neighbour for all data points given their distance matrix
