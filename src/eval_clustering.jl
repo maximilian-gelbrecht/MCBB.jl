@@ -1,7 +1,7 @@
 ###########
 ##### Results Evaluation functions
 ###########
-using Distributions, Clustering
+using Distributions, Clustering, PairwiseListMatrix
 
 # compute the distance matrix used for the dbSCAN clustering. here, we could experiment with different ways how to setup this matrix
 # OLD VERSION: returns a dense matrix instead of a PairwiseListMatrix
@@ -61,11 +61,8 @@ function distance_matrix(sol::myMCSol, par::AbstractArray, distance_func::Functi
     # add parameter to solutions
     i_tot = 0
     for i=1:sol.N_mc
-        #xi = tuple(sol.sol.u[i]..., par_rel[i])
         for j=i+1:sol.N_mc
             i_tot += 1
-            #xj = tuple(sol.sol.u[j]..., par_rel[j])
-            #mat_elements[i_tot] = distance_func(xi,xj)
             mat_elements[i_tot] = distance_func(sol.sol.u[i], sol.sol.u[j], par[i], par[j])
         end
     end
