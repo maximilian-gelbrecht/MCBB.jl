@@ -61,6 +61,7 @@ function setup_ic_par_mc_problem(prob::DEProblem, ic_gens::Array{T,1}, N_ic::Int
     ic_par_problem = define_new_problem(prob, ic_par, parameters, N_dim_ic, ic_gens, var_par)
     (ic_par_problem, ic_par, N_mc)
 end
+setup_ic_par_mc_problem(prob::DEProblem, ic_gens::Function, N_ic::Int, parameters::DEParameters, var_par::Tuple{Symbol,Union{AbstractArray,Function}}) = setup_ic_par_mc_problem(prob, [ic_gens], N_ic, parameters, var_par)
 
 # functions defining new problems that generate new ics when the trial needs to be repeated
 function define_new_problem(prob::ODEProblem, ic_par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::Array{T,1}, var_par::Tuple{Symbol,Union{AbstractArray,Function}}) where T <: Function
