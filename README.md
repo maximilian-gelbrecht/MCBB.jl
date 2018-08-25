@@ -1,6 +1,6 @@
 Library and Script with Example to explore High Dimensional Bifurcations with sample and clustering based methods using Julia language.
 
-As of now this is only tested with Julia 0.6.2, but will be probably ported and used with Julia 1.0 as soons as all Libraries used work with it.
+As of now this is only tested with Julia 0.6.2, but will be probably ported and used with Julia 1.0 as soon as all Libraries used work with it.
 
 # Install
 
@@ -10,5 +10,7 @@ As of now this is only tested with Julia 0.6.2, but will be probably ported and 
 
 * Pkg.update("HighBifLib")
 
+# To-Do
 
-TO-DO: write better Readme and start Doc
+* Not working right now: using/imports need to be placed in the right files
+* write better Readme and start Doc
