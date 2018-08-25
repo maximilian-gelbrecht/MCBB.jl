@@ -2,6 +2,9 @@
 ## All functions that evaluate the solutions directly
 ###############
 
+using DifferentialEquations, Miniball, Interpolations, Distances
+import Distributions, StatsBase
+
 # eval_ode_run, (sol, i) -> (evaluated_solution, repeat=False)
 # evaluates each ODE run and computes all the statistics needed for the further calculations
 # right now these are: mean, std, skewness, relative entropy / KL div. to a gaussian and curve entropy
@@ -145,18 +148,6 @@ function empirical_1D_KL_divergence(u::AbstractArray, mu::Number, sig::Number)
     for i=1:N
         dp = dpc(BigFloat(Us[i]))
         dq = dqc(BigFloat(Us[i]))
-        println("----")
-        println(Us[i])
-        println(eps)
-        println(dp)
-        println(dq)
-        println("----detail---")
-        println(ecdf_u[Us[i]])
-        println(ecdf_u[Us[i] - eps])
-        println(normal_cdf(BigFloat(Us[i])))
-        println(normal_cdf(BigFloat(Us[i]-eps)))
-
-        println("----")
 
         if (dp==0.) & (dq > 0.)
             kld += 0
