@@ -32,13 +32,14 @@ function eval_ode_run(sol, i, state_filter::Array{Int64,1})
         if std[i_dim] < 1e-10
             kl[i_dim] = 0
         else
-            #ref_dist = Distributions.Normal(m[i_dim], std[i_dim]) # old
-            kl[i_dim] = empirical_1D_KL_divergence(sol_i, m[i_dim], std[i_dim])
+            ref_dist = Distributions.Normal(m[i_dim], std[i_dim]) # old
+            kl[i_dim] = empirical_1D_KL_divergence(sol_i, ref_dist, 25)
+            #kl[i_dim] = empirical_1D_KL_divergence(sol_i, m[i_dim], std[i_dim])
         end
     end
 
     # for test purposes we first write the same N-dimensonal curve entropy in every dimension
-    ce = ones(N_dim)*curve_entropy(sol.u[2:end])
+    ce = curve_entropy(sol.u[2:end])
     ((m, std, kl, ce), false)
 end
 
