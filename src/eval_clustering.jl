@@ -1,7 +1,7 @@
 ###########
 ##### Results Evaluation functions
 ###########
-using Distributions, Clustering, PairwiseListMatrix
+using Distributions, Clustering, PairwiseListMatrices
 
 # compute the distance matrix used for the dbSCAN clustering. here, we could experiment with different ways how to setup this matrix
 # OLD VERSION: returns a dense matrix instead of a PairwiseListMatrix
