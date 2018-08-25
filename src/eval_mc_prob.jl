@@ -122,15 +122,6 @@ function empirical_1D_KL_divergence(u::AbstractArray, mu::Number, sig::Number)
 
     eps = BigFloat(0.5 * minimum(diff(Us_u))) # we need very high precision for many values to not underflow to 0.
 
-    # here we sample from the reference distribution. # OLD VERSION
-    #samp = rand(reference_pdf, 10000)
-    #samps = sort(samp)
-    #samps_u = unique(samps)
-    #eps2 = BigFloat(0.5 * minimum(diff(samps_u)))
-    #if eps2 < eps
-    #    eps = eps2
-    #end
-
     ecdf_u = ecdf_pc(Us, Us_u, eps)
     dpc(x::BigFloat) = ecdf_u[x] - ecdf_u[x - eps]
 
@@ -144,7 +135,6 @@ function empirical_1D_KL_divergence(u::AbstractArray, mu::Number, sig::Number)
     for i=1:N
         dp = dpc(BigFloat(Us[i]))
         dq = dqc(BigFloat(Us[i]))
-
         if (dp==0.) & (dq > 0.)
             kld += 0
         elseif (dp > 0.) & (dq > 0.)
