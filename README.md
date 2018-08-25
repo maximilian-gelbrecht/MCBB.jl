@@ -13,4 +13,6 @@ As of now this is only tested with Julia 0.6.2, but will be probably ported and 
 # To-Do
 
 * not properly tested yet
+* new KL divergence needed
+* write runtests.jl
 * write better Readme and start Doc
