@@ -1,6 +1,8 @@
 ###########
 ##### Setup Monte Carlo Problem functions
 ###########
+using DifferentialEquations
+import DifferentialEquations.solve # this needs to be directly importet in order to extend it with our own solve() for our own problem struct
 
 # define a custom ODE Problem type, so that we can also define a custom solve for it!
 abstract type myMCProblem end

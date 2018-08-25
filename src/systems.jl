@@ -5,7 +5,8 @@
 # TO-DO: also defining all the jacobians would improve the performance of some of the solvers used
 #################
 
-using Parameters 
+using Parameters
+
 abstract type DEParameters end
 
 @with_kw struct logistic_parameters <: DEParameters  # with_kw enables default values and keyword initializing and more importantly a very convinient reconstruct routine!
