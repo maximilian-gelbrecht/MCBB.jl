@@ -12,5 +12,5 @@ As of now this is only tested with Julia 0.6.2, but will be probably ported and 
 
 # To-Do
 
-* Not working right now: using/imports need to be placed in the right files
+* not properly tested yet
 * write better Readme and start Doc
