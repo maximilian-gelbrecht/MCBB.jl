@@ -5,6 +5,7 @@ As of now this is only tested with Julia 0.6.2, but will be probably ported and 
 # Install
 
 * Pkg.clone("git@gitlab.pik-potsdam.de:maxgelbr/HighBifLib.jl.git")
+* Pkg.test("HighBifLib") to test the installation
 
 # Updates
 
