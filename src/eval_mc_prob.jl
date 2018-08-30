@@ -45,6 +45,7 @@ end
 
 function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:Function,1}, global_eval_funcs::Array{<:Function,1})
 
+    (N_dim, N_t) = size(sol)
     N_dim_measures = length(eval_funcs) + 2 # mean and var are always computed
     N_dim_global_measures = length(global_eval_funcs)
     dim_measures = [zeros(Float64, N_dim) for i=1:N_dim_measures]
