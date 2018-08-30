@@ -140,7 +140,14 @@ function empirical_1D_KL_divergence_hist(u::AbstractArray, reference_pdf::Distri
 
     StatsBase.kldivergence(hist.weights, refpdf_discrete)
 end
-empirical_1D_KL_divergence_hist(u::AbstractArray, mu::Number, sig::Number, N_bins::Int64=25) = empirical_1D_KL_divergence_hist(u, Distributions.Normal(mu,sig), N_bins)
+
+function empirical_1D_KL_divergence_hist(u::AbstractArray, mu::Number, sig::Number, N_bins::Int64=25)
+    if sig < 1e-10
+        return 0.
+    else
+        return empirical_1D_KL_divergence_hist(u, Distributions.Normal(mu,sig), N_bins)
+    end
+end
 
 # KL divergence
 # estimate based on Perez-Cruz (IEEE, 2008)
