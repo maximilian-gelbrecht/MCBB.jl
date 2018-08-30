@@ -13,36 +13,8 @@ import Distributions, StatsBase
 # sol :: result of one of the monte carlo ode run, should have only timesteps with constant time intervals between them
 # i :: Int, number of iteration
 # state_filter :: array with indicies of all dimensions that should be evaluated
-function eval_ode_run_old(sol, i, state_filter::Array{Int64,1})
-
-    (N_dim, N_t) = size(sol)
-
-    m = zeros(Float64, N_dim)
-    std = zeros(Float64, N_dim)
-    #skew = zeros(Float64, N_dim)
-    kl = zeros(Float64, N_dim)
-
-    for i_dim in state_filter
-        sol_i = sol[i_dim,2:end] # with the saveat solver option, tspan[1] is always saved as well but is not part of the transient.
-        (m[i_dim],std[i_dim]) = StatsBase.mean_and_std(sol_i; corrected=true)
-        #skew[i_dim] = StatsBase.skewness(sol_i, m[i_dim])
-
-        # if the std is zero or extremly close to zero (meaning all values are the same, thus a fix point), the KL divergence relative to a Gaussian of same mean and std is hard to numerically compute.
-        # we set it to zero in this case because both the empirical and the reference distribtuion are in this case approximately delta distributions at the same locaction, thus identical, having KL=0
-        if std[i_dim] < 1e-10
-            kl[i_dim] = 0
-        else
-            ref_dist = Distributions.Normal(m[i_dim], std[i_dim]) # old
-            kl[i_dim] = empirical_1D_KL_divergence_hist(sol_i, ref_dist, 25)
-            #kl[i_dim] = empirical_1D_KL_divergence(sol_i, m[i_dim], std[i_dim])
-        end
-    end
-
-    # for test purposes we first write the same N-dimensonal curve entropy in every dimension
-    ce = curve_entropy(sol.u[2:end])
-    ((m, std, kl, ce), false)
-end
-
+# eval_funcs :: array of functions that should be applied to every dimension of the solution (except for mean and std which are always computed)
+# global_eval_funcs :: array of functions that should be applied to the complete N-dimensional solution
 function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:Function,1}, global_eval_funcs::Array{<:Function,1})
 
     (N_dim, N_t) = size(sol)
@@ -67,20 +39,13 @@ function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:
     (tuple(dim_measures...,global_measures...),false)
 end
 
+# MonteCarloProblem needs a function with only (sol, i) as inputs and this way the default of all dimensions beeing evaluated is easier to handle than with an optional/keyword argument
 function eval_ode_run(sol, i)
     (N_dim, __) = size(sol)
     state_filter = collect(1:N_dim)
     eval_funcs = [empirical_1D_KL_divergence_hist]
     global_eval_funcs = [curve_entropy]
     eval_ode_run(sol, i, state_filter, eval_funcs, global_eval_funcs)
-end
-
-
-# MonteCarloProblem needs a function with only (sol, i) as inputs and this way the default of all dimensions beeing evaluated is easier to handle than with an optional/keyword argument
-function eval_ode_run_old(sol, i)
-    (N_dim, __) = size(sol)
-    state_filter = collect(1:N_dim)
-    eval_ode_run_old(sol, i, state_filter)
 end
 
 # include a return code check and repeat if integration failed. if this is not used with randomly generated initial conditions, this could leed into an endless loop!
