@@ -3,12 +3,12 @@ module HighBifLib
 # export all functions declared
 export kuramoto_parameters, kuramoto, kuramoto_network_parameters, kuramoto_network, logistic_parameters, logistic, henon_parameters, henon, roessler_parameters, roessler_network, lotka_volterra, lotka_volterra_parameters
 export myMCProblem, EqMCProblem, myMCSol
-export setup_ic_par_mc_problem, eval_ode_run, eval_ode_run_repeat, eval_ode_run_inf, check_inf_nan
+export setup_ic_par_mc_problem, eval_ode_run, eval_ode_run_old, eval_ode_run_repeat, eval_ode_run_inf, check_inf_nan
 export distance_matrix, distance_matrix_dense, weighted_norm
 export order_parameter
 
 # internal functions, also exported for testing
-export empirical_1D_KL_divergence, ecdf_pc
+export empirical_1D_KL_divergence_pc, empirical_1D_KL_divergence_hist
 
 export curve_entropy
 export k_dist, cluster_measures, cluster_n_noise, cluster_membership

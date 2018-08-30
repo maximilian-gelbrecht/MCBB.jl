@@ -13,7 +13,7 @@ import Distributions, StatsBase
 # sol :: result of one of the monte carlo ode run, should have only timesteps with constant time intervals between them
 # i :: Int, number of iteration
 # state_filter :: array with indicies of all dimensions that should be evaluated
-function eval_ode_run(sol, i, state_filter::Array{Int64,1})
+function eval_ode_run_old(sol, i, state_filter::Array{Int64,1})
 
     (N_dim, N_t) = size(sol)
 
@@ -43,11 +43,44 @@ function eval_ode_run(sol, i, state_filter::Array{Int64,1})
     ((m, std, kl, ce), false)
 end
 
-# MonteCarloProblem needs a function with only (sol, i) as inputs and this way the default of all dimensions beeing evaluated is easier to handle than with an optional/keyword argument
+function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{T,1}, global_eval_funcs::Array{T,1}) where T <: Function
+    (N_dim, N_t) = size(sol)
+
+    N_dim_measures = length(eval_funcs) + 2 # mean and var are always computed
+    N_dim_global_measures = length(global_eval_funcs)
+    dim_measures = [zeros(Float64, N_dim) for i=1:N_dim_measures]
+    global_measures = zeros(Float64, N_dim_global_measures)
+
+    # per dimension measures
+    for i_dim in state_filter
+        sol_i = sol[i_dim,2:end]
+        (dim_measures[1][i_dim],dim_measures[2][i_dim]) = StatsBase.mean_and_std(sol_i; corrected=true)
+        for i_meas=1:N_dim_measures
+            dim_measures[3][i_dim] = eval_funcs[i_meas](sol_i, dim_measures[1][i_dim], dim_measures[2][i_dim])
+        end
+    end
+
+    # measures using all dimensions
+    for i_meas=1:N_dim_global_measures
+        global_measures[i_meas] = global_eval_funcs[i_meas](sol.u[2:end])
+    end
+    (tuple(dim_measures...,global_measures...),false)
+end
+
 function eval_ode_run(sol, i)
     (N_dim, __) = size(sol)
     state_filter = collect(1:N_dim)
-    eval_ode_run(sol, i, state_filter)
+    eval_funcs = [empirical_1D_KL_divergence_hist]
+    global_eval_funcs = [curve_entropy]
+    eval_ode_run(sol, i, state_filter, eval_funcs, global_eval_funcs)
+end
+
+
+# MonteCarloProblem needs a function with only (sol, i) as inputs and this way the default of all dimensions beeing evaluated is easier to handle than with an optional/keyword argument
+function eval_ode_run_old(sol, i)
+    (N_dim, __) = size(sol)
+    state_filter = collect(1:N_dim)
+    eval_ode_run_old(sol, i, state_filter)
 end
 
 # include a return code check and repeat if integration failed. if this is not used with randomly generated initial conditions, this could leed into an endless loop!
@@ -99,7 +132,7 @@ end
 # u :: Input Array
 # reference pdf: e.g. Normal(mean,std)
 # hist_bins: number of bins of the histogram to estimate the empirical pdf of the data
-function empirical_1D_KL_divergence(u::AbstractArray, reference_pdf::Distributions.UnivariateDistribution, hist_bins::Int)
+function empirical_1D_KL_divergence_hist(u::AbstractArray, reference_pdf::Distributions.UnivariateDistribution, hist_bins::Int)
     hist = StatsBase.fit(StatsBase.Histogram, u; closed=:left, nbins=hist_bins)
     hist = StatsBase.normalize(hist)
     bin_centers = @. hist.edges[1] + 0.5*(hist.edges[1][2] - hist.edges[1][1])
@@ -107,12 +140,13 @@ function empirical_1D_KL_divergence(u::AbstractArray, reference_pdf::Distributio
 
     StatsBase.kldivergence(hist.weights, refpdf_discrete)
 end
+empirical_1D_KL_divergence_hist(u::AbstractArray, mu::Number, sig::Number, N_bins::Int64==25) = empirical_1D_KL_divergence_hist(u, Distributions.Normal(mu,sig), N_bins)
 
 # KL divergence
 # estimate based on Perez-Cruz (IEEE, 2008)
 # estimates the KL divergence by using linearly interpolated empirical CDFs.
 # TO-DO: for large time series (N>10000) there is small risk that this yields Inf because the spacing between the samples becomes so small that the precision is not high enough to yield finite numbers.
-function empirical_1D_KL_divergence(u::AbstractArray, mu::Number, sig::Number)
+function empirical_1D_KL_divergence_pc(u::AbstractArray, mu::Number, sig::Number)
 
     N = length(u)
     Us = sort(u)
