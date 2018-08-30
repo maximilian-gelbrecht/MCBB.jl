@@ -33,7 +33,7 @@ function eval_ode_run_old(sol, i, state_filter::Array{Int64,1})
             kl[i_dim] = 0
         else
             ref_dist = Distributions.Normal(m[i_dim], std[i_dim]) # old
-            kl[i_dim] = empirical_1D_KL_divergence(sol_i, ref_dist, 25)
+            kl[i_dim] = empirical_1D_KL_divergence_hist(sol_i, ref_dist, 25)
             #kl[i_dim] = empirical_1D_KL_divergence(sol_i, m[i_dim], std[i_dim])
         end
     end
