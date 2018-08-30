@@ -55,7 +55,7 @@ function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:
     for i_dim in state_filter
         sol_i = sol[i_dim,2:end]
         (dim_measures[1][i_dim],dim_measures[2][i_dim]) = StatsBase.mean_and_std(sol_i; corrected=true)
-        for i_meas=1:N_dim_measures
+        for i_meas=3:N_dim_measures
             dim_measures[3][i_dim] = eval_funcs[i_meas](sol_i, dim_measures[1][i_dim], dim_measures[2][i_dim])
         end
     end
