@@ -218,7 +218,7 @@ function wasserstein_distance(u::AbstractArray, mu::Number, sig::Number)
     bin_centers = @. hist.edges[1] + 0.5*(hist.edges[1][2] - hist.edges[1][1])
     refpdf_discrete = Distributions.pdf.(Distributions.Normal(mu,sig), bin_centers[1:end-1])
 
-    _compute_wasserstein(bin_centers, hist, bin_centers, refpdf_discrete)
+    compute_wasserstein(bin_centers, hist, bin_centers, refpdf_discrete)
 end
 
 
@@ -226,7 +226,7 @@ end
 #
 # computes \left( \int_{-\infty}^{+\infty} |ECDF_U(x)-ECDF_V(x)| dx
 #
-function _compute_wasserstein(u_loc::AbstractArray, u_weights::AbstractArray, v_loc::AbstractArray, v_weights::AbstractArray)
+function compute_wasserstein(u_loc::AbstractArray, u_weights::AbstractArray, v_loc::AbstractArray, v_weights::AbstractArray)
 
     N = length(u_loc)
     if u_loc != v_loc
