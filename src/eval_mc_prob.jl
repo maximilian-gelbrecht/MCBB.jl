@@ -213,7 +213,7 @@ ecdf_pc(X::AbstractArray, Xu::AbstractArray, eps::Float64) = ecdf_pc(X, unique(X
 # mostly based on translating the scipy code
 #
 function wasserstein_distance(u::AbstractArray, mu::Number, sig::Number)
-    hist = StatsBase.fit(StatsBase.Histogram, u; closed=:left, nbins=hist_bins)
+    hist = StatsBase.fit(StatsBase.Histogram, u; closed=:left, nbins=30)
     hist = StatsBase.normalize(hist)
     bin_centers = @. hist.edges[1] + 0.5*(hist.edges[1][2] - hist.edges[1][1])
     refpdf_discrete = Distributions.pdf.(Distributions.Normal(mu,sig), bin_centers[1:end-1])
