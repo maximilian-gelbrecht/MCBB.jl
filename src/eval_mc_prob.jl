@@ -15,11 +15,40 @@ import Distributions, StatsBase
 # state_filter :: array with indicies of all dimensions that should be evaluated
 # eval_funcs :: array of functions that should be applied to every dimension of the solution (except for mean and std which are always computed)
 # global_eval_funcs :: array of functions that should be applied to the complete N-dimensional solution
-function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:Function,1}, global_eval_funcs::Array{<:Function,1})
+function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:Function,1}, global_eval_funcs::Array{<:Function,1}, failure_handling::Symbol=:None )
 
     (N_dim, N_t) = size(sol)
     N_dim_measures = length(eval_funcs) + 2 # mean and var are always computed
     N_dim_global_measures = length(global_eval_funcs)
+
+    if failure_handling==:None
+        failure_handling=:None # do nothing
+    elseif failure_handling==:Inf
+        if (sol.retcode == :DtLessThanMin)
+            last = sol.u[end]
+            N_dim = length(last)
+            inf_flag = false
+            for i=1:N_dim
+                if abs(last[i]) > 1e11
+                    inf_flag = true
+                end
+            end
+            if inf_flag
+                dim_measures = [Inf.*ones(N_dim) for i=1:N_dim_measures]
+                global_measures = [Inf for i=1:N_dim_global_measures]
+                return (tuple(dim_measures...,global_measures...)),false)
+            else
+                warn("Failure Handling Warning, DtLessThanMin but Solution not diverging.")
+            end
+        end
+    elseif failure_handling==:Repeat
+        if (sol.retcode != :Success) & (sol.retcode != :Default)
+            return ((),true)
+        end
+    else
+        error("failure_handling symbol not known")
+    end
+
     dim_measures = [zeros(Float64, N_dim) for i=1:N_dim_measures]
     global_measures = zeros(Float64, N_dim_global_measures)
 
@@ -56,21 +85,6 @@ function eval_ode_run_repeat(sol, i)
     eval_ode_run(sol, i )
 end
 
-# include a return code check and set all results to Inf is the integration fails due to one or more variables exploding towards infitiy
-function eval_ode_run_inf(sol, i)
-    if (sol.retcode == :DtLessThanMin)
-        last = sol.u[end]
-        N_dim = length(last)
-        inf_flag = false
-        for i=1:N_dim
-            if abs(last[i]) > 1e12
-                inf_flag = true
-            end
-        end
-        return ((ones(N_dim).*Inf,ones(N_dim).*Inf,ones(N_dim).*Inf,ones(N_dim).*Inf),false)
-    end
-    eval_ode_run(sol,i)
-end
 
 # checks if any of the results is Inf or NaN and returns the indices in a dictionary
 function check_inf_nan(sol::myMCSol)
