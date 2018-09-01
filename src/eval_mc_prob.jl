@@ -218,15 +218,33 @@ function wasserstein_distance(u::AbstractArray, mu::Number, sig::Number)
     bin_centers = @. hist.edges[1] + 0.5*(hist.edges[1][2] - hist.edges[1][1])
     refpdf_discrete = Distributions.pdf.(Distributions.Normal(mu,sig), bin_centers[1:end-1])
 
-    compute_wasserstein(bin_centers, hist, bin_centers, refpdf_discrete)
+    _compute_wasserstein(bin_centers, hist, bin_centers, refpdf_discrete)
 end
 
+function compute_wasserstein_distance(u_loc::AbstractArray, u_weights::AbstractArray, v_loc::AbstractArray, v_weights::AbstractArray)
 
+    N = length(u_loc)
+    if u_loc != v_loc
+        error("Wasserstein only implemented for histograms with equal bin locations")
+    end
+    deltas = diff(u_loc)
+    if ndims(u_weights)!= 1
+        error("Wasserstein only implemented for 1d data")
+    end
+
+    u_ecdf = cumsum(u_weights)
+    u_ecdf /= u_ecdf[end]
+
+    v_ecdf = cumsum(v_weights)
+    v_ecdf /= v_ecdf[end]
+
+    return sum(abs(u_ecdf - v_ecdf) .* deltas))
+end
 # assumes two histograms with equal bins
 #
 # computes \left( \int_{-\infty}^{+\infty} |ECDF_U(x)-ECDF_V(x)| dx
 #
-function compute_wasserstein(u_loc::AbstractArray, u_weights::AbstractArray, v_loc::AbstractArray, v_weights::AbstractArray)
+function _compute_wasserstein(u_loc::AbstractArray, u_weights::AbstractArray, v_loc::AbstractArray, v_weights::AbstractArray)
 
     N = length(u_loc)
     if u_loc != v_loc
