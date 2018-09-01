@@ -13,7 +13,7 @@ As of now this is only tested with Julia 0.6.2, but will be probably ported and 
 
 # To-Do
 
-* new KL divergence needed
-* introduce eval_ode_run with additional input function argument
-  * test various other divergences like Wasserstein divergence or different estimates of KL divergence
+* new KL divergence needed?
+* there is now a more flexible eval_ode_run and 1-wasserstein metric implemented as well
+  * lets play around with it!
 * write better Readme and start Doc
