@@ -10,7 +10,6 @@ export order_parameter
 # internal functions, also exported for testing
 export empirical_1D_KL_divergence_pc, empirical_1D_KL_divergence_hist, wasserstein_distance
 export _compute_wasserstein
-export compute_wasserstein_distance
 export curve_entropy
 export k_dist, cluster_measures, cluster_n_noise, cluster_membership
 

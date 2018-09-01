@@ -237,9 +237,12 @@ function _compute_wasserstein(u_loc::AbstractArray, u_weights::AbstractArray, v_
 
     u_ecdf = cumsum(u_weights)
     u_ecdf ./= u_ecdf[end]
+    u_ecdf = u_ecdf[1:end-1]
 
     v_ecdf = cumsum(v_weights)
     v_ecdf ./= v_ecdf[end]
+    v_ecdf = v_ecdf[1:end-1]
+
 
     sum(abs.(u_ecdf .- v_ecdf) .* deltas)
 end
