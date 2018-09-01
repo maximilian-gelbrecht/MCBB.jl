@@ -218,7 +218,7 @@ function wasserstein_hist(u::AbstractArray, mu::Number, sig::Number)
     bin_centers = @. hist.edges[1] + 0.5*(hist.edges[1][2] - hist.edges[1][1])
     refpdf_discrete = Distributions.pdf.(Distributions.Normal(mu,sig), bin_centers[1:end-1])
 
-    _compute_wasserstein_hist(bin_centers, hist.weights, bin_centers, refpdf_discrete)
+    _compute_wasserstein_hist(bin_centers[1:end-1], hist.weights, bin_centers[1:end-1], refpdf_discrete)
 end
 
 # assumes two histograms with equal bins
@@ -250,9 +250,6 @@ end
 # first calculates the ECDF then the wasserstein distance
 function wasserstein_ecdf(u::AbstractArray, mu::Number, sig::Number)
     N = length(u)
-    if N!=length(v)
-        error("Input Arrays need to be of same length")
-    end
     us = sort(u)
 
     deltas = diff(us)
