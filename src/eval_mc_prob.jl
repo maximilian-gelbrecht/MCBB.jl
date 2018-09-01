@@ -212,8 +212,8 @@ ecdf_pc(X::AbstractArray, Xu::AbstractArray, eps::Float64) = ecdf_pc(X, unique(X
 # Wasserstein distance / Earth Mover's Distance
 # mostly based on translating the scipy code
 #
-function wasserstein_hist(u::AbstractArray, mu::Number, sig::Number)
-    hist = StatsBase.fit(StatsBase.Histogram, u; closed=:left, nbins=30)
+function wasserstein_hist(u::AbstractArray, mu::Number, sig::Number, nbins::Int=30)
+    hist = StatsBase.fit(StatsBase.Histogram, u; closed=:left, nbins=nbins)
     hist = StatsBase.normalize(hist)
     bin_centers = @. hist.edges[1] + 0.5*(hist.edges[1][2] - hist.edges[1][1])
     refpdf_discrete = Distributions.pdf.(Distributions.Normal(mu,sig), bin_centers[1:end-1])
@@ -248,6 +248,8 @@ function _compute_wasserstein_hist(u_loc::AbstractArray, u_weights::AbstractArra
 end
 
 # first calculates the ECDF then the wasserstein distance
+# computes \left( \int_{-\infty}^{+\infty} |ECDF_U(x)-CDF_REFERENCE(x)| dx
+
 function wasserstein_ecdf(u::AbstractArray, mu::Number, sig::Number)
     N = length(u)
     us = sort(u)
@@ -255,7 +257,7 @@ function wasserstein_ecdf(u::AbstractArray, mu::Number, sig::Number)
     deltas = diff(us)
     normal_cdf(x) = 0.5*(1.+erf((x-mu)/sqrt(2.*sig*sig)))
 
-    u_ecdf = (0:1:N)./N
+    u_ecdf = (1:1:N)./N
     u_ecdf = u_ecdf[1:end-1]
 
     ref_cdf = normal_cdf.(us[1:end-1])
