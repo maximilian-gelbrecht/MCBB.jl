@@ -238,12 +238,11 @@ function compute_wasserstein_distance(u_loc::AbstractArray, u_weights::AbstractA
     v_ecdf = cumsum(v_weights)
     v_ecdf /= v_ecdf[end]
 
-    return sum(abs(u_ecdf - v_ecdf) .* deltas))
+    return sum(abs(u_ecdf - v_ecdf) .* deltas)
 end
 # assumes two histograms with equal bins
 #
 # computes \left( \int_{-\infty}^{+\infty} |ECDF_U(x)-ECDF_V(x)| dx
-#
 function _compute_wasserstein(u_loc::AbstractArray, u_weights::AbstractArray, v_loc::AbstractArray, v_weights::AbstractArray)
 
     N = length(u_loc)
@@ -261,7 +260,7 @@ function _compute_wasserstein(u_loc::AbstractArray, u_weights::AbstractArray, v_
     v_ecdf = cumsum(v_weights)
     v_ecdf /= v_ecdf[end]
 
-    sum(abs(u_ecdf - v_ecdf) .* deltas))
+    sum(abs(u_ecdf - v_ecdf) .* deltas)
 end
 
 
