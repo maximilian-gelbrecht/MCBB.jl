@@ -212,19 +212,19 @@ ecdf_pc(X::AbstractArray, Xu::AbstractArray, eps::Float64) = ecdf_pc(X, unique(X
 # Wasserstein distance / Earth Mover's Distance
 # mostly based on translating the scipy code
 #
-function wasserstein_distance(u::AbstractArray, mu::Number, sig::Number)
+function wasserstein_hist(u::AbstractArray, mu::Number, sig::Number)
     hist = StatsBase.fit(StatsBase.Histogram, u; closed=:left, nbins=30)
     hist = StatsBase.normalize(hist)
     bin_centers = @. hist.edges[1] + 0.5*(hist.edges[1][2] - hist.edges[1][1])
     refpdf_discrete = Distributions.pdf.(Distributions.Normal(mu,sig), bin_centers[1:end-1])
 
-    _compute_wasserstein(bin_centers, hist, bin_centers, refpdf_discrete)
+    _compute_wasserstein_hist(bin_centers, hist.weights, bin_centers, refpdf_discrete)
 end
 
 # assumes two histograms with equal bins
 #
 # computes \left( \int_{-\infty}^{+\infty} |ECDF_U(x)-ECDF_V(x)| dx
-function _compute_wasserstein(u_loc::AbstractArray, u_weights::AbstractArray, v_loc::AbstractArray, v_weights::AbstractArray)
+function _compute_wasserstein_hist(u_loc::AbstractArray, u_weights::AbstractArray, v_loc::AbstractArray, v_weights::AbstractArray)
 
     N = length(u_loc)
     if u_loc != v_loc
@@ -247,6 +247,23 @@ function _compute_wasserstein(u_loc::AbstractArray, u_weights::AbstractArray, v_
     sum(abs.(u_ecdf .- v_ecdf) .* deltas)
 end
 
+# first calculates the ECDF then the wasserstein distance
+function wasserstein_ecdf(u::AbstractArray, mu::Number, sig::Number)
+    N = length(u)
+    if N!=length(v)
+        error("Input Arrays need to be of same length")
+    end
+    us = sort(u)
+
+    deltas = diff(us)
+    normal_cdf(x) = 0.5*(1.+erf((x-mu)/sqrt(2.*sig*sig)))
+
+    u_ecdf = (0:1:N)./N
+    u_ecdf = u_ecdf[1:end-1]
+
+    ref_cdf = normal_cdf.(us[1:end-1])
+    sum(abs.(u_ecdf .- ref_cdf) .* deltas)
+end
 
 # curve entropy according to Balestrino et al, 2009, Entropy Journal
 # could be used as an additional measure for the clustering
