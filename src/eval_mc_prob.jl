@@ -13,8 +13,8 @@ import Distributions, StatsBase
 # sol :: result of one of the monte carlo ode run, should have only timesteps with constant time intervals between them
 # i :: Int, number of iteration
 # state_filter :: array with indicies of all dimensions that should be evaluated
-# eval_funcs :: array of functions that should be applied to every dimension of the solution (except for mean and std which are always computed)
-# global_eval_funcs :: array of functions that should be applied to the complete N-dimensional solution
+# eval_funcs :: array of functions that should be applied to every dimension of the solution (except for mean and std which are always computed). Need to be (Array w/ Samples ::AbstractArray, Mean::Number, Std::Number) -> Measure 
+# global_eval_funcs :: array of functions that should be applied to the complete N-dimensional solution, need to be (Array w/ Samples ::AbstractArray, Mean::Number, Std::Number) -> Measure
 # failure_handling :: How failure of integration is handled. Should be :None (do no checks), :Inf (If retcode==:DtLessThanMin: return Inf) or :Repeat (If no succes, repeat the trial (only works with random initial conditions))
 function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:Function,1}, global_eval_funcs::Array{Any,1}, failure_handling::Symbol=:None )
 
