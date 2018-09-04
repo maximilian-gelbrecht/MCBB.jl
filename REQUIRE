@@ -7,4 +7,5 @@ Clustering
 Interpolations
 PairwiseListMatrices
 StatsBase
-Distributions 
+Distributions
+HypothesisTests
