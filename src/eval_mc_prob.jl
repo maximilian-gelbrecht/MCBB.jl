@@ -16,7 +16,7 @@ import Distributions, StatsBase
 # eval_funcs :: array of functions that should be applied to every dimension of the solution (except for mean and std which are always computed)
 # global_eval_funcs :: array of functions that should be applied to the complete N-dimensional solution
 # failure_handling :: How failure of integration is handled. Should be :None (do no checks), :Inf (If retcode==:DtLessThanMin: return Inf) or :Repeat (If no succes, repeat the trial (only works with random initial conditions))
-function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:Function,1}, global_eval_funcs::Array{<:Function,1}, failure_handling::Symbol=:None )
+function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:Function,1}, global_eval_funcs::Array{Any,1}, failure_handling::Symbol=:None )
 
     (N_dim, N_t) = size(sol)
     N_dim_measures = length(eval_funcs) + 2 # mean and var are always computed
@@ -210,8 +210,6 @@ ecdf_pc(X::AbstractArray, Xu::AbstractArray, eps::Float64) = ecdf_pc(X, unique(X
 
 
 # Wasserstein distance / Earth Mover's Distance
-# mostly based on translating the scipy code
-#
 function wasserstein_hist(u::AbstractArray, mu::Number, sig::Number, nbins::Int=30)
     if sig < 1e-10
         return 0.
@@ -226,6 +224,7 @@ function wasserstein_hist(u::AbstractArray, mu::Number, sig::Number, nbins::Int=
 end
 
 # assumes two histograms with equal bins
+# roughly based on translating the scipy code
 #
 # computes \left( \int_{-\infty}^{+\infty} |ECDF_U(x)-ECDF_V(x)| dx
 function _compute_wasserstein_hist(u_loc::AbstractArray, u_weights::AbstractArray, v_loc::AbstractArray, v_weights::AbstractArray)
@@ -258,7 +257,7 @@ function wasserstein_ecdf(u::AbstractArray, mu::Number, sig::Number)
     if sig < 1e-10
         return 0.
     end
-    
+
     N = length(u)
     us = sort(u)
 
