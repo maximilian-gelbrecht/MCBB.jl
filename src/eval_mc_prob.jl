@@ -213,6 +213,10 @@ ecdf_pc(X::AbstractArray, Xu::AbstractArray, eps::Float64) = ecdf_pc(X, unique(X
 # mostly based on translating the scipy code
 #
 function wasserstein_hist(u::AbstractArray, mu::Number, sig::Number, nbins::Int=30)
+    if sig < 1e-10
+        return 0.
+    end
+
     hist = StatsBase.fit(StatsBase.Histogram, u; closed=:left, nbins=nbins)
     hist = StatsBase.normalize(hist)
     bin_centers = @. hist.edges[1] + 0.5*(hist.edges[1][2] - hist.edges[1][1])
@@ -251,6 +255,10 @@ end
 # computes \left( \int_{-\infty}^{+\infty} |ECDF_U(x)-CDF_REFERENCE(x)| dx
 
 function wasserstein_ecdf(u::AbstractArray, mu::Number, sig::Number)
+    if sig < 1e-10
+        return 0.
+    end
+    
     N = length(u)
     us = sort(u)
 
