@@ -13,7 +13,7 @@ import Distributions, StatsBase
 # sol :: result of one of the monte carlo ode run, should have only timesteps with constant time intervals between them
 # i :: Int, number of iteration
 # state_filter :: array with indicies of all dimensions that should be evaluated
-# eval_funcs :: array of functions that should be applied to every dimension of the solution (except for mean and std which are always computed). Need to be (Array w/ Samples ::AbstractArray, Mean::Number, Std::Number) -> Measure 
+# eval_funcs :: array of functions that should be applied to every dimension of the solution (except for mean and std which are always computed). Need to be (Array w/ Samples ::AbstractArray, Mean::Number, Std::Number) -> Measure
 # global_eval_funcs :: array of functions that should be applied to the complete N-dimensional solution, need to be (Array w/ Samples ::AbstractArray, Mean::Number, Std::Number) -> Measure
 # failure_handling :: How failure of integration is handled. Should be :None (do no checks), :Inf (If retcode==:DtLessThanMin: return Inf) or :Repeat (If no succes, repeat the trial (only works with random initial conditions))
 function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:Function,1}, global_eval_funcs::Array{Any,1}, failure_handling::Symbol=:None )
@@ -207,48 +207,6 @@ function ecdf_pc(X::AbstractArray, Xu::AbstractArray, eps::BigFloat)
 end
 ecdf_pc(X::AbstractArray) = ecdf_pc(X, unique(X), 0.5*minimum(diff(unique(X))))
 ecdf_pc(X::AbstractArray, Xu::AbstractArray, eps::Float64) = ecdf_pc(X, unique(X), BigFloat(0.5*minimum(diff(unique(X)))))
-
-
-# Wasserstein distance / Earth Mover's Distance
-function wasserstein_hist(u::AbstractArray, mu::Number, sig::Number, nbins::Int=30)
-    if sig < 1e-10
-        return 0.
-    end
-
-    hist = StatsBase.fit(StatsBase.Histogram, u; closed=:left, nbins=nbins)
-    hist = StatsBase.normalize(hist)
-    bin_centers = @. hist.edges[1] + 0.5*(hist.edges[1][2] - hist.edges[1][1])
-    refpdf_discrete = Distributions.pdf.(Distributions.Normal(mu,sig), bin_centers[1:end-1])
-
-    _compute_wasserstein_hist(bin_centers[1:end-1], hist.weights, bin_centers[1:end-1], refpdf_discrete)
-end
-
-# assumes two histograms with equal bins
-# roughly based on translating the scipy code
-#
-# computes \left( \int_{-\infty}^{+\infty} |ECDF_U(x)-ECDF_V(x)| dx
-function _compute_wasserstein_hist(u_loc::AbstractArray, u_weights::AbstractArray, v_loc::AbstractArray, v_weights::AbstractArray)
-
-    N = length(u_loc)
-    if u_loc != v_loc
-        error("Wasserstein only implemented for histograms with equal bin locations")
-    end
-    deltas = diff(u_loc)
-    if ndims(u_weights)!= 1
-        error("Wasserstein only implemented for 1d data")
-    end
-
-    u_ecdf = cumsum(u_weights)
-    u_ecdf ./= u_ecdf[end]
-    u_ecdf = u_ecdf[1:end-1]
-
-    v_ecdf = cumsum(v_weights)
-    v_ecdf ./= v_ecdf[end]
-    v_ecdf = v_ecdf[1:end-1]
-
-
-    sum(abs.(u_ecdf .- v_ecdf) .* deltas)
-end
 
 # first calculates the ECDF then the wasserstein distance
 # computes \left( \int_{-\infty}^{+\infty} |ECDF_U(x)-CDF_REFERENCE(x)| dx
