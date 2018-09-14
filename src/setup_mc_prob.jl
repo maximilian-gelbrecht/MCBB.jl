@@ -10,7 +10,13 @@ abstract type myMCProblem end
 # The Main Scruct, defining a new Differential Equation Problem Type with its own solve()
 # It defines a MonteCarloProblem over a initial condition - parameter space and only evaluates the tail of each trajectory
 # Usage:
-#
+# p - Basic Differential Equations Problem [DiscreteProblem, ODEProblem, SDEProblem] are supported so far
+# ic_gens - Array of Functions or Array of Numbers/Ranges, sets or generates the initial cond per dimension
+# N_ic - if ic_gens is a array of functions / ICs generators, this is the total number of ICs that should be generated
+# pars - Parameter Instance of the Problem
+# par_range_tupe - tuple with Symbol that is the name of the Parameter that should be varied and range or functions that governs how the Parameter is varied
+# eval_ode_func - evalalution function for the MonteCarloProblem
+# tail_frac - float [0,1] (relative) time after which the trajectory/solution is saved and evaluated
 #
 struct BifAnaMCProblem <: myMCProblem
     p::MonteCarloProblem
