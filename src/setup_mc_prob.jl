@@ -20,7 +20,7 @@ struct BifAnaMCProblem <: myMCProblem
 
     # inner constructer used for randomized ICs
     function BifAnaMCProblem(p::DEProblem, ic_gens::Array{<:Function,1}, N_ic::Int, pars::DEParameters, par_range_tuple::Tuple{Symbol,Union{AbstractArray,Function}}, eval_ode_func::Function, tail_frac::Number)
-        (ic_coupling_problem, ic_par, N_mc) = setup_ic_par_mc_problem(p, ic_gens, N_ics, pars, par_range_tuple)
+        (ic_coupling_problem, ic_par, N_mc) = setup_ic_par_mc_problem(p, ic_gens, N_ic, pars, par_range_tuple)
         mcp = MonteCarloProblem(p, prob_func=ic_coupling_problem, output_func=eval_ode_func)
         new(mcp, N_mc, rel_transient_time, ic_par)
     end
