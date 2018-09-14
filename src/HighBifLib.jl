@@ -3,7 +3,7 @@ module HighBifLib
 # export all functions declared
 export kuramoto_parameters, kuramoto, kuramoto_network_parameters, kuramoto_network, logistic_parameters, logistic, henon_parameters, henon, roessler_parameters, roessler_network, lotka_volterra, lotka_volterra_parameters
 export myMCProblem, BifAnaMCProblem, myMCSol
-export setup_ic_par_mc_problem, eval_ode_run, check_inf_nan
+export setup_ic_par_mc_problem, define_new_problem, _repeat_check, _ic_par_matrix, eval_ode_run, check_inf_nan
 export distance_matrix, distance_matrix_dense, weighted_norm
 export order_parameter
 
