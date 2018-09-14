@@ -44,7 +44,7 @@ ko_sol = solve(ko_emcp)
 
 D = distance_matrix(ko_sol);
 
-D = distance_matrix(ko_sol, ic_par[:,end]);
+D = distance_matrix(ko_sol, ko_emcp.ic_par[:,end]);
 k = 4
 fdist = k_dist(D,k);
 
