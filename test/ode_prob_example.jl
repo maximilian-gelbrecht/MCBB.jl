@@ -21,31 +21,25 @@ rp = ODEProblem(kuramoto_network, ic, (0.,100.), pars)
 # range + range
 ic_ranges = [0.:0.5:1.5 for i=1:N]
 k_range = 1.:0.5:3.
-(ic_coupling_problem, ic_par, N_mc) = setup_ic_par_mc_problem(rp, ic_ranges, pars, (:K, k_range))
-ko_mcp = MonteCarloProblem(rp, prob_func=ic_coupling_problem, output_func=eval_ode_run)
 tail_frac = 0.9 #
-ko_emcp = EqMCProblem(ko_mcp, N_mc, tail_frac)
+
+ko_emcp = BifAnaMCProblem(rp, ic_ranges, pars, (:K, k_range), eval_ode_run, tail_frac)
 ko_sol = solve(ko_emcp)
 
 # random + range
 ic_ranges = ()->rand(ic_dist)
 k_range = 1.:0.5:3.
 N_ics = 20
-(ic_coupling_problem, ic_par, N_mc) = setup_ic_par_mc_problem(rp, ic_ranges, N_ics, pars, (:K, k_range))
-ko_mcp = MonteCarloProblem(rp, prob_func=ic_coupling_problem, output_func=eval_ode_run)
-tail_frac = 0.9 #
-ko_emcp = EqMCProblem(ko_mcp, N_mc, tail_frac)
+
+ko_emcp = BifAnaMCProblem(rp, ic_ranges, N_ics, pars, (:K, k_range), eval_ode_run, tail_frac)
 ko_sol = solve(ko_emcp)
 
 
 # random + random
 ic_ranges = [()->rand(ic_dist)]
 k_range = ()->rand(kdist)
-N_ics = 20
-(ic_coupling_problem, ic_par, N_mc) = setup_ic_par_mc_problem(rp, ic_ranges, N_ics, pars, (:K, k_range))
-ko_mcp = MonteCarloProblem(rp, prob_func=ic_coupling_problem, output_func=eval_ode_run)
-tail_frac = 0.9 #
-ko_emcp = EqMCProblem(ko_mcp, N_mc, tail_frac)
+
+ko_emcp = BifAnaMCProblem(rp, ic_ranges, N_ics, pars, (:K, k_range), eval_ode_run, tail_frac)
 ko_sol = solve(ko_emcp)
 
 D = distance_matrix(ko_sol);
