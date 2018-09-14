@@ -7,10 +7,17 @@ import DifferentialEquations.solve # this needs to be directly importet in order
 # define a custom ODE Problem type, so that we can also define a custom solve for it!
 abstract type myMCProblem end
 
-struct EqMCProblem <: myMCProblem
+struct BifAnaMCProblem <: myMCProblem
     p::MonteCarloProblem
     N_mc::Int64
     rel_transient_time::Float64 # float [0,1] (relative) time after which the trajectory/solution is saved and evaluated
+    ic_par::AbstractArray
+
+    function BifAnaMCProblem(p::DEProblem, ic_gens::Array{<:Function,1}, N_ic::Int, pars::DEParameters, par_range_tuple::Tuple{Symbol,Union{AbstractArray,Function}}, eval_ode_func::Function, tail_frac::Number)
+        (ic_coupling_problem, ic_par, N_mc) = setup_ic_par_mc_problem(p, ic_gens, N_ics, pars, par_range_tuple)
+        mcp = MonteCarloProblem(p, prob_func=ic_coupling_problem, output_func=eval_ode_func)
+        new(mcp, N_mc, rel_transient_time, ic_par)
+    end
 end
 # define structs for maps and custom solve based on dynamical systems library or discrete Problem
 
@@ -53,6 +60,14 @@ function setup_ic_par_mc_problem(prob::DiscreteProblem, ic_ranges::Array{T,1}, p
     (ic_par_problem, ic_par, N_mc)
 end
 
+function setup_ic_par_mc_problem(prob::SDEProblem, ic_ranges::Array{T,1}, parameters::DEParameters, var_par::Tuple{Symbol,Union{AbstractArray,Function}}) where T <: AbstractArray
+    N_dim_ic = length(ic_ranges)
+    N_dim = N_dim_ic + 1
+    (ic_par, N_mc) = _ic_par_matrix(N_dim_ic, N_dim, ic_ranges, var_par)
+    ic_par_problem = (prob, i, repeat) -> SDEProblem(prob.f, prob.g, ic_par[i,1:N_dim_ic], prob.tspan, reconstruct(parameters; (var_par[1], ic_par[i,N_dim])))
+    (ic_par_problem, ic_par, N_mc)
+end
+
 function setup_ic_par_mc_problem(prob::DEProblem, ic_gens::Array{T,1}, N_ic::Int, parameters::DEParameters, var_par::Tuple{Symbol,Union{AbstractArray,Function}}) where T <: Function
     N_dim_ic = length(prob.u0)
     N_dim = N_dim_ic + 1
@@ -66,17 +81,7 @@ setup_ic_par_mc_problem(prob::DEProblem, ic_gens::Function, N_ic::Int, parameter
 # functions defining new problems that generate new ics when the trial needs to be repeated
 function define_new_problem(prob::ODEProblem, ic_par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::Array{T,1}, var_par::Tuple{Symbol,Union{AbstractArray,Function}}) where T <: Function
     function new_problem(prob, i, repeat)
-        if repeat > 1
-            if repeat > 10
-                println("------------------")
-                println("Error with IC/Par:")
-                println(ic_par[i,:])
-                println("------------------")
-                error("More than 10 Repeats of a Problem in the Monte Carlo Run, there might me something wrong here!")
-            else
-                ic_par[i,1:N_dim_ic] = _new_ics(N_dim_ic,ic_gens)
-            end
-        end
+        _repeat_check(repeat, ic_par, ic_gens)
         ODEProblem(prob.f, ic_par[i,1:N_dim_ic], prob.tspan,  reconstruct(parameters; (var_par[1], ic_par[i,N_dim_ic+1])))
     end
     new_problem
@@ -86,20 +91,33 @@ end
 # TO-DO: one could probably combine both methods by using remake()
 function define_new_problem(prob::DiscreteProblem, ic_par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::Array{T,1}, var_par::Tuple{Symbol,Union{AbstractArray,Function}}) where T <: Function
     function new_problem(prob, i, repeat)
-        if repeat > 1
-            if repeat > 10
-                println("------------------")
-                println("Error with IC/Par:")
-                println(ic_par[i,:])
-                println("------------------")
-                error("More than 10 Repeats of a Problem in the Monte Carlo Run, there might me something wrong here!")
-            else
-                ic_par[i,1:N_dim_ic] = _new_ics(N_dim_ic,ic_gens)
-            end
-        end
+        _repeat_check(repeat, ic_par, ic_gens)
         DiscreteProblem(prob.f, ic_par[i,1:N_dim_ic], prob.tspan,  reconstruct(parameters; (var_par[1], ic_par[i,N_dim_ic+1])))
     end
     new_problem
+end
+
+function define_new_problem(prob::SDEProblem, ic_par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::Array{T,1}, var_par::Tuple{Symbol,Union{AbstractArray,Function}}) where T <: Function
+    function new_problem(prob, i, repeat)
+        _repeat_check(repeat, ic_par, ic_gens)
+        SDEProblem(prob.f, prob.g, ic_par[i,1:N_dim_ic], prob.tspan,  reconstruct(parameters; (var_par[1], ic_par[i,N_dim_ic+1])))
+    end
+    new_problem
+end
+
+# checks if the problem has to be repeated, if so, it generates new ICs
+function _repeat_check(repeat, ic_par::AbstractArray, ic_gens::Array{<:Function,1})
+    if repeat > 1
+        if repeat > 10
+            println("------------------")
+            println("Error with IC/Par:")
+            println(ic_par[i,:])
+            println("------------------")
+            error("More than 10 Repeats of a Problem in the Monte Carlo Run, there might me something wrong here!")
+        else
+            ic_par[i,1:N_dim_ic] = _new_ics(N_dim_ic,ic_gens)
+        end
+    end
 end
 
 
