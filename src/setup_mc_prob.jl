@@ -7,18 +7,35 @@ import DifferentialEquations.solve # this needs to be directly importet in order
 # define a custom ODE Problem type, so that we can also define a custom solve for it!
 abstract type myMCProblem end
 
+# The Main Scruct, defining a new Differential Equation Problem Type with its own solve()
+# It defines a MonteCarloProblem over a initial condition - parameter space and only evaluates the tail of each trajectory
+# Usage:
+#
+#
 struct BifAnaMCProblem <: myMCProblem
     p::MonteCarloProblem
     N_mc::Int64
     rel_transient_time::Float64 # float [0,1] (relative) time after which the trajectory/solution is saved and evaluated
     ic_par::AbstractArray
 
+    # inner constructer used for randomized ICs
     function BifAnaMCProblem(p::DEProblem, ic_gens::Array{<:Function,1}, N_ic::Int, pars::DEParameters, par_range_tuple::Tuple{Symbol,Union{AbstractArray,Function}}, eval_ode_func::Function, tail_frac::Number)
         (ic_coupling_problem, ic_par, N_mc) = setup_ic_par_mc_problem(p, ic_gens, N_ics, pars, par_range_tuple)
         mcp = MonteCarloProblem(p, prob_func=ic_coupling_problem, output_func=eval_ode_func)
         new(mcp, N_mc, rel_transient_time, ic_par)
     end
+
+    # inner constructer used for non-randomized ICs
+    function BifAnaMCProblem(p::DEProblem, ic_ranges::Array{<:AbstractArray,1}, pars::DEParameters, par_range_tuple::Tuple{Symbol,Union{AbstractArray,Function}}, eval_ode_func::Function, tail_frac::Number)
+        (ic_coupling_problem, ic_par, N_mc) = setup_ic_par_mc_problem(p, ic_ranges, pars, par_range_tuple)
+        mcp = MonteCarloProblem(p, prob_func=ic_coupling_problem, output_func=eval_ode_func)
+        new(mcp, N_mc, rel_transient_time, ic_par)
+    end
+
+    # Direct Constructor
+    BifAnaMCProblem(p::MonteCarloProblem, N_mc::Int64, rel_transient_time::Float64, ic_par::AbstractArray) = new(p, N_mc, rel_transient_time, ic_par)
 end
+BifAnaMCProblem(p::DEProblem, ic_gens::Function, N_ic::Int, pars::DEParameters, par_range_tuple::Tuple{Symbol,Union{AbstractArray,Function}}, eval_ode_func::Function, tail_frac::Number) = BifAnaMCProblem(p, [ic_gens], N_ic, pars, par_range_tuple, eval_ode_func, tail_frac)
 # define structs for maps and custom solve based on dynamical systems library or discrete Problem
 
 struct myMCSol
@@ -211,9 +228,9 @@ function _new_ics(N_dim_ic::Int, ic_gens::Array{T,1}) where T<:Function
 end
 
 
-# custom solve for the EqMCProblem defined earlier. solves the MonteCarlo Problem for OrdinaryDiffEq, but saves and evaluates only the transient at a constant step size
+# custom solve for the BifAnaMCProblem defined earlier. solves the MonteCarlo Problem for OrdinaryDiffEq, but saves and evaluates only the transient at a constant step size
 # prob :: MC Problem of type defined in this library
-function solve(prob::EqMCProblem, alg=nothing, N_t=400::Int, kwargs...)
+function solve(prob::BifAnaMCProblem, alg=nothing, N_t=400::Int, kwargs...)
     t_save = collect(tsave_array(prob.p.prob, N_t, prob.rel_transient_time))
     if alg!=nothing
         sol = solve(prob.p, alg, num_monte=prob.N_mc, dense=false, save_everystep=false, saveat=t_save, savestart=false, parallel_type=:parfor; kwargs...)
