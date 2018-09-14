@@ -3,50 +3,6 @@
 ###########
 using Distributions, Clustering, PairwiseListMatrices
 
-# compute the distance matrix used for the dbSCAN clustering. here, we could experiment with different ways how to setup this matrix
-# OLD VERSION: returns a dense matrix instead of a PairwiseListMatrix
-function distance_matrix_dense(sol::myMCSol, distance_func::Function)
-    D = zeros((sol.N_mc, sol.N_mc))
-    for i=1:sol.N_mc
-        for j=1:i
-            D[i,j] = distance_func(sol.sol.u[i], sol.sol.u[j])
-        end
-    end
-
-    for i=1:sol.N_mc
-        for j=i:sol.N_mc
-            D[i,j] = D[j,i]
-        end
-    end
-    D
-end
-distance_matrix_dense(sol::myMCSol) = distance_matrix_dense(sol, weighted_norm)
-
-# also includes the parameters into the distances calculation, thus favoring pairs that have similar parameters. uses the relative parameter distance. needs parameter from combined ic-par matrix as input, so that length(par)==N_mc
-function distance_matrix_dense(sol::myMCSol, par::AbstractArray, distance_func::Function)
-    # transform parameter vector to measure the relative distances
-    min_par = minimum(par)
-    max_par = maximum(par)
-    par_range = max_par - min_par
-    par_rel = (par .- min_par)./par_range
-
-    D = zeros((sol.N_mc, sol.N_mc))
-    for i=1:sol.N_mc
-        xi = tuple(sol.sol.u[i]..., par_rel[i]) # deepcopy cause the push! would also modify the original sol object
-        for j=1:i
-            xj = tuple(sol.sol.u[j]..., par_rel[j])
-            D[i,j] = distance_func(xi,xj)
-        end
-    end
-
-    for i=1:sol.N_mc
-        for j=i:sol.N_mc
-            D[i,j] = D[j,i]
-        end
-    end
-    D
-end
-distance_matrix_dense(sol::myMCSol, par::AbstractArray) = distance_matrix_dense(sol, par, (x,y) -> weighted_norm(x,y,[1.,0.5,0.5,0.25,1]))
 
 # test distance matrix to output pairwisematrix to save memory.
 # also incorporates the parameter values as additional weights
