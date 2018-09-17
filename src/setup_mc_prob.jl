@@ -44,6 +44,11 @@ end
 BifAnaMCProblem(p::DEProblem, ic_gens::Function, N_ic::Int, pars::DEParameters, par_range_tuple::Tuple{Symbol,Union{AbstractArray,Function}}, eval_ode_func::Function, tail_frac::Number) = BifAnaMCProblem(p, [ic_gens], N_ic, pars, par_range_tuple, eval_ode_func, tail_frac)
 BifAnaMCProblem(p::DEProblem, ic_gens::Union{Array{<:Function,1},Function}, N_ic::Int, pars::DEParameters, par_range_tuple::Tuple{Symbol,Union{AbstractArray,Function}}, eval_ode_func::Function) = BifAnaMCProblem(p,ic_gens,N_ic,pars,par_range_tuple,eval_ode_func, 0.9)
 
+# utility function that returns the parameter of a BifAnaMCProblem
+parameter(p::BifAnaMCProblem) = p.ic_par[:,end]
+
+
+
 # define structs for maps and custom solve based on dynamical systems library or discrete Problem
 
 struct myMCSol
