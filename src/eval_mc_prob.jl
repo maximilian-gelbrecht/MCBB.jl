@@ -97,22 +97,35 @@ function check_inf_nan(sol::myMCSol)
 end
 
 # empirical_1D_KL_divergence
-# NOT USED by default (instead the Perez-Cruz estimate below is used)
 #
 # based on histograms (might actually not be a good estimator for KL)
 # u :: Input Array
 # reference pdf: e.g. Normal(mean,std)
 # hist_bins: number of bins of the histogram to estimate the empirical pdf of the data
-function empirical_1D_KL_divergence_hist(u::AbstractArray, reference_pdf::Distributions.UnivariateDistribution, hist_bins::Int)
-    hist = StatsBase.fit(StatsBase.Histogram, u; closed=:left, nbins=hist_bins)
-    hist = StatsBase.normalize(hist)
-    bin_centers = @. hist.edges[1] + 0.5*(hist.edges[1][2] - hist.edges[1][1])
-    refpdf_discrete = Distributions.pdf.(reference_pdf, bin_centers[1:end-1])
+# n_stds: Interval that the histogram covers in numbers of stds (it covers  mean +/- n_stds*std)
+function empirical_1D_KL_divergence_hist(u::AbstractArray, reference_pdf::Distributions.UnivariateDistribution, hist_bins::Int, n_stds::Number=3)
 
-    StatsBase.kldivergence(hist.weights, refpdf_discrete)
+   # first we calculate the bins (automatic bin calculation leads to errors)
+   # they range from mean-3*sigma to mean+3*sigma 
+   if iseven(hist_bins)
+       hist_bins += 1
+   end
+   k = (hist_bins - 1)/2. # number of bins on each side of the histogram
+   bin_width = (n_stds*std) / k
+   bin_centers = -k*bin_width:bin_width:k*bin_width
+   bin_edges = bin_centers .- bin_width/2.
+   push!(bin_edges, k*bin_width + bin_width/2.)
+
+   hist = StatsBase.fit(StatsBase.Histogram, u, StatsBase.AnalyticWeights(ones(length(u))), bin_edges; closed=:left)
+   StatsBase.normalize!(hist, mode=:probability)
+
+   reference_pdf = Distributions.Normal(mu,std)
+   refpdf_discrete = Distributions.pdf.(reference_pdf, bin_centers)
+   refpdf_discrete ./= sum(refpdf_discrete)
+   StatsBase.kldivergence(hist.weights, refpdf_discrete)
 end
 
-function empirical_1D_KL_divergence_hist(u::AbstractArray, mu::Number, sig::Number, N_bins::Int64=25)
+function empirical_1D_KL_divergence_hist(u::AbstractArray, mu::Number, sig::Number, N_bins::Int64=31)
     if sig < 1e-10
         return 0.
     else
