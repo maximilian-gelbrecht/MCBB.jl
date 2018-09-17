@@ -12,17 +12,17 @@ abstract type myMCProblem end
 # Usage:
 # p - Basic Differential Equations Problem [DiscreteProblem, ODEProblem, SDEProblem] are supported so far
 # ic_gens - Array of Functions or Array of Numbers/Ranges, sets or generates the initial cond per dimension
-# N_ic - if ic_gens is a array of functions / ICs generators, this is the total number of ICs that should be generated
+# N_ic - if ic_gens is a array of functions / ICs generators, this is the total number of ICs that should be generated, if ic_gens is an Array of AbstractArray this argument is omited and not included in the function call
 # pars - Parameter Instance of the Problem
 # par_range_tupe - tuple with Symbol that is the name of the Parameter that should be varied and range or functions that governs how the Parameter is varied
 # eval_ode_func - evalalution function for the MonteCarloProblem
-# tail_frac - float [0,1] (relative) time after which the trajectory/solution is saved and evaluated
+# tail_frac - float [0,1] (relative) time after which the trajectory/solution is saved and evaluated, default value 0.9
 #
 struct BifAnaMCProblem <: myMCProblem
     p::MonteCarloProblem
     N_mc::Int64
     rel_transient_time::Float64 # float [0,1] (relative) time after which the trajectory/solution is saved and evaluated
-    ic_par::AbstractArray
+    ic_par::AbstractArray # matrix that stores all ICs and Pars for each run
 
     # inner constructer used for randomized ICs
     function BifAnaMCProblem(p::DEProblem, ic_gens::Array{<:Function,1}, N_ic::Int, pars::DEParameters, par_range_tuple::Tuple{Symbol,Union{AbstractArray,Function}}, eval_ode_func::Function, tail_frac::Number)
@@ -42,6 +42,8 @@ struct BifAnaMCProblem <: myMCProblem
     BifAnaMCProblem(p::MonteCarloProblem, N_mc::Int64, rel_transient_time::Float64, ic_par::AbstractArray) = new(p, N_mc, rel_transient_time, ic_par)
 end
 BifAnaMCProblem(p::DEProblem, ic_gens::Function, N_ic::Int, pars::DEParameters, par_range_tuple::Tuple{Symbol,Union{AbstractArray,Function}}, eval_ode_func::Function, tail_frac::Number) = BifAnaMCProblem(p, [ic_gens], N_ic, pars, par_range_tuple, eval_ode_func, tail_frac)
+BifAnaMCProblem(p::DEProblem, ic_gens::Union{Array{<:Function,1},Function}, N_ic::Int, pars::DEParameters, par_range_tuple::Tuple{Symbol,Union{AbstractArray,Function}}, eval_ode_func::Function) = BifAnaMCProblem(p,ic_gens,N_ic,pars,par_range_tuple,eval_ode_func, 0.9)
+
 # define structs for maps and custom solve based on dynamical systems library or discrete Problem
 
 struct myMCSol
