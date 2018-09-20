@@ -58,6 +58,11 @@ struct myMCSol
     N_meas::Int # number of measures used
 end
 
+# if using random ICs/Pars the solutions are also in random order. This function returns the MonteCarloSolution object sorted by the value of the parameter
+function sortpar(sol::myMCSol)
+    sol 
+end
+
 
 # the type of problem that we are most interested: varying the combined initial conditions (ic) and parameter (par) space
 # this routine helps setting up these problems

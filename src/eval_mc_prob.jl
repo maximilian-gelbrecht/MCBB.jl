@@ -116,7 +116,7 @@ function empirical_1D_KL_divergence_hist(u::AbstractArray, mu::Number, sig::Numb
        hist_bins += 1
    end
    k = (hist_bins - 1)/2. # number of bins on each side of the histogram
-   bin_width = (n_stds*std) / k
+   bin_width = (n_stds*sig) / k
    bin_centers = -k*bin_width:bin_width:k*bin_width
    bin_edges = bin_centers .- bin_width/2.
    push!(bin_edges, k*bin_width + bin_width/2.)
@@ -124,7 +124,7 @@ function empirical_1D_KL_divergence_hist(u::AbstractArray, mu::Number, sig::Numb
    hist = StatsBase.fit(StatsBase.Histogram, u, StatsBase.AnalyticWeights(ones(length(u))), bin_edges; closed=:left)
    StatsBase.normalize!(hist, mode=:probability)
 
-   reference_pdf = Distributions.Normal(mu,std)
+   reference_pdf = Distributions.Normal(mu,sig)
    refpdf_discrete = Distributions.pdf.(reference_pdf, bin_centers)
    refpdf_discrete ./= sum(refpdf_discrete)
    StatsBase.kldivergence(hist.weights, refpdf_discrete)
