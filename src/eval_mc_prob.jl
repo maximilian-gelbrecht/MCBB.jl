@@ -103,10 +103,12 @@ end
 # reference pdf: e.g. Normal(mean,std)
 # hist_bins: number of bins of the histogram to estimate the empirical pdf of the data
 # n_stds: Interval that the histogram covers in numbers of stds (it covers  mean +/- n_stds*std)
-function empirical_1D_KL_divergence_hist(u::AbstractArray, reference_pdf::Distributions.UnivariateDistribution, hist_bins::Int, n_stds::Number=3)
+function empirical_1D_KL_divergence_hist(u::AbstractArray, mu::Number, sig::Number, hist_bins::Int, n_stds::Number=3)
+
 
    # first we calculate the bins (automatic bin calculation leads to errors)
-   # they range from mean-3*sigma to mean+3*sigma 
+   # they range from mean-3*sigma to mean+3*sigma
+   reference_pdf =  Distributions.Normal(mu,sig)
    if iseven(hist_bins)
        hist_bins += 1
    end
@@ -129,7 +131,7 @@ function empirical_1D_KL_divergence_hist(u::AbstractArray, mu::Number, sig::Numb
     if sig < 1e-10
         return 0.
     else
-        return empirical_1D_KL_divergence_hist(u, Distributions.Normal(mu,sig), N_bins)
+        return empirical_1D_KL_divergence_hist(u, mu, sig, N_bins)
     end
 end
 
