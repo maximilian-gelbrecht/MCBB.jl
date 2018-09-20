@@ -62,13 +62,27 @@ end
 # if using random ICs/Pars the solutions are also in random order. This function returns the MonteCarloSolution object sorted by the value of the parameter
 function sort(sol::myMCSol, prob::BifAnaMCProblem)
     sol_copy = deepcopy(sol)
-    sort!(sol, prob)
+    prob_copy = deepcopy(prob)
+    sort!(sol_copy, prob)
+    sort!(prob_copy)
+    (sol_copy, prob_copy)
 end
 
 function sort!(sol::myMCSol, prob::BifAnaMCProblem)
     p = parameter(prob)
     sortind = sortperm(p)
     sol.sol[:] = sol.sol[sortind]
+end
+
+function sort(prob::BifAnaMCProblem)
+    prob_copy = deepcopy(prob)
+    sort!(prob_copy)
+    prob_copy
+end
+
+function sort!(prob::BifAnaMCProblem)
+    sortind = sortperm(parameter(prob))
+    prob.ic_par[:,:] = prob.ic_par[sortind,:]
 end
 
 
