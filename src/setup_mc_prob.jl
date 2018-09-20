@@ -3,6 +3,7 @@
 ###########
 using DifferentialEquations
 import DifferentialEquations.solve # this needs to be directly importet in order to extend it with our own solve() for our own problem struct
+import sort, sort!
 
 # define a custom ODE Problem type, so that we can also define a custom solve for it!
 abstract type myMCProblem end
@@ -59,8 +60,15 @@ struct myMCSol
 end
 
 # if using random ICs/Pars the solutions are also in random order. This function returns the MonteCarloSolution object sorted by the value of the parameter
-function sortpar(sol::myMCSol)
-    sol 
+function sort(sol::myMCSol, prob::BifAnaMCProblem)
+    sol_copy = deepcopy(sol)
+    sort!(sol, prob)
+end
+
+function sort!(sol::myMCSol, prob::BifAnaMCProblem)
+    p = parameter(prob)
+    sortind = sortperm(p)
+    sol.sol = sol.sol[sortind]
 end
 
 
