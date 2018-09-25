@@ -104,37 +104,54 @@ end
 #   prob :: ODEProblem that defines the problem (ics and pars are irrelevant)
 #   ic_ranges :: array with ranges (eg. 0:0.1:10) that ics are varyied. in same order as in the definition of the dynamical system. (AbstractArray are both Arrays and Ranges!)
 #   parameters :: parameter struct of the ODE
-#   var_par :: tuple of the field name of the parameter (as symbol) to vary and the range in which it should vary, e.g. (:K, 0:0.1:1)
+#   var_par :: tuple of the field name of the parameter (as symbol) to vary and the range in which it should vary, e.g. (:K, 0:0.1:1) and a function that returns a new set of parameters: the default is reconstruct from Parameters.jl / @with_kw, the function needs to be able to called like: var_par[3](old_par; (var_par[1],new_value)). This is possible e.g. with an inner constructer (with one keyword). See Kuramoto Chain as an example
 #
 # returns:
 #   ic_par_problem :: function mapping (prob, i, repeat) tuple to new ODEProblem, needed by MonteCarloProblem
 #   ic_par :: N_mc x N_dim sized array that holds the values of the ICs and parameters for each Iteration
 #   N_mc :: int, number of ODEProblems to solve, needed for solve()
-function setup_ic_par_mc_problem(prob::ODEProblem, ic_ranges::Array{T,1}, parameters::DEParameters, var_par::Tuple{Symbol,AbstractArray,<:Function}) where T <: AbstractArray
+function setup_ic_par_mc_problem(prob::ODEProblem, ic_ranges::Array{T,1}, parameters::DEParameters, var_par::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function},Tuple{Symbol,Union{AbstractArray,Function}}}) where T <: AbstractArray
     N_dim_ic = length(ic_ranges)
     N_dim = N_dim_ic + 1
 
+    if length(var_par)==2
+        new_var_par = (var_par[1],var_par[2],reconstruct)
+        var_par = new_var_par
+    end
+
     # construct a 2d-array that holds all the ICs and Parameters for the MonteCarlo run
     (ic_par, N_mc) = _ic_par_matrix(N_dim_ic, N_dim, ic_ranges, var_par)
-    ic_par_problem = (prob, i, repeat) -> ODEProblem(prob.f, ic_par[i,1:N_dim_ic], prob.tspan, reconstruct(parameters; (var_par[1], ic_par[i,N_dim])))
+    ic_par_problem = (prob, i, repeat) -> ODEProblem(prob.f, ic_par[i,1:N_dim_ic], prob.tspan, var_par[3](parameters; (var_par[1], ic_par[i,N_dim])))
     (ic_par_problem, ic_par, N_mc)
 end
 
 # TO-DO: one could probably combine both methods by using remake()
 # type unions
-function setup_ic_par_mc_problem(prob::DiscreteProblem, ic_ranges::Array{T,1}, parameters::DEParameters, var_par::Tuple{Symbol,Union{AbstractArray,Function},<:Function}) where T <: AbstractArray
+function setup_ic_par_mc_problem(prob::DiscreteProblem, ic_ranges::Array{T,1}, parameters::DEParameters, var_par::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function},Tuple{Symbol,Union{AbstractArray,Function}}}) where T <: AbstractArray
     N_dim_ic = length(ic_ranges)
     N_dim = N_dim_ic + 1
+
+    if length(var_par)==2
+        new_var_par = (var_par[1],var_par[2],reconstruct)
+        var_par = new_var_par
+    end
+
     (ic_par, N_mc) = _ic_par_matrix(N_dim_ic, N_dim, ic_ranges, var_par)
-    ic_par_problem = (prob, i, repeat) -> DiscreteProblem(prob.f, ic_par[i,1:N_dim_ic], prob.tspan, reconstruct(parameters; (var_par[1], ic_par[i,N_dim])))
+    ic_par_problem = (prob, i, repeat) -> DiscreteProblem(prob.f, ic_par[i,1:N_dim_ic], prob.tspan, var_par[3](parameters; (var_par[1], ic_par[i,N_dim])))
     (ic_par_problem, ic_par, N_mc)
 end
 
-function setup_ic_par_mc_problem(prob::SDEProblem, ic_ranges::Array{T,1}, parameters::DEParameters, var_par::Tuple{Symbol,Union{AbstractArray,Function},<:Function}) where T <: AbstractArray
+function setup_ic_par_mc_problem(prob::SDEProblem, ic_ranges::Array{T,1}, parameters::DEParameters, var_par::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function},Tuple{Symbol,Union{AbstractArray,Function}}}) where T <: AbstractArray
     N_dim_ic = length(ic_ranges)
     N_dim = N_dim_ic + 1
+
+    if length(var_par)==2
+        new_var_par = (var_par[1],var_par[2],reconstruct)
+        var_par = new_var_par
+    end
+
     (ic_par, N_mc) = _ic_par_matrix(N_dim_ic, N_dim, ic_ranges, var_par)
-    ic_par_problem = (prob, i, repeat) -> SDEProblem(prob.f, prob.g, ic_par[i,1:N_dim_ic], prob.tspan, reconstruct(parameters; (var_par[1], ic_par[i,N_dim])))
+    ic_par_problem = (prob, i, repeat) -> SDEProblem(prob.f, prob.g, ic_par[i,1:N_dim_ic], prob.tspan, var_par[3](parameters; (var_par[1], ic_par[i,N_dim])))
     (ic_par_problem, ic_par, N_mc)
 end
 
@@ -146,6 +163,7 @@ function setup_ic_par_mc_problem(prob::DEProblem, ic_gens::Array{<:Function,1}, 
         new_var_par = (var_par[1],var_par[2],reconstruct)
         var_par = new_var_par
     end
+
     (ic_par, N_mc) = _ic_par_matrix(N_dim_ic, N_dim, N_ic, ic_gens, var_par)
     #ic_par_problem = (prob, i, repeat) -> ODEProblem(prob.f, ic_par[i,1:N_dim_ic], prob.tspan, reconstruct(parameters; (var_par[1], ic_par[i,N_dim])))
 
@@ -199,7 +217,7 @@ end
 
 # helper function for setup_ic_par_mc_problem()
 # uses ranges for the initial cond.
-function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, ic_ranges::Array{T,1}, var_par::Tuple{Symbol,AbstractArray}) where T <: AbstractArray
+function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, ic_ranges::Array{T,1}, var_par::Tuple{Symbol,AbstractArray,<:Function}) where T <: AbstractArray
     N_ic_pars = zeros(Int, N_dim)
     for (i_range, ic_range) in enumerate(ic_ranges)
         N_ic_pars[i_range] = length(collect(ic_range))
@@ -248,7 +266,7 @@ end
 
 # helper function for setup_ic_par_mc_problem()
 # uses (random) generator functions for the initial cond.
-function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, N_ic::Int, ic_gens::Array{T,1},  var_par::Tuple{Symbol,AbstractArray}) where T<:Function
+function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, N_ic::Int, ic_gens::Array{T,1},  var_par::Tuple{Symbol,AbstractArray,<:Function}) where T<:Function
     N_ic_pars = (N_ic, length(collect(var_par[2])))
     N_mc = prod(N_ic_pars)
     N_gens = length(ic_gens)
