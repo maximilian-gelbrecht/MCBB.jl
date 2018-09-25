@@ -74,7 +74,7 @@ struct second_order_kuramoto_chain_parameters <: DEParameters
     drive::Array{Float64}
     perturbation::Array{Float64}
 
-    function parameters(sys_size::Int)
+    function second_order_kuramoto_chain_parameters(sys_size::Int)
         new(sys_size,
             0.1,
             8.,
@@ -82,7 +82,7 @@ struct second_order_kuramoto_chain_parameters <: DEParameters
             [i < sys_size + 1 ? 0. : 1. for i = 1:2*sys_size])
     end
 
-    function parameters(p::second_order_kuramoto_chain_parameters; sigma::Float64=1.)
+    function second_order_kuramoto_chain_parameters(p::second_order_kuramoto_chain_parameters; sigma::Float64=1.)
         new(p.systemsize,
             p.damping,
             p.coupling,
