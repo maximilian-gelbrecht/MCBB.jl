@@ -152,7 +152,7 @@ function setup_ic_par_mc_problem(prob::DEProblem, ic_gens::Array{<:Function,1}, 
     ic_par_problem = define_new_problem(prob, ic_par, parameters, N_dim_ic, ic_gens, var_par)
     (ic_par_problem, ic_par, N_mc)
 end
-setup_ic_par_mc_problem(prob::DEProblem, ic_gens::Function, N_ic::Int, parameters::DEParameters, var_par::Tuple{Symbol,Union{AbstractArray,Function},<:Function}) = setup_ic_par_mc_problem(prob, [ic_gens], N_ic, parameters, var_par)
+setup_ic_par_mc_problem(prob::DEProblem, ic_gens::Function, N_ic::Int, parameters::DEParameters, var_par::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function},Tuple{Symbol,Union{AbstractArray,Function}}}) = setup_ic_par_mc_problem(prob, [ic_gens], N_ic, parameters, var_par)
 
 # functions defining new problems that generate new ics when the trial needs to be repeated
 function define_new_problem(prob::ODEProblem, ic_par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::Array{T,1}, var_par::Tuple{Symbol,Union{AbstractArray,Function},<:Function}) where T <: Function
@@ -165,18 +165,18 @@ end
 
 # same but for Discrete Problems
 # TO-DO: one could probably combine both methods by using remake()
-function define_new_problem(prob::DiscreteProblem, ic_par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::Array{T,1}, var_par::Tuple{Symbol,Union{AbstractArray,Function}}) where T <: Function
+function define_new_problem(prob::DiscreteProblem, ic_par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::Array{<:Function,1}, var_par::Tuple{Symbol,Union{AbstractArray,Function},<:Function})
     function new_problem(prob, i, repeat)
         _repeat_check(repeat, ic_par, ic_gens)
-        DiscreteProblem(prob.f, ic_par[i,1:N_dim_ic], prob.tspan,  reconstruct(parameters; (var_par[1], ic_par[i,N_dim_ic+1])))
+        DiscreteProblem(prob.f, ic_par[i,1:N_dim_ic], prob.tspan,  var_par[3](parameters; (var_par[1], ic_par[i,N_dim_ic+1])))
     end
     new_problem
 end
 
-function define_new_problem(prob::SDEProblem, ic_par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::Array{T,1}, var_par::Tuple{Symbol,Union{AbstractArray,Function}}) where T <: Function
+function define_new_problem(prob::SDEProblem, ic_par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::Array{<:Function,1}, var_par::Tuple{Symbol,Union{AbstractArray,Function},<:Function})
     function new_problem(prob, i, repeat)
         _repeat_check(repeat, ic_par, ic_gens)
-        SDEProblem(prob.f, prob.g, ic_par[i,1:N_dim_ic], prob.tspan,  reconstruct(parameters; (var_par[1], ic_par[i,N_dim_ic+1])))
+        SDEProblem(prob.f, prob.g, ic_par[i,1:N_dim_ic], prob.tspan,  var_par[3](parameters; (var_par[1], ic_par[i,N_dim_ic+1])))
     end
     new_problem
 end
