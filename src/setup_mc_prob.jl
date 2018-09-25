@@ -26,14 +26,14 @@ struct BifAnaMCProblem <: myMCProblem
     ic_par::AbstractArray # matrix that stores all ICs and Pars for each run
 
     # inner constructer used for randomized ICs
-    function BifAnaMCProblem(p::DEProblem, ic_gens::Array{<:Function,1}, N_ic::Int, pars::DEParameters, par_range_tuple::Tuple{Symbol,Union{AbstractArray,Function}}, eval_ode_func::Function, tail_frac::Number)
+    function BifAnaMCProblem(p::DEProblem, ic_gens::Array{<:Function,1}, N_ic::Int, pars::DEParameters, par_range_tuple::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function},Tuple{Symbol,Union{AbstractArray,Function}}}, eval_ode_func::Function, tail_frac::Number)
         (ic_coupling_problem, ic_par, N_mc) = setup_ic_par_mc_problem(p, ic_gens, N_ic, pars, par_range_tuple)
         mcp = MonteCarloProblem(p, prob_func=ic_coupling_problem, output_func=eval_ode_func)
         new(mcp, N_mc, tail_frac, ic_par)
     end
 
     # inner constructer used for non-randomized ICs
-    function BifAnaMCProblem(p::DEProblem, ic_ranges::Array{<:AbstractArray,1}, pars::DEParameters, par_range_tuple::Tuple{Symbol,Union{AbstractArray,Function}}, eval_ode_func::Function, tail_frac::Number)
+    function BifAnaMCProblem(p::DEProblem, ic_ranges::Array{<:AbstractArray,1}, pars::DEParameters, par_range_tuple::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function},Tuple{Symbol,Union{AbstractArray,Function}}}, eval_ode_func::Function, tail_frac::Number)
         (ic_coupling_problem, ic_par, N_mc) = setup_ic_par_mc_problem(p, ic_ranges, pars, par_range_tuple)
         mcp = MonteCarloProblem(p, prob_func=ic_coupling_problem, output_func=eval_ode_func)
         new(mcp, N_mc, tail_frac, ic_par)
@@ -42,8 +42,8 @@ struct BifAnaMCProblem <: myMCProblem
     # Direct Constructor
     BifAnaMCProblem(p::MonteCarloProblem, N_mc::Int64, rel_transient_time::Float64, ic_par::AbstractArray) = new(p, N_mc, rel_transient_time, ic_par)
 end
-BifAnaMCProblem(p::DEProblem, ic_gens::Function, N_ic::Int, pars::DEParameters, par_range_tuple::Tuple{Symbol,Union{AbstractArray,Function}}, eval_ode_func::Function, tail_frac::Number) = BifAnaMCProblem(p, [ic_gens], N_ic, pars, par_range_tuple, eval_ode_func, tail_frac)
-BifAnaMCProblem(p::DEProblem, ic_gens::Union{Array{<:Function,1},Function}, N_ic::Int, pars::DEParameters, par_range_tuple::Tuple{Symbol,Union{AbstractArray,Function}}, eval_ode_func::Function) = BifAnaMCProblem(p,ic_gens,N_ic,pars,par_range_tuple,eval_ode_func, 0.9)
+BifAnaMCProblem(p::DEProblem, ic_gens::Function, N_ic::Int, pars::DEParameters, par_range_tuple::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function},Tuple{Symbol,Union{AbstractArray,Function}}}, eval_ode_func::Function, tail_frac::Number) = BifAnaMCProblem(p, [ic_gens], N_ic, pars, par_range_tuple, eval_ode_func, tail_frac)
+BifAnaMCProblem(p::DEProblem, ic_gens::Union{Array{<:Function,1},Function}, N_ic::Int, pars::DEParameters, par_range_tuple::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function},Tuple{Symbol,Union{AbstractArray,Function}}}, eval_ode_func::Function) = BifAnaMCProblem(p,ic_gens,N_ic,pars,par_range_tuple,eval_ode_func, 0.9)
 
 # utility function that returns the parameter of a BifAnaMCProblem
 parameter(p::BifAnaMCProblem) = p.ic_par[:,end]
