@@ -2,6 +2,7 @@
 ##### Systems
 #################
 # The systems are all defined here, because it makes saving and loading results much easier (with e.g. JLD2) if they are part of the library as well.
+# However, one can always define the equations and parameters outside the library as well.
 # TO-DO: also defining all the jacobians would improve the performance of some of the solvers used
 #################
 
