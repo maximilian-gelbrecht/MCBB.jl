@@ -81,7 +81,7 @@ end
             [i < sys_size + 1 ? 0. : 1. for i = 1:2*sys_size])
     end
 
-    function parameters(p::parameters; sigma::Float64=1.)
+    function parameters(p::second_order_kuramoto_chain_parameters; sigma::Float64=1.)
         new(p.systemsize,
             p.damping,
             p.coupling,
