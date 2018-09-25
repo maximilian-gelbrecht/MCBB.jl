@@ -59,7 +59,7 @@ struct myMCSol
     N_meas::Int # number of measures used
 end
 
-# if using random ICs/Pars the solutions are also in random order. This function returns the MonteCarloSolution object sorted by the value of the parameter
+# if using random ICs/Pars the solutions are also in random order. These functions returns the MonteCarloSolution object sorted by the value of the parameter
 function sort(sol::myMCSol, prob::BifAnaMCProblem)
     sol_copy = deepcopy(sol)
     prob_copy = deepcopy(prob)
@@ -83,6 +83,19 @@ end
 function sort!(prob::BifAnaMCProblem)
     sortind = sortperm(parameter(prob))
     prob.ic_par[:,:] = prob.ic_par[sortind,:]
+end
+
+# shows the results for specified parameter values between min_par and max_par
+function show_results(sol::myMCSol, prob::BifAnaMCProblem, min_par::Number, max_par::Number, sorted::Bool=false)
+    if sorted==false
+        (ssol, sprob) = sort(sol, prob)
+    else
+        ssol = sol
+        sprob = prob
+    end
+
+    p = parameter(sprob)
+    sol.sol.u[(p .> min_par) .& (p .< max_par)]
 end
 
 
