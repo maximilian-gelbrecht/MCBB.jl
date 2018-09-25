@@ -98,17 +98,6 @@ function show_results(sol::myMCSol, prob::BifAnaMCProblem, min_par::Number, max_
     ssol.sol.u[(p .> min_par) .& (p .< max_par)]
 end
 
-# struct to help with the variation of the parameters of the DE
-# name: name of the parameter to be changed as symbol
-# new_val: array or generating function of new values
-# new_par: function that constructs new parameter struct, default: reconstruct from Parameters.jl/@with_kw
-struct ParameterVar
-    name::Symbol
-    new_val::Union{AbstractArray,<:Function}
-    new_par::<:Function
-end
-parameter_var(name::Symbol, new_val::Union{AbstractArray,<:Function}) = parameter_var(name, new_val, reconstruct)
-
 
 # the type of problem that we are most interested: varying the combined initial conditions (ic) and parameter (par) space
 # this routine helps setting up these problems
@@ -121,7 +110,7 @@ parameter_var(name::Symbol, new_val::Union{AbstractArray,<:Function}) = paramete
 #   ic_par_problem :: function mapping (prob, i, repeat) tuple to new ODEProblem, needed by MonteCarloProblem
 #   ic_par :: N_mc x N_dim sized array that holds the values of the ICs and parameters for each Iteration
 #   N_mc :: int, number of ODEProblems to solve, needed for solve()
-function setup_ic_par_mc_problem(prob::ODEProblem, ic_ranges::Array{T,1}, parameters::DEParameters, var_par::Tuple{Symbol,AbstractArray}) where T <: AbstractArray
+function setup_ic_par_mc_problem(prob::ODEProblem, ic_ranges::Array{T,1}, parameters::DEParameters, var_par::Tuple{Symbol,AbstractArray,<:Function}) where T <: AbstractArray
     N_dim_ic = length(ic_ranges)
     N_dim = N_dim_ic + 1
 
@@ -133,7 +122,7 @@ end
 
 # TO-DO: one could probably combine both methods by using remake()
 # type unions
-function setup_ic_par_mc_problem(prob::DiscreteProblem, ic_ranges::Array{T,1}, parameters::DEParameters, var_par::Tuple{Symbol,Union{AbstractArray,Function}}) where T <: AbstractArray
+function setup_ic_par_mc_problem(prob::DiscreteProblem, ic_ranges::Array{T,1}, parameters::DEParameters, var_par::Tuple{Symbol,Union{AbstractArray,Function},<:Function}) where T <: AbstractArray
     N_dim_ic = length(ic_ranges)
     N_dim = N_dim_ic + 1
     (ic_par, N_mc) = _ic_par_matrix(N_dim_ic, N_dim, ic_ranges, var_par)
@@ -141,7 +130,7 @@ function setup_ic_par_mc_problem(prob::DiscreteProblem, ic_ranges::Array{T,1}, p
     (ic_par_problem, ic_par, N_mc)
 end
 
-function setup_ic_par_mc_problem(prob::SDEProblem, ic_ranges::Array{T,1}, parameters::DEParameters, var_par::Tuple{Symbol,Union{AbstractArray,Function}}) where T <: AbstractArray
+function setup_ic_par_mc_problem(prob::SDEProblem, ic_ranges::Array{T,1}, parameters::DEParameters, var_par::Tuple{Symbol,Union{AbstractArray,Function},<:Function}) where T <: AbstractArray
     N_dim_ic = length(ic_ranges)
     N_dim = N_dim_ic + 1
     (ic_par, N_mc) = _ic_par_matrix(N_dim_ic, N_dim, ic_ranges, var_par)
@@ -149,21 +138,26 @@ function setup_ic_par_mc_problem(prob::SDEProblem, ic_ranges::Array{T,1}, parame
     (ic_par_problem, ic_par, N_mc)
 end
 
-function setup_ic_par_mc_problem(prob::DEProblem, ic_gens::Array{T,1}, N_ic::Int, parameters::DEParameters, var_par::ParameterVar) where T <: Function
+function setup_ic_par_mc_problem(prob::DEProblem, ic_gens::Array{T,1}, N_ic::Int, parameters::DEParameters, var_par::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function},Tuple{Symbol,Union{AbstractArray,Function}}}) where T <: Function
     N_dim_ic = length(prob.u0)
     N_dim = N_dim_ic + 1
     (ic_par, N_mc) = _ic_par_matrix(N_dim_ic, N_dim, N_ic, ic_gens, var_par)
     #ic_par_problem = (prob, i, repeat) -> ODEProblem(prob.f, ic_par[i,1:N_dim_ic], prob.tspan, reconstruct(parameters; (var_par[1], ic_par[i,N_dim])))
+    if length(var_par)==2
+        new_var_par = (var_par[1],var_par[2],reconstruct)
+        var_par = new_var_par
+    end
+    
     ic_par_problem = define_new_problem(prob, ic_par, parameters, N_dim_ic, ic_gens, var_par)
     (ic_par_problem, ic_par, N_mc)
 end
-setup_ic_par_mc_problem(prob::DEProblem, ic_gens::Function, N_ic::Int, parameters::DEParameters, var_par::ParameterVar) = setup_ic_par_mc_problem(prob, [ic_gens], N_ic, parameters, var_par)
+setup_ic_par_mc_problem(prob::DEProblem, ic_gens::Function, N_ic::Int, parameters::DEParameters, var_par::Tuple{Symbol,Union{AbstractArray,Function},<:Function}) = setup_ic_par_mc_problem(prob, [ic_gens], N_ic, parameters, var_par)
 
 # functions defining new problems that generate new ics when the trial needs to be repeated
-function define_new_problem(prob::ODEProblem, ic_par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::Array{T,1}, var_par::ParameterVar) where T <: Function
+function define_new_problem(prob::ODEProblem, ic_par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::Array{T,1}, var_par::Tuple{Symbol,Union{AbstractArray,Function},<:Function}) where T <: Function
     function new_problem(prob, i, repeat)
         _repeat_check(repeat, ic_par, ic_gens)
-        ODEProblem(prob.f, ic_par[i,1:N_dim_ic], prob.tspan,  var_par.new_par(parameters; (var_par.name, ic_par[i,N_dim_ic+1])))
+        ODEProblem(prob.f, ic_par[i,1:N_dim_ic], prob.tspan,  var_par[3](parameters; (var_par[1], ic_par[i,N_dim_ic+1])))
     end
     new_problem
 end
@@ -232,7 +226,7 @@ end
 
 # helper function for setup_ic_par_mc_problem()
 # uses (random) generator functions for the initial cond. AND the parameter evaluated_solution
-function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, N_ic::Int, ic_gens::Array{T,1},  var_par::ParameterVar) where T<:Function
+function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, N_ic::Int, ic_gens::Array{<:Function,1},  var_par::Tuple{Symbol,Function,<:Function})
     N_gens = length(ic_gens) # without the parameter geneartor
     if N_dim_ic % (N_gens) != 0
         err("Number of initial cond. genators and Number of initial cond. doesn't fit together")
@@ -245,7 +239,7 @@ function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, N_ic::Int, ic_gens::Array{T,1
                 ic_par[i_ic, N_gens*i_gen_steps - (N_gens - i_gen)] = ic_gens[i_gen]()
             end
         end
-        ic_par[i_ic,N_dim] = var_par.new_val()
+        ic_par[i_ic,N_dim] = var_par[2]()
     end
     (ic_par, N_ic)
 end
