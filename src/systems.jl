@@ -66,6 +66,39 @@ function kuramoto_network(du, u, p::kuramoto_network_parameters, t)
     end
 end
 
+@with_kw struct second_order_kuramoto_chain_parameters <: DEParameters
+    systemsize::Int
+    damping::Float64
+    coupling::Float64
+    drive::Array{Float64}
+    perturbation::Array{Float64}
+
+    function parameters(sys_size::Int)
+        new(sys_size,
+            0.1,
+            8.,
+            [isodd(i) ? +1. : -1. for i = 1:sys_size],
+            [i < sys_size + 1 ? 0. : 1. for i = 1:2*sys_size])
+    end
+
+    function parameters(p::parameters; sigma::Float64=1.)
+        new(p.systemsize,
+            p.damping,
+            p.coupling,
+            p.drive,
+            [i < p.systemsize + 1 ? 0. : sigma for i = 1:2*p.systemsize])
+    end
+end
+
+function second_order_kuramoto_chain(du, u, p::second_order_kuramoto_chain_parameters, t)
+    du[1:p.systemsize] .= u[1 + p.systemsize:2*p.systemsize]
+    du[p.systemsize+1] = p.drive[1] - p.damping * u[p.systemsize+1] - p.coupling * (sin(u[1] - u[2]))
+    for i in 2:p.systemsize-1
+        du[p.systemsize + i] = p.drive[i] - p.damping * u[p.systemsize + i] - p.coupling * (sin(u[i] - u[i-1]) + sin(u[i] - u[i+1]))
+    end
+    du[2*p.systemsize] = p.drive[p.systemsize] - p.damping * u[2*p.systemsize] - p.coupling * (sin(u[p.systemsize] - u[p.systemsize-1]))
+end
+
 # order_parameter
 # Kuratomo Order Parameter
 function order_parameter(u::AbstractArray, N::Int)
