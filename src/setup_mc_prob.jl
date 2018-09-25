@@ -15,7 +15,7 @@ abstract type myMCProblem end
 # ic_gens - Array of Functions or Array of Numbers/Ranges, sets or generates the initial cond per dimension
 # N_ic - if ic_gens is a array of functions / ICs generators, this is the total number of ICs that should be generated, if ic_gens is an Array of AbstractArray this argument is omited and not included in the function call
 # pars - Parameter Instance of the Problem
-# par_range_tupe - tuple with Symbol that is the name of the Parameter that should be varied and range or functions that governs how the Parameter is varied
+# par_range_tupe - tuple with Symbol that is the name of the Parameter that should be varied and range or functions that governs how the Parameter is varied, an extra function can be given in case new parameters should be constructed with another function than the default reconstruct from Parameters.jl
 # eval_ode_func - evalalution function for the MonteCarloProblem
 # tail_frac - float [0,1] (relative) time after which the trajectory/solution is saved and evaluated, default value 0.9
 #
@@ -125,8 +125,7 @@ function setup_ic_par_mc_problem(prob::ODEProblem, ic_ranges::Array{T,1}, parame
     (ic_par_problem, ic_par, N_mc)
 end
 
-# TO-DO: one could probably combine both methods by using remake()
-# type unions
+# for discrete problems and non-random ICs
 function setup_ic_par_mc_problem(prob::DiscreteProblem, ic_ranges::Array{T,1}, parameters::DEParameters, var_par::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function},Tuple{Symbol,Union{AbstractArray,Function}}}) where T <: AbstractArray
     N_dim_ic = length(ic_ranges)
     N_dim = N_dim_ic + 1
@@ -141,6 +140,7 @@ function setup_ic_par_mc_problem(prob::DiscreteProblem, ic_ranges::Array{T,1}, p
     (ic_par_problem, ic_par, N_mc)
 end
 
+# for sdeproblems and non-random ICs
 function setup_ic_par_mc_problem(prob::SDEProblem, ic_ranges::Array{T,1}, parameters::DEParameters, var_par::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function},Tuple{Symbol,Union{AbstractArray,Function}}}) where T <: AbstractArray
     N_dim_ic = length(ic_ranges)
     N_dim = N_dim_ic + 1
@@ -155,6 +155,7 @@ function setup_ic_par_mc_problem(prob::SDEProblem, ic_ranges::Array{T,1}, parame
     (ic_par_problem, ic_par, N_mc)
 end
 
+# for all problem types and random ICs
 function setup_ic_par_mc_problem(prob::DEProblem, ic_gens::Array{<:Function,1}, N_ic::Int, parameters::DEParameters, var_par::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function},Tuple{Symbol,Union{AbstractArray,Function}}})
     N_dim_ic = length(prob.u0)
     N_dim = N_dim_ic + 1
@@ -165,8 +166,6 @@ function setup_ic_par_mc_problem(prob::DEProblem, ic_gens::Array{<:Function,1}, 
     end
 
     (ic_par, N_mc) = _ic_par_matrix(N_dim_ic, N_dim, N_ic, ic_gens, var_par)
-    #ic_par_problem = (prob, i, repeat) -> ODEProblem(prob.f, ic_par[i,1:N_dim_ic], prob.tspan, reconstruct(parameters; (var_par[1], ic_par[i,N_dim])))
-
     ic_par_problem = define_new_problem(prob, ic_par, parameters, N_dim_ic, ic_gens, var_par)
     (ic_par_problem, ic_par, N_mc)
 end
@@ -215,7 +214,7 @@ function _repeat_check(repeat, ic_par::AbstractArray, ic_gens::Array{<:Function,
 end
 
 
-# helper function for setup_ic_par_mc_problem()
+# helper function for setup_ic_par_mc_problem(), sets up the big IC-parameter matrix for all runs
 # uses ranges for the initial cond.
 function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, ic_ranges::Array{T,1}, var_par::Tuple{Symbol,AbstractArray,<:Function}) where T <: AbstractArray
     N_ic_pars = zeros(Int, N_dim)
