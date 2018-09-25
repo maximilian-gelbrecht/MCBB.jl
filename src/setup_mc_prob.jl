@@ -95,7 +95,7 @@ function show_results(sol::myMCSol, prob::BifAnaMCProblem, min_par::Number, max_
     end
 
     p = parameter(sprob)
-    sol.sol.u[(p .> min_par) .& (p .< max_par)]
+    ssol.sol.u[(p .> min_par) .& (p .< max_par)]
 end
 
 
