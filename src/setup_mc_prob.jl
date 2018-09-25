@@ -104,10 +104,10 @@ end
 # new_par: function that constructs new parameter struct, default: reconstruct from Parameters.jl/@with_kw
 struct ParameterVar
     name::Symbol
-    new_val::Union{AbstractArray,Function}
-    new_par::Function
+    new_val::Union{AbstractArray,<:Function}
+    new_par::<:Function
 end
-parameter_var(name::Symbol, new_val::Union{AbstractArray,Function}) = parameter_var(name, new_val, reconstruct)
+parameter_var(name::Symbol, new_val::Union{AbstractArray,<:Function}) = parameter_var(name, new_val, reconstruct)
 
 
 # the type of problem that we are most interested: varying the combined initial conditions (ic) and parameter (par) space
