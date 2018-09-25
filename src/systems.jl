@@ -67,7 +67,7 @@ function kuramoto_network(du, u, p::kuramoto_network_parameters, t)
     end
 end
 
-@with_kw struct second_order_kuramoto_chain_parameters <: DEParameters
+struct second_order_kuramoto_chain_parameters <: DEParameters
     systemsize::Int
     damping::Float64
     coupling::Float64
