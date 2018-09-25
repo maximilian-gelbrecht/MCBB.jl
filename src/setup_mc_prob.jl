@@ -138,7 +138,7 @@ function setup_ic_par_mc_problem(prob::SDEProblem, ic_ranges::Array{T,1}, parame
     (ic_par_problem, ic_par, N_mc)
 end
 
-function setup_ic_par_mc_problem(prob::DEProblem, ic_gens::Array{<Function,1}, N_ic::Int, parameters::DEParameters, var_par::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function},Tuple{Symbol,Union{AbstractArray,Function}}})
+function setup_ic_par_mc_problem(prob::DEProblem, ic_gens::Array{<:Function,1}, N_ic::Int, parameters::DEParameters, var_par::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function},Tuple{Symbol,Union{AbstractArray,Function}}})
     N_dim_ic = length(prob.u0)
     N_dim = N_dim_ic + 1
     (ic_par, N_mc) = _ic_par_matrix(N_dim_ic, N_dim, N_ic, ic_gens, var_par)
