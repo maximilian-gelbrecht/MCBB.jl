@@ -141,15 +141,14 @@ end
 function setup_ic_par_mc_problem(prob::DEProblem, ic_gens::Array{<:Function,1}, N_ic::Int, parameters::DEParameters, var_par::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function},Tuple{Symbol,Union{AbstractArray,Function}}})
     N_dim_ic = length(prob.u0)
     N_dim = N_dim_ic + 1
-    (ic_par, N_mc) = _ic_par_matrix(N_dim_ic, N_dim, N_ic, ic_gens, var_par)
-    #ic_par_problem = (prob, i, repeat) -> ODEProblem(prob.f, ic_par[i,1:N_dim_ic], prob.tspan, reconstruct(parameters; (var_par[1], ic_par[i,N_dim])))
-    println(var_par)
-    println(length(var_par))
+
     if length(var_par)==2
         new_var_par = (var_par[1],var_par[2],reconstruct)
         var_par = new_var_par
     end
-    println(var_par)
+    (ic_par, N_mc) = _ic_par_matrix(N_dim_ic, N_dim, N_ic, ic_gens, var_par)
+    #ic_par_problem = (prob, i, repeat) -> ODEProblem(prob.f, ic_par[i,1:N_dim_ic], prob.tspan, reconstruct(parameters; (var_par[1], ic_par[i,N_dim])))
+
     ic_par_problem = define_new_problem(prob, ic_par, parameters, N_dim_ic, ic_gens, var_par)
     (ic_par_problem, ic_par, N_mc)
 end
