@@ -89,6 +89,9 @@ struct second_order_kuramoto_chain_parameters <: DEParameters
             p.drive,
             [i < p.systemsize + 1 ? 0. : sigma for i = 1:2*p.systemsize])
     end
+
+    # direct constructor 
+    second_order_kuramoto_chain_parameters(s::Int, d::Float64, c::Float64, dr::Array{Float64}, p::Array{Float64}) = new(s, d, c, dr, p)
 end
 
 function second_order_kuramoto_chain(du, u, p::second_order_kuramoto_chain_parameters, t)
