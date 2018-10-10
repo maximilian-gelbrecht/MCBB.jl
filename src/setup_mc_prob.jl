@@ -71,6 +71,7 @@ end
 function sort!(sol::myMCSol, prob::BifAnaMCProblem)
     p = parameter(prob)
     sortind = sortperm(p)
+    prob.ic_par[:,:] = prob.ic_par[sortind,:]
     sol.sol[:] = sol.sol[sortind]
 end
 
