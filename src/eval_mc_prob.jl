@@ -64,7 +64,7 @@ function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:
 
     # measures using all dimensions
     for i_meas=1:N_dim_global_measures
-        global_measures[i_meas] = global_eval_funcs[i_meas](sol.u[2:end])
+        global_measures[i_meas] = global_eval_funcs[i_meas](sol[2:end])
     end
     (tuple(dim_measures...,global_measures...),false)
 end
@@ -244,7 +244,8 @@ end
 # could be used as an additional measure for the clustering
 # bounded [0,1]
 #
-function curve_entropy(u::Array{Array{Float64,1},1}, r_eps::Float64=1e-15)
+function curve_entropy(sol::AbstractArray, r_eps::Float64=1e-15)
+    u = sol.u
     D = mcs_diameter(u)
     if D > r_eps
         ce = log(curve_length(u)/D)/log(length(u) - 1)
