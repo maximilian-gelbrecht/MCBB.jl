@@ -74,7 +74,7 @@ function eval_ode_run(sol, i)
     (N_dim, __) = size(sol)
     state_filter = collect(1:N_dim)
     eval_funcs = [empirical_1D_KL_divergence_hist]
-    global_eval_funcs = [curve_entropy]
+    global_eval_funcs = []
     eval_ode_run(sol, i, state_filter, eval_funcs, global_eval_funcs)
 end
 
