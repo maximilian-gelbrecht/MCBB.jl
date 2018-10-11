@@ -64,7 +64,7 @@ function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:
 
     # measures using all dimensions
     for i_meas=1:N_dim_global_measures
-        global_measures[i_meas] = global_eval_funcs[i_meas](sol[2:end])
+        global_measures[i_meas] = global_eval_funcs[i_meas](sol[:,2:end])
     end
     (tuple(dim_measures...,global_measures...),false)
 end
