@@ -245,7 +245,6 @@ end
 # bounded [0,1]
 #
 function curve_entropy(sol::AbstractArray, r_eps::Float64=1e-15)
-    u = sol.u
     D = mcs_diameter(u)
     if D > r_eps
         ce = log(curve_length(u)/D)/log(length(u) - 1)
@@ -255,17 +254,17 @@ function curve_entropy(sol::AbstractArray, r_eps::Float64=1e-15)
     ce
 end
 
-function curve_length(u::Array{Array{Float64,1},1})
+function curve_length(u::AbstractArray)
     L::Float64 = 0.
     for it=2:size(u)[1]
-        L += euclidean(u[it],u[it-1])
+        L += euclidean(u[it,:],u[it-1,:])
     end
     L
 end
 
 # Minimal Covering (Hyper)sphere of the points of the Curve
-function mcs_diameter(u::Array{Array{Float64,1},1})
+function mcs_diameter(u::AbstractArray})
     # miniball routine needs a N_t x d matrix
-    mcs = miniball(transpose(hcat(u...)))
+    mcs = miniball(u)
     2.*sqrt(mcs.squared_radius)
 end
