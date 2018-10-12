@@ -247,7 +247,7 @@ end
 function curve_entropy(sol::AbstractArray, r_eps::Float64=1e-15)
     D = mcs_diameter(u)
     if D > r_eps
-        ce = log(curve_length(u)/D)/log(length(u) - 1)
+        ce = log(curve_length(sol)/D)/log(length(sol) - 1)
     else
         ce = 0. # if the curve is just a point, its entropy is 0 (the logarithm would yield NaN)
     end
