@@ -245,7 +245,7 @@ end
 # bounded [0,1]
 #
 function curve_entropy(sol::AbstractArray, r_eps::Float64=1e-15)
-    D = mcs_diameter(u)
+    D = mcs_diameter(sol)
     if D > r_eps
         ce = log(curve_length(sol)/D)/log(length(sol) - 1)
     else
