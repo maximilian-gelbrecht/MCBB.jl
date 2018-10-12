@@ -263,7 +263,7 @@ function curve_length(u::AbstractArray)
 end
 
 # Minimal Covering (Hyper)sphere of the points of the Curve
-function mcs_diameter(u::AbstractArray})
+function mcs_diameter(u::AbstractArray)
     # miniball routine needs a N_t x d matrix
     mcs = miniball(u)
     2.*sqrt(mcs.squared_radius)
