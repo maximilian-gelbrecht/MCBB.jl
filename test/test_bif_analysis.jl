@@ -11,7 +11,7 @@ r_range = 2:0.1:4
 bap1 = BifAnalysisProblem(dp, (:r,r_range), eval_ode_run)
 
 r_fun = (r_old)->r_old+0.05*rand()
-bap2 = BifAnalysisProblem(dp, (:r,r_fun), 21, eval_ode_run)
+bap2 = BifAnalysisProblem(dp, (:r,r_fun), 21, eval_ode_run, [0.001,0.999])
 
 s1 = solve(bap1)
 s2 = solve(bap2)
@@ -34,4 +34,4 @@ kap2 = BifAnalysisProblem(rp, (:K,K_range), eval_ode_run)
 K_fun = (k_old)->k_old+0.05*rand()
 kap2 = BifAnalysisProblem(rp, (:K,K_fun), 21, eval_ode_run)
 
-true 
+true

@@ -17,29 +17,33 @@ import DifferentialEquations.problem_new_parameters
 #                   - OPTIONAL: a function that maps (old_parameter_instance; (par_range[1],new_parameter_value)) -> new_parameter_instance. Default is 'reconstruct' from @with_kw/Parameters.jl is used
 #       N :: OPTIONAL
 #       eval_ode_run :: function, same as for MonteCarloProblems
-#
+#       ic_bounds:: Bounds for the IC that should not be exceeded
+#       hard_bounds:: If a bound is reached: if true, stops the iteration, false continous with (upper/lower bound as IC)
 
 struct BifAnalysisProblem
     prob::DEProblem # Base DifferentialEquations Problem
     par_range::Tuple{Symbol,Union{AbstractArray,Function},<:Function}
     N::Int64
     eval_func::Function
+    ic_bounds::AbstractArray
+    hard_bounds::Bool
 
     # different constructors for different kinds of par_range tuples...
-    function BifAnalysisProblem(p::DEProblem, par_range::Tuple{Symbol,Union{AbstractArray,Function}},N::Int64, eval_func::Function)
+    function BifAnalysisProblem(p::DEProblem, par_range::Tuple{Symbol,Union{AbstractArray,Function}},N::Int64, eval_func::Function, ic_bounds::AbstractArray=[-Inf,Inf], hard_bounds::Bool=false)
         par_range_tuple = (par_range[1], par_range[2], reconstruct)
         new(p,par_range_tuple,N,eval_func)
     end
 
-    function BifAnalysisProblem(p::DEProblem, par_range::Union{Tuple{Symbol,Union{AbstractArray},<:Function},Tuple{Symbol,Union{AbstractArray}}}, eval_func::Function)
+    function BifAnalysisProblem(p::DEProblem, par_range::Union{Tuple{Symbol,Union{AbstractArray},<:Function},Tuple{Symbol,Union{AbstractArray}}}, eval_func::Function, ic_bounds::AbstractArray=[-Inf,Inf], hard_bounds::Bool=false)
         N = length(par_range[2])
         BifAnalysisProblem(p,par_range,N, eval_func)
     end
 
-    function BifAnalysisProblem(p::DEProblem, par_range::Tuple{Symbol,Union{AbstractArray,Function},<:Function}, N::Int64, eval_func::Function)
+    function BifAnalysisProblem(p::DEProblem, par_range::Tuple{Symbol,Union{AbstractArray,Function},<:Function}, N::Int64, eval_func::Function, ic_bounds::AbstractArray=[-Inf,Inf], hard_bounds::Bool=false)
         new(p,par_range,N,eval_func)
     end
 end
+
 
 # custom solve for the BifAnalysisProblem.
 # Saves and evaluates only after transient at a constant step size
@@ -67,9 +71,21 @@ function solve(prob::BifAnalysisProblem, N_t=400::Int, rel_transient_time::Float
     for istep=2:prob.N
 
         deprob = problem_new_parameters(prob.prob, prob.par_range[3](prob.prob.p; (prob.par_range[1], par_vector[istep])))
-        println("------")
-        println(sol_i[end])
-        deprob = remake(deprob, u0=sol_i[end])
+
+        new_u0 = sol_i[end]
+        if (new_u0 < prob.ic_bounds[1]) | (new_u0 > prob.ic_bounds[2])
+            if prob.hard_bounds
+                return (sol,par_vector)
+            else
+                if new_u0 < prob.ic_bounds[1]
+                    new_u0 = prob_ic_bounds[1]
+                else
+                    new_u0 = prob_ic_bounds[2]
+                end
+            end
+        end
+
+        deprob = remake(deprob, u0=new_u0)
         sol_i = solve_command(deprob)
         push!(sol,eval_ode_run(sol_i, istep)[1])
     end
