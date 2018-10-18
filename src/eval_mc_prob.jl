@@ -103,9 +103,9 @@ end
 # reference pdf: e.g. Normal(mean,std)
 # hist_bins: number of bins of the histogram to estimate the empirical pdf of the data
 # n_stds: Interval that the histogram covers in numbers of stds (it covers  mean +/- n_stds*std)
-function empirical_1D_KL_divergence_hist(u::AbstractArray, mu::Number, sig::Number, hist_bins::Int=31, n_stds::Number=3)
+function empirical_1D_KL_divergence_hist(u::AbstractArray, mu::Number, sig::Number, hist_bins::Int=31, n_stds::Number=3, sig_tol=1e-5::Number)
 
-   if sig < 1e-10 # very small sigmas lead to numerical problems.
+   if sig < 1e-5 # very small sigmas lead to numerical problems.
        return 0. # In the limit sig -> 0, the reference distribution is a delta distribution and the data is constant thus also a delta distribution. hence the distributions are identical and the KL div should be zero.
    end
 
