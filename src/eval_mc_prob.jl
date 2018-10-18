@@ -105,6 +105,12 @@ end
 # n_stds: Interval that the histogram covers in numbers of stds (it covers  mean +/- n_stds*std)
 function empirical_1D_KL_divergence_hist(u::AbstractArray, mu::Number, sig::Number, hist_bins::Int=31, n_stds::Number=3, sig_tol=1e-8::Number)
 
+   if isnan(sig)
+       print(u)
+       print(mu)
+       print(sig)
+   end
+
    if sig < sig_tol # very small sigmas lead to numerical problems.
        return 0. # In the limit sig -> 0, the reference distribution is a delta distribution and the data is constant thus also a delta distribution. hence the distributions are identical and the KL div should be zero.
    end
