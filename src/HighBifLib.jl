@@ -2,8 +2,10 @@ module HighBifLib
 
 # export all functions declared
 export kuramoto_parameters, kuramoto, kuramoto_network_parameters, kuramoto_network, logistic_parameters, logistic, henon_parameters, henon, roessler_parameters, roessler_network, lotka_volterra, lotka_volterra_parameters, second_order_kuramoto_chain, second_order_kuramoto_chain_parameters
-export myMCProblem, BifAnaMCProblem, myMCSol, sort, sort!, parameter, show_results
+export myMCProblem, BifAnaMCProblem, myMCSol, sort, sort!, parameter, show_results, solve
 export ParameterVar
+export tsave_array
+export BifAnalysisProblem
 export setup_ic_par_mc_problem, define_new_problem, eval_ode_run, check_inf_nan
 export distance_matrix, distance_matrix_dense, weighted_norm
 export order_parameter
@@ -27,5 +29,7 @@ include("eval_mc_prob.jl")
 
 # all function and needed needed to evaluate (DBSCAN)-clustering
 include("eval_clustering.jl")
+
+include("bif_analysis.jl")
 
 end
