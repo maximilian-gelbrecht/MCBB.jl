@@ -50,10 +50,10 @@ function solve(prob::BifAnalysisProblem, N_t=400::Int, rel_transient_time::Float
     if typeof(prob.par_range[2])<:Function
 
         par_vector = zeros(prob.N)
-        par_vector[1] = prob.prob.p
+        par_vector[1] = getfield(prob.prob.p,prob.par_range[1])
 
         for istep=2:prob.N
-            par_vector[istep] = par_range[2](par_vector[istep-1])
+            par_vector[istep] = prob.par_range[2](par_vector[istep-1])
         end
     else
         par_vector = prob.par_range[2]
