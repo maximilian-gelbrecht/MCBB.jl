@@ -3,6 +3,7 @@
 ###########
 using DifferentialEquations
 import DifferentialEquations.solve # this needs to be directly importet in order to extend it with our own solve() for our own problem struct
+using Parameters
 import Base.sort, Base.sort!
 
 # define a custom ODE Problem type, so that we can also define a custom solve for it!
@@ -305,7 +306,7 @@ function _new_ics(N_dim_ic::Int, ic_gens::Array{T,1}) where T<:Function
 end
 
 
-# custom solve for the BifAnaMCProblem defined earlier. solves the MonteCarlo Problem for OrdinaryDiffEq, but saves and evaluates only the transient at a constant step size
+# custom solve for the BifAnaMCProblem defined earlier. solves the MonteCarlo Problem for OrdinaryDiffEq, but saves and evaluates only after transient at a constant step size
 # prob :: MC Problem of type defined in this library
 function solve(prob::BifAnaMCProblem, alg=nothing, N_t=400::Int, kwargs...)
     t_save = collect(tsave_array(prob.p.prob, N_t, prob.rel_transient_time))

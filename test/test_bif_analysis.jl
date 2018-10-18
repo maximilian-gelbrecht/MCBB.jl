@@ -2,6 +2,7 @@
 
 using HighBifLib
 using Distributions
+using LightGraphs
 
 pars = logistic_parameters(2.1)
 dp = DiscreteProblem(logistic, [0.5], (0.,100.), pars)
@@ -32,3 +33,5 @@ kap2 = BifAnalysisProblem(rp, (:K,K_range), eval_ode_run)
 
 K_fun = (k_old)->k_old+0.05*rand()
 kap2 = BifAnalysisProblem(rp, (:K,K_fun), 21, eval_ode_run)
+
+true 
