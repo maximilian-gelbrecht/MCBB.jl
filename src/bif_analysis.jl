@@ -65,7 +65,8 @@ function solve(prob::BifAnalysisProblem, N_t=400::Int, rel_transient_time::Float
     sol = []
     push!(sol,eval_ode_run(sol_i, 1)[1])
     for istep=2:prob.N
-
+        print("NEW")
+        print(par_vector[istep])
         deprob = problem_new_parameters(prob.prob, prob.par_range[3](prob.prob.p; (prob.par_range[1], par_vector[istep])))
         deprob = remake(deprob, u0=sol_i[end])
         sol_i = solve_command(deprob)
