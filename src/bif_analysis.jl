@@ -31,16 +31,16 @@ struct BifAnalysisProblem
     # different constructors for different kinds of par_range tuples...
     function BifAnalysisProblem(p::DEProblem, par_range::Tuple{Symbol,Union{AbstractArray,Function}},N::Int64, eval_func::Function, ic_bounds::AbstractArray=[-Inf,Inf], hard_bounds::Bool=false)
         par_range_tuple = (par_range[1], par_range[2], reconstruct)
-        new(p,par_range_tuple,N,eval_func)
+        new(p,par_range_tuple,N,eval_func,ic_bounds,hard_bounds)
     end
 
     function BifAnalysisProblem(p::DEProblem, par_range::Union{Tuple{Symbol,Union{AbstractArray},<:Function},Tuple{Symbol,Union{AbstractArray}}}, eval_func::Function, ic_bounds::AbstractArray=[-Inf,Inf], hard_bounds::Bool=false)
         N = length(par_range[2])
-        BifAnalysisProblem(p,par_range,N, eval_func)
+        BifAnalysisProblem(p,par_range,N, eval_func,ic_bounds,hard_bounds)
     end
 
     function BifAnalysisProblem(p::DEProblem, par_range::Tuple{Symbol,Union{AbstractArray,Function},<:Function}, N::Int64, eval_func::Function, ic_bounds::AbstractArray=[-Inf,Inf], hard_bounds::Bool=false)
-        new(p,par_range,N,eval_func)
+        new(p,par_range,N,eval_func,ic_bounds,hard_bounds)
     end
 end
 
