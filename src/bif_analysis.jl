@@ -81,7 +81,7 @@ function solve(prob::BifAnalysisProblem, N_t=400::Int, rel_transient_time::Float
         # bounds check for new par
         if (par_vector[istep] < prob.par_bounds[1]) | (par_vector[istep] > prob.par_bounds[2])
             if prob.hard_bounds
-                return (sol,par_vector[1:istep])
+                return BifAnalysisSolution(sol,par_vector[1:istep])
             else
                 if (par_vector[istep] < prob.par_bounds[1])
                     par_vector[istep] = prob.par_bounds[1]
@@ -98,7 +98,7 @@ function solve(prob::BifAnalysisProblem, N_t=400::Int, rel_transient_time::Float
         # bounds check of new IC
         if (sum(new_u0 .< prob.ic_bounds[1])>0) | (sum(new_u0 .> prob.ic_bounds[2])<0)
             if prob.hard_bounds
-                return (sol,par_vector[1:step])
+                return BifAnalysisSolution(sol,par_vector[1:step])
             else
                 if (sum(new_u0 .< prob.ic_bounds[1])>0) < prob.ic_bounds[1]
                     new_u0[new_u0 .< prob.ic_bounds[1]] = prob.ic_bounds[1]
