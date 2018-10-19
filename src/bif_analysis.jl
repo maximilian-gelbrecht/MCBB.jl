@@ -18,6 +18,7 @@ import DifferentialEquations.problem_new_parameters
 #       N :: OPTIONAL
 #       eval_ode_run :: function, same as for MonteCarloProblems
 #       ic_bounds:: Bounds for the IC that should not be exceeded
+#       par_bounds:: Bounds for the parameter that should not be exceeded
 #       hard_bounds:: If a bound is reached: if true, stops the iteration, false continous with (upper/lower bound as IC)
 
 struct BifAnalysisProblem
@@ -26,25 +27,26 @@ struct BifAnalysisProblem
     N::Int64
     eval_func::Function
     ic_bounds::AbstractArray
+    par_bounds::AbstractArray
     hard_bounds::Bool
 
     # different constructors for different kinds of par_range tuples...
 
     # 1. tuple (Symbol, Function or Array)
-    function BifAnalysisProblem(p::DEProblem, par_range::Tuple{Symbol,Union{AbstractArray,Function}},N::Int64, eval_func::Function, ic_bounds::AbstractArray=[-Inf,Inf], hard_bounds::Bool=false)
+    function BifAnalysisProblem(p::DEProblem, par_range::Tuple{Symbol,Union{AbstractArray,Function}},N::Int64, eval_func::Function, ic_bounds::AbstractArray=[-Inf,Inf], par_bounds::AbstractArray=[-Inf,Inf], hard_bounds::Bool=false)
         par_range_tuple = (par_range[1], par_range[2], reconstruct)
-        new(p,par_range_tuple,N,eval_func,ic_bounds,hard_bounds)
+        new(p,par_range_tuple,N,eval_func,ic_bounds,par_bounds, hard_bounds)
     end
 
     # 2. tuple (Symbol, Function or Array, Function (generator of new paramamter instance))
-    function BifAnalysisProblem(p::DEProblem, par_range::Union{Tuple{Symbol,Union{AbstractArray},<:Function},Tuple{Symbol,Union{AbstractArray}}}, eval_func::Function, ic_bounds::AbstractArray=[-Inf,Inf], hard_bounds::Bool=false)
+    function BifAnalysisProblem(p::DEProblem, par_range::Union{Tuple{Symbol,Union{AbstractArray},<:Function},Tuple{Symbol,Union{AbstractArray}}}, eval_func::Function, ic_bounds::AbstractArray=[-Inf,Inf], par_bounds::AbstractArray=[-Inf,Inf], hard_bounds::Bool=false)
         N = length(par_range[2])
-        BifAnalysisProblem(p,par_range,N, eval_func,ic_bounds,hard_bounds)
+        BifAnalysisProblem(p,par_range,N, eval_func,ic_bounds,par_bounds,hard_bounds)
     end
 
     # direct constructor
-    function BifAnalysisProblem(p::DEProblem, par_range::Tuple{Symbol,Union{AbstractArray,Function},<:Function}, N::Int64, eval_func::Function, ic_bounds::AbstractArray=[-Inf,Inf], hard_bounds::Bool=false)
-        new(p,par_range,N,eval_func,ic_bounds,hard_bounds)
+    function BifAnalysisProblem(p::DEProblem, par_range::Tuple{Symbol,Union{AbstractArray,Function},<:Function}, N::Int64, eval_func::Function, ic_bounds::AbstractArray=[-Inf,Inf],par_bounds::AbstractArray=[-Inf,Inf], hard_bounds::Bool=false)
+        new(p,par_range,N,eval_func,ic_bounds,par_bounds,hard_bounds)
     end
 end
 
