@@ -90,7 +90,9 @@ function solve(prob::BifAnalysisProblem, N_t=400::Int, rel_transient_time::Float
                 end
             end
         end
-
+        print(new_u0)
+        print(par_vector[istep])
+        println("----")
         deprob = remake(deprob, u0=new_u0)
         sol_i = solve_command(deprob)
         push!(sol,eval_ode_run(sol_i, istep)[1])
