@@ -51,7 +51,8 @@ struct BifAnalysisProblem
 end
 
 struct BifAnalysisSolution <: myMCSol
-    sol
+    sol::AbstractArray
+    par_vec::AbstractArray
 end
 
 # custom solve for the BifAnalysisProblem.
