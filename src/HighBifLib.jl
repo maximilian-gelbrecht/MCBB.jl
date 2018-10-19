@@ -1,5 +1,8 @@
 module HighBifLib
 
+abstract type myMCProblem end
+abstract type myMCSol end
+
 # export all functions declared
 export kuramoto_parameters, kuramoto, kuramoto_network_parameters, kuramoto_network, logistic_parameters, logistic, henon_parameters, henon, roessler_parameters, roessler_network, lotka_volterra, lotka_volterra_parameters, second_order_kuramoto_chain, second_order_kuramoto_chain_parameters
 export myMCProblem, BifAnaMCProblem, myMCSol, sort, sort!, parameter, show_results, solve

@@ -50,6 +50,9 @@ struct BifAnalysisProblem
     end
 end
 
+struct BifAnalysisSolution <: myMCSol
+    sol
+end
 
 # custom solve for the BifAnalysisProblem.
 # Saves and evaluates only after transient at a constant step size
@@ -110,7 +113,7 @@ function solve(prob::BifAnalysisProblem, N_t=400::Int, rel_transient_time::Float
         push!(sol,eval_ode_run(sol_i, istep)[1])
     end
 
-    return (sol, par_vector)
+    return BifAnalysisSolution(sol, par_vector)
 end
 
 # weirdly enough there is a problem_new_parameters routine in DiffEqBase for all problems types EXCEPT for discrete problems

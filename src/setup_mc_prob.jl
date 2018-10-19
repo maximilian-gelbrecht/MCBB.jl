@@ -7,7 +7,6 @@ using Parameters
 import Base.sort, Base.sort!
 
 # define a custom ODE Problem type, so that we can also define a custom solve for it!
-abstract type myMCProblem end
 
 # The Main Scruct, defining a new Differential Equation Problem Type with its own solve()
 # It defines a MonteCarloProblem over a initial condition - parameter space and only evaluates the tail of each trajectory
@@ -53,7 +52,7 @@ parameter(p::BifAnaMCProblem) = p.ic_par[:,end]
 
 # define structs for maps and custom solve based on dynamical systems library or discrete Problem
 
-struct myMCSol
+struct BifMCSol <: myMCSol
     sol::MonteCarloSolution
     N_mc::Int   # number of solutions saved / Monte Carlo trials runs
     N_t::Int  # number of time steps for each solutions
@@ -61,7 +60,7 @@ struct myMCSol
 end
 
 # if using random ICs/Pars the solutions are also in random order. These functions returns the MonteCarloSolution object sorted by the value of the parameter
-function sort(sol::myMCSol, prob::BifAnaMCProblem)
+function sort(sol::BifMCSol, prob::BifAnaMCProblem)
     sol_copy = deepcopy(sol)
     prob_copy = deepcopy(prob)
     sort!(sol_copy, prob)
@@ -69,7 +68,7 @@ function sort(sol::myMCSol, prob::BifAnaMCProblem)
     (sol_copy, prob_copy)
 end
 
-function sort!(sol::myMCSol, prob::BifAnaMCProblem)
+function sort!(sol::BifMCSol, prob::BifAnaMCProblem)
     p = parameter(prob)
     sortind = sortperm(p)
     prob.ic_par[:,:] = prob.ic_par[sortind,:]
@@ -88,7 +87,7 @@ function sort!(prob::BifAnaMCProblem)
 end
 
 # shows the results for specified parameter values between min_par and max_par
-function show_results(sol::myMCSol, prob::BifAnaMCProblem, min_par::Number, max_par::Number, sorted::Bool=false)
+function show_results(sol::BifMCSol, prob::BifAnaMCProblem, min_par::Number, max_par::Number, sorted::Bool=false)
     if sorted==false
         (ssol, sprob) = sort(sol, prob)
     else
