@@ -9,7 +9,7 @@ export myMCProblem, BifAnaMCProblem, myMCSol, sort, sort!, parameter, show_resul
 export ParameterVar
 export tsave_array
 export BifAnalysisProblem
-export BifAnalysisSolution, BifMCSol 
+export BifAnalysisSolution, BifMCSol
 export setup_ic_par_mc_problem, define_new_problem, eval_ode_run, check_inf_nan
 export distance_matrix, distance_matrix_dense, weighted_norm
 export order_parameter
