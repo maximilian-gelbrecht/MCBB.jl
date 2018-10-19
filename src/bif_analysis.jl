@@ -75,6 +75,18 @@ function solve(prob::BifAnalysisProblem, N_t=400::Int, rel_transient_time::Float
     sol = []
     push!(sol,eval_ode_run(sol_i, 1)[1])
     for istep=2:prob.N
+        # bounds check for new par
+        if (par_vector[istep] < prob.par_bounds[1]) | (par_vector[istep] > prob.par_bounds[2])
+            if prob.hard_bounds
+                return (sol,par_vector)
+            else
+                if (par_vector[istep] < prob.par_bounds[1])
+                    par_vector[istep] = prob.par_bounds[1]
+                else
+                    par_vector[istep] = prob.par_bounds[2]
+                end
+            end
+        end
 
         deprob = problem_new_parameters(prob.prob, prob.par_range[3](prob.prob.p; (prob.par_range[1], par_vector[istep])))
 
@@ -86,15 +98,13 @@ function solve(prob::BifAnalysisProblem, N_t=400::Int, rel_transient_time::Float
                 return (sol,par_vector)
             else
                 if (sum(new_u0 .< prob.ic_bounds[1])>0) < prob.ic_bounds[1]
-                    new_u0[new_u0 .< prob_ic_bounds[1]] = prob_ic_bounds[1]
+                    new_u0[new_u0 .< prob.ic_bounds[1]] = prob.ic_bounds[1]
                 else
-                    new_u0[new_u0 .> prob_ic_bounds[2]] = prob_ic_bounds[2]
+                    new_u0[new_u0 .> prob.ic_bounds[2]] = prob.ic_bounds[2]
                 end
             end
         end
-        print(new_u0)
-        print(par_vector[istep])
-        println("----")
+
         deprob = remake(deprob, u0=new_u0)
         sol_i = solve_command(deprob)
         push!(sol,eval_ode_run(sol_i, istep)[1])
