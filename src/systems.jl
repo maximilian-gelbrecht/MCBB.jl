@@ -93,7 +93,10 @@ struct second_order_kuramoto_chain_parameters <: DEParameters
     # direct constructor
     second_order_kuramoto_chain_parameters(s::Int, d::Float64, c::Float64, dr::Array{Float64}, p::Array{Float64}) = new(s, d, c, dr, p)
 end
-# test if this works in parallel
+
+# we need to define this extra function to hand it over to to problem struct
+# this is needed because a constructor is not considered a function and an anonymous function would
+# not work in parallel (I don't know why)
 function remake_second_order_kuramoto_chain_paramaters(p::second_order_kuramoto_chain_parameters; sigma::Float64=1.)
     return second_order_kuramoto_chain_parameters(p; sigma=sigma)
 end
