@@ -95,8 +95,8 @@ struct second_order_kuramoto_chain_parameters <: DEParameters
 end
 # test if this works in parallel
 function remake_second_order_kuramoto_chain_paramaters(p::second_order_kuramoto_chain_parameters; sigma::Float64=1.)
-        return second_order_kuramoto_chain_parameters(p, sigma)
-    end 
+    return second_order_kuramoto_chain_parameters(p, sigma)
+end
 
 
 function second_order_kuramoto_chain(du, u, p::second_order_kuramoto_chain_parameters, t)
