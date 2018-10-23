@@ -314,7 +314,7 @@ function solve(prob::BifAnaMCProblem, alg=nothing, N_t=400::Int, kwargs...)
     else
         sol = solve(prob.p, num_monte=prob.N_mc, dense=false, save_everystep=false, saveat=t_save, savestart=false, parallel_type=:parfor; kwargs...)
     end
-    mysol = myMCSol(sol, prob.N_mc, N_t, length(sol[1]))
+    mysol = BifMCSol(sol, prob.N_mc, N_t, length(sol[1]))
 
     inf_nan = check_inf_nan(mysol)
     if (length(inf_nan["Inf"])>0) | (length(inf_nan["NaN"])>0)
