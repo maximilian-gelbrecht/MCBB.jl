@@ -90,9 +90,13 @@ struct second_order_kuramoto_chain_parameters <: DEParameters
             [i < p.systemsize + 1 ? 0. : sigma for i = 1:2*p.systemsize])
     end
 
-    # direct constructor 
+    # direct constructor
     second_order_kuramoto_chain_parameters(s::Int, d::Float64, c::Float64, dr::Array{Float64}, p::Array{Float64}) = new(s, d, c, dr, p)
 end
+# test if this works in parallel
+function remake_second_order_kuramoto_chain_paramaters(p::second_order_kuramoto_chain_parameters; sigma::Float64=1.)
+        return second_order_kuramoto_chain_parameters(p, sigma)
+
 
 function second_order_kuramoto_chain(du, u, p::second_order_kuramoto_chain_parameters, t)
     du[1:p.systemsize] .= u[1 + p.systemsize:2*p.systemsize]
@@ -102,6 +106,7 @@ function second_order_kuramoto_chain(du, u, p::second_order_kuramoto_chain_param
     end
     du[2*p.systemsize] = p.drive[p.systemsize] - p.damping * u[2*p.systemsize] - p.coupling * (sin(u[p.systemsize] - u[p.systemsize-1]))
 end
+
 
 # order_parameter
 # Kuratomo Order Parameter
