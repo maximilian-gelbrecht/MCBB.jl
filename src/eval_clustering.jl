@@ -147,7 +147,9 @@ function cluster_membership(par::AbstractArray, clusters::DbscanResult, window_s
             N_c_i += 1
         end
         if normalize
-            memberships[i, :] /= N_c_i
+            if !(N_c_i == 0)
+                memberships[i, :] /= N_c_i
+            end
         end
     end
     (p_windows, memberships)
