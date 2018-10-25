@@ -82,7 +82,23 @@ struct second_order_kuramoto_chain_parameters <: DEParameters
             [i < sys_size + 1 ? 0. : 1. for i = 1:2*sys_size])
     end
 
-    function second_order_kuramoto_chain_parameters(p::second_order_kuramoto_chain_parameters; sigma::Float64=1.)
+    function second_order_kuramoto_chain_parameters(p::second_order_kuramoto_chain_parameters; sigma::Union{Float64,Nothing}=nothing, coupling::Union{Float64,Nothing}=nothing, damping::Union{Float64,Nothing}=nothing)
+        if coupling==nothing
+            coup = p.coupling
+        else:
+            coup = coupling
+        end
+        if sigma==nothing
+            sig = p.perturbation[1]
+        else:
+            sig = sigma
+        end
+        if damping==nothing
+            damp = p.damping
+        else
+            damp = damping
+        end
+
         new(p.systemsize,
             p.damping,
             p.coupling,
@@ -97,8 +113,8 @@ end
 # we need to define this extra function to hand it over to to problem struct
 # this is needed because a constructor is not considered a function and an anonymous function would
 # not work in parallel (I don't know why)
-function remake_second_order_kuramoto_chain_paramaters(p::second_order_kuramoto_chain_parameters; sigma::Float64=1.)
-    return second_order_kuramoto_chain_parameters(p; sigma=sigma)
+function remake_second_order_kuramoto_chain_paramaters(p::second_order_kuramoto_chain_parameters; sigma::Union{Float64,Nothing}=nothing, damping::Union{Float64,Nothing}=nothing, coupling::Union{Float64,Nothing}=nothing)
+    return second_order_kuramoto_chain_parameters(p; sigma=sigma, damping=damping, coupling=coupling)
 end
 
 
@@ -117,6 +133,13 @@ end
 function order_parameter(u::AbstractArray, N::Int)
     1./N*sqrt((sum(sin.(u)))^2+(sum(cos.(u)))^2)
 end
+
+# reference: Shraiman et al 1992
+#@with_kw struct ginzburg_landau_parameters <: DEParameters
+
+
+#end 
+
 
 # roessler parameters for Roessler Network
 @with_kw struct roessler_parameters <: DEParameters
