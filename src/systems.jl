@@ -100,10 +100,10 @@ struct second_order_kuramoto_chain_parameters <: DEParameters
         end
 
         new(p.systemsize,
-            p.damping,
-            p.coupling,
+            damp,
+            coup,
             p.drive,
-            [i < p.systemsize + 1 ? 0. : sigma for i = 1:2*p.systemsize])
+            [i < p.systemsize + 1 ? 0. : sig for i = 1:2*p.systemsize])
     end
 
     # direct constructor
@@ -138,7 +138,7 @@ end
 #@with_kw struct ginzburg_landau_parameters <: DEParameters
 
 
-#end 
+#end
 
 
 # roessler parameters for Roessler Network
