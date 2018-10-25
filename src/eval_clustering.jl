@@ -31,7 +31,6 @@ function distance_matrix(sol::myMCSol, par::AbstractArray, weights::AbstractArra
     end
     distance_matrix(sol, par, (x,y,p1,p2) -> weighted_norm(x,y,p1,p2,weights))
 end
-distance_matrix(sol::myMCSol, par::AbstractArray) = distance_matrix(sol, par, (x,y,p1,p2) -> weighted_norm(x,y,p1,p2,[1,0.5,0.5,1]))
 
 function distance_matrix(sol::myMCSol, distance_func::Function)
     N_entries = (sol.N_mc * (sol.N_mc - 1)) / 2
