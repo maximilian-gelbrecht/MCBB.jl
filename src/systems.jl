@@ -67,56 +67,12 @@ function kuramoto_network(du, u, p::kuramoto_network_parameters, t)
     end
 end
 
-struct second_order_kuramoto_chain_parameters <: DEParameters
+@with_kw struct second_order_kuramoto_chain_parameters <: DEParameters
     systemsize::Int
     damping::Float64
     coupling::Float64
     drive::Array{Float64}
-    perturbation::Array{Float64}
-
-    function second_order_kuramoto_chain_parameters(sys_size::Int)
-        new(sys_size,
-            0.1,
-            8.,
-            [isodd(i) ? +1. : -1. for i = 1:sys_size],
-            [i < sys_size + 1 ? 0. : 1. for i = 1:2*sys_size])
-    end
-
-    function second_order_kuramoto_chain_parameters(p::second_order_kuramoto_chain_parameters; sigma::Union{Float64,Nothing}=nothing, coupling::Union{Float64,Nothing}=nothing, damping::Union{Float64,Nothing}=nothing)
-        if coupling==nothing
-            coup = p.coupling
-        else:
-            coup = coupling
-        end
-        if sigma==nothing
-            sig = p.perturbation[1]
-        else:
-            sig = sigma
-        end
-        if damping==nothing
-            damp = p.damping
-        else
-            damp = damping
-        end
-
-        new(p.systemsize,
-            damp,
-            coup,
-            p.drive,
-            [i < p.systemsize + 1 ? 0. : sig for i = 1:2*p.systemsize])
-    end
-
-    # direct constructor
-    second_order_kuramoto_chain_parameters(s::Int, d::Float64, c::Float64, dr::Array{Float64}, p::Array{Float64}) = new(s, d, c, dr, p)
 end
-
-# we need to define this extra function to hand it over to to problem struct
-# this is needed because a constructor is not considered a function and an anonymous function would
-# not work in parallel (I don't know why)
-function remake_second_order_kuramoto_chain_paramaters(p::second_order_kuramoto_chain_parameters; sigma::Union{Float64,Nothing}=nothing, damping::Union{Float64,Nothing}=nothing, coupling::Union{Float64,Nothing}=nothing)
-    return second_order_kuramoto_chain_parameters(p; sigma=sigma, damping=damping, coupling=coupling)
-end
-
 
 function second_order_kuramoto_chain(du, u, p::second_order_kuramoto_chain_parameters, t)
     du[1:p.systemsize] .= u[1 + p.systemsize:2*p.systemsize]
