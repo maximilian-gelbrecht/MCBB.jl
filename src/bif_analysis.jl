@@ -29,26 +29,31 @@ struct BifAnalysisProblem
     ic_bounds::AbstractArray
     par_bounds::AbstractArray
     hard_bounds::Bool
+    par::AbstractArray
 
     # different constructors for different kinds of par_range tuples...
 
     # 1. tuple (Symbol, Function or Array)
     function BifAnalysisProblem(p::DEProblem, par_range::Tuple{Symbol,Union{AbstractArray,Function}},N::Int64, eval_func::Function, ic_bounds::AbstractArray=[-Inf,Inf], par_bounds::AbstractArray=[-Inf,Inf], hard_bounds::Bool=false)
         par_range_tuple = (par_range[1], par_range[2], reconstruct)
-        new(p,par_range_tuple,N,eval_func,ic_bounds,par_bounds, hard_bounds)
+        par_vector = compute_parameters(p, par_range, N)
+        new(p,par_range_tuple,N,eval_func,ic_bounds,par_bounds, hard_bounds,par_vector)
     end
 
     # 2. tuple (Symbol, Function or Array, Function (generator of new paramamter instance))
     function BifAnalysisProblem(p::DEProblem, par_range::Union{Tuple{Symbol,Union{AbstractArray},<:Function},Tuple{Symbol,Union{AbstractArray}}}, eval_func::Function, ic_bounds::AbstractArray=[-Inf,Inf], par_bounds::AbstractArray=[-Inf,Inf], hard_bounds::Bool=false)
         N = length(par_range[2])
-        BifAnalysisProblem(p,par_range,N, eval_func,ic_bounds,par_bounds,hard_bounds)
+        par_vector = compute_parameters(p, par_range, N)
+        BifAnalysisProblem(p,par_range,N, eval_func,ic_bounds,par_bounds,hard_bounds,par_vector)
     end
 
     # direct constructor
     function BifAnalysisProblem(p::DEProblem, par_range::Tuple{Symbol,Union{AbstractArray,Function},<:Function}, N::Int64, eval_func::Function, ic_bounds::AbstractArray=[-Inf,Inf],par_bounds::AbstractArray=[-Inf,Inf], hard_bounds::Bool=false)
-        new(p,par_range,N,eval_func,ic_bounds,par_bounds,hard_bounds)
+        par_vector = compute_parameters(p, par_range, N)
+        new(p,par_range,N,eval_func,ic_bounds,par_bounds,hard_bounds,par_vector)
     end
 end
+parameter(prob::BifAnalysisProblem) = prob.par_vector
 
 struct BifAnalysisSolution <: myMCSol
     sol::AbstractArray
@@ -56,16 +61,11 @@ struct BifAnalysisSolution <: myMCSol
     N_mc::Int
 end
 
-# custom solve for the BifAnalysisProblem.
-# Saves and evaluates only after transient at a constant step size
-function solve(prob::BifAnalysisProblem, N_t=400::Int, rel_transient_time::Float64=0.5, kwargs...)
-    t_save = collect(tsave_array(prob.prob, N_t, rel_transient_time))
-
-    # parameter vector
+# computes the parameters that are used for the calculation
+function compute_parameters(p::DEProblem, par_range::Union{Tuple{Symbol, Union{AbstractArray},<:Function}, Tuple{Symbol,Union{AbstractArray}}}, N::Integer)
     if typeof(prob.par_range[2])<:Function
-
-        par_vector = zeros(prob.N)
-        par_vector[1] = getfield(prob.prob.p,prob.par_range[1])
+        par_vector = zeros(N)
+        par_vector[1] = getfield(p,par_range[1])
 
         for istep=2:prob.N
             par_vector[istep] = prob.par_range[2](par_vector[istep-1])
@@ -73,6 +73,15 @@ function solve(prob::BifAnalysisProblem, N_t=400::Int, rel_transient_time::Float
     else
         par_vector = prob.par_range[2]
     end
+    par_vector
+end
+
+# custom solve for the BifAnalysisProblem.
+# Saves and evaluates only after transient at a constant step size
+function solve(prob::BifAnalysisProblem, N_t=400::Int, rel_transient_time::Float64=0.5, kwargs...)
+    t_save = collect(tsave_array(prob.prob, N_t, rel_transient_time))
+
+    par_vector = prob.par_vector
 
     solve_command(prob_in) = solve(prob_in, dense=false, save_everystep=false, saveat=t_save, savestart=false; kwargs...)
 
