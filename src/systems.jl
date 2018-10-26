@@ -69,8 +69,8 @@ end
 
 @with_kw struct second_order_kuramoto_chain_parameters <: DEParameters
     systemsize::Int
-    damping::Float64
-    coupling::Float64
+    damping::Float64 = 0.1
+    coupling::Float64 = 8.
     drive::Array{Float64}
 end
 
@@ -84,6 +84,25 @@ function second_order_kuramoto_chain(du, u, p::second_order_kuramoto_chain_param
 end
 
 
+@with_kw struct non_local_kuramoto_ring_parameters <: DEParameters
+    fak::Float64 # 2pi/N
+    omega_0::Number
+    phase_delay::Number
+    coupling_function::Function
+end
+non_local_kuramoto_parameter(N::Integer, omega_0::Number,phase_delay::Number, coupling_function::Function) = non_local_kuramoto_parameter((2pi)/N, omega_0, phase_delay, coupling_function)
+
+function non_local_kuramoto_ring(du, u, p::non_local_kuramoto_parameter, t)
+    for istep=1:p.N
+        du[istep] = 0
+        for jstep=1:p.N
+            du[istep] += p.coupling_function(fak*(istep - jstep))*sin(u[istep] - u[jstep] + p.phase_delay)
+        end
+        du[istep] /= p.fak
+        du[istep] += p.omega_0
+    end
+end
+
 # order_parameter
 # Kuratomo Order Parameter
 function order_parameter(u::AbstractArray, N::Int)
@@ -95,6 +114,8 @@ end
 
 
 #end
+
+
 
 
 # roessler parameters for Roessler Network
