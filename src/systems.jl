@@ -92,7 +92,7 @@ end
 end
 non_local_kuramoto_parameter(N::Integer, omega_0::Number,phase_delay::Number, coupling_function::Function) = non_local_kuramoto_parameter((2pi)/N, omega_0, phase_delay, coupling_function)
 
-function non_local_kuramoto_ring(du, u, p::non_local_kuramoto_parameters, t)
+function non_local_kuramoto_ring(du, u, p::non_local_kuramoto_ring_parameters, t)
     for istep=1:p.N
         du[istep] = 0
         for jstep=1:p.N
