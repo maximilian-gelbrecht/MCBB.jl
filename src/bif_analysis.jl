@@ -38,20 +38,20 @@ struct BifAnalysisProblem
         par_range = _var_par_check(par_range)
         N = length(par_range[2])
         par_vector = compute_parameters(p, par_range, N)
-        new(p,par_range_tuple,N,eval_func,ic_bounds,par_bounds, hard_bounds,par_vector)
+        new(p, par_range, N, eval_func, ic_bounds, par_bounds, hard_bounds, par_vector)
     end
 
     # 2. tuple has function
     function BifAnalysisProblem(p::DEProblem, par_range::Union{Tuple{Symbol,<:Function,<:Function},Tuple{Symbol,<:Function}}, N::Integer, eval_func::Function, ic_bounds::AbstractArray=[-Inf,Inf], par_bounds::AbstractArray=[-Inf,Inf], hard_bounds::Bool=false)
         par_range = _var_par_check(par_range)
         par_vector = compute_parameters(p, par_range, N)
-        BifAnalysisProblem(p,par_range,N, eval_func,ic_bounds,par_bounds,hard_bounds,par_vector)
+        BifAnalysisProblem(p, par_range, N, eval_func, ic_bounds, par_bounds, hard_bounds, par_vector)
     end
 
     # direct constructor
     function BifAnalysisProblem(p::DEProblem, par_range::Tuple{Symbol,Union{AbstractArray,Function},<:Function}, N::Int64, eval_func::Function, ic_bounds::AbstractArray=[-Inf,Inf],par_bounds::AbstractArray=[-Inf,Inf], hard_bounds::Bool=false)
         par_vector = compute_parameters(p, par_range, N)
-        new(p,par_range,N,eval_func,ic_bounds,par_bounds,hard_bounds,par_vector)
+        new(p, par_range, N, eval_func, ic_bounds, par_bounds, hard_bounds, par_vector)
     end
 end
 parameter(prob::BifAnalysisProblem) = prob.par_vector
