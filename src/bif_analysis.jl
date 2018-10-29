@@ -63,7 +63,7 @@ struct BifAnalysisSolution <: myMCSol
 end
 
 # computes the parameters that are used for the calculation
-function compute_parameters(p::DEProblem, par_range::Union{Tuple{Symbol, Union{AbstractArray},<:Function}, Tuple{Symbol,Union{AbstractArray}}}, N::Integer)
+function compute_parameters(p::DEProblem, par_range::Union{Tuple{Symbol, Union{AbstractArray,<:Function},<:Function}, Tuple{Symbol,Union{AbstractArray,<:Function}}}, N::Integer)
     if typeof(par_range[2])<:Function
         par_vector = zeros(N)
         par_vector[1] = getfield(p.p,par_range[1]) # IC of first DEProblem
