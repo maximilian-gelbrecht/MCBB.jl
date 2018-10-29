@@ -69,7 +69,7 @@ function compute_parameters(p::DEProblem, par_range::Union{Tuple{Symbol, Union{A
         par_vector[1] = getfield(p.p,par_range[1]) # IC of first DEProblem
 
         for istep=2:N
-            par_vector[istep] = p.par_range[2](par_vector[istep-1])
+            par_vector[istep] = par_range[2](par_vector[istep-1])
         end
     else
         par_vector = par_range[2]
