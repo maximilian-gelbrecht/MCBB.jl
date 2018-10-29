@@ -87,7 +87,7 @@ end
 function solve(prob::BifAnalysisProblem, N_t=400::Int, rel_transient_time::Float64=0.5, kwargs...)
     t_save = collect(tsave_array(prob.prob, N_t, rel_transient_time))
 
-    par_vector = prob.par_vector
+    par_vector = prob.par
 
     solve_command(prob_in) = solve(prob_in, dense=false, save_everystep=false, saveat=t_save, savestart=false; kwargs...)
 
