@@ -64,12 +64,12 @@ end
 
 # computes the parameters that are used for the calculation
 function compute_parameters(p::DEProblem, par_range::Union{Tuple{Symbol, Union{AbstractArray},<:Function}, Tuple{Symbol,Union{AbstractArray}}}, N::Integer)
-    if typeof(prob.par_range[2])<:Function
+    if typeof(p.par_range[2])<:Function
         par_vector = zeros(N)
         par_vector[1] = getfield(p,par_range[1])
 
         for istep=2:prob.N
-            par_vector[istep] = prob.par_range[2](par_vector[istep-1])
+            par_vector[istep] = p.par_range[2](par_vector[istep-1])
         end
     else
         par_vector = prob.par_range[2]
