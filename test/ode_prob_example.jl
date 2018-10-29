@@ -44,7 +44,7 @@ ko_sol = solve(ko_emcp)
 
 D = distance_matrix(ko_sol);
 
-D = distance_matrix(ko_sol, parameter(ko_emcp.ic_par[:,end]));
+D = distance_matrix(ko_sol, parameter(ko_emcp));
 k = 4
 fdist = k_dist(D,k);
 
@@ -53,7 +53,7 @@ db_eps = 1
 db_res = dbscan(full(D),db_eps,k)
 cluster_meas = cluster_measures(ko_sol,db_res);
 cluster_n = cluster_n_noise(db_res);
-cluster_members = cluster_membership(ko_emcp.ic_par[:,end],db_res,0.2,0.05);
+cluster_members = cluster_membership(parameter(ko_emcp),db_res,0.2,0.05);
 
 
 true
