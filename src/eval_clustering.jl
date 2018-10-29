@@ -22,11 +22,10 @@ function distance_matrix(sol::myMCSol, par::AbstractArray, distance_func::Functi
             mat_elements[i_tot] = distance_func(sol.sol.u[i], sol.sol.u[j], par[i], par[j])
         end
     end
-
     PairwiseListMatrix(mat_elements)
 end
 function distance_matrix(sol::myMCSol, par::AbstractArray, weights::AbstractArray)
-    if length(weights)!=(length(sol.sol.u[0])+1) # +1 because of the parameter
+    if length(weights)!=(length(sol.sol.u[1])+1) # +1 because of the parameter
         error("Length of weights does not fit length of solution measurements")
     end
     distance_matrix(sol, par, (x,y,p1,p2) -> weighted_norm(x,y,p1,p2,weights))
@@ -45,7 +44,8 @@ function distance_matrix(sol::myMCSol, distance_func::Function)
     end
     PairwiseListMatrix(mat_elements)
 end
-function distance_matrix(sol::myMCSol, weights::AbstractArray)
+function distance_matrix(sol::myMCSol)
+    weights = [1, 0.5, 0.5]
     if length(weights)!=length(sol.sol.u[1])
         error("Length of weights does not fit length of solution measurements")
     end
@@ -57,7 +57,7 @@ distance_matrix(sol::myMCSol) = distance_matrix(sol, weighted_norm)
 # calculated the weighted norm between two trajectories, so one entry of the distance matrix
 # x, y :: Tuples or Arrays containing all measures of the trajectories (e.g. means, vars per spatial dimension)
 #
-function weighted_norm(x, y, norm_function::Function, weights::AbstractArray=[1., 0.5, 0.5, 0.25])
+function weighted_norm(x, y, norm_function::Function, weights::AbstractArray=[1., 0.5, 0.5])
     N_dim_meas::Int64 = length(x)
     out::Float64 = 0.
     for i_dim=1:N_dim_meas
