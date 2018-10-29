@@ -34,16 +34,16 @@ struct BifAnalysisProblem
     # different constructors for different kinds of par_range tuples...
 
     # 1. tuple has array
-    function BifAnalysisProblem(p::DEProblem, par_range::Union{Tuple{Symbol,AbstractArray}, Tuple{Symbol,AbstractArray,<:Function}}, N::Int64, eval_func::Function, ic_bounds::AbstractArray=[-Inf,Inf], par_bounds::AbstractArray=[-Inf,Inf], hard_bounds::Bool=false)
+    function BifAnalysisProblem(p::DEProblem, par_range::Union{Tuple{Symbol,AbstractArray}, Tuple{Symbol,AbstractArray,<:Function}}, eval_func::Function, ic_bounds::AbstractArray=[-Inf,Inf], par_bounds::AbstractArray=[-Inf,Inf], hard_bounds::Bool=false)
         par_range = _var_par_check(par_range)
+        N = length(par_range[2])
         par_vector = compute_parameters(p, par_range, N)
         new(p,par_range_tuple,N,eval_func,ic_bounds,par_bounds, hard_bounds,par_vector)
     end
 
     # 2. tuple has function
-    function BifAnalysisProblem(p::DEProblem, par_range::Union{Tuple{Symbol,<:Function,<:Function},Tuple{Symbol,<:Function}}, eval_func::Function, ic_bounds::AbstractArray=[-Inf,Inf], par_bounds::AbstractArray=[-Inf,Inf], hard_bounds::Bool=false)
+    function BifAnalysisProblem(p::DEProblem, par_range::Union{Tuple{Symbol,<:Function,<:Function},Tuple{Symbol,<:Function}}, N::Integer, eval_func::Function, ic_bounds::AbstractArray=[-Inf,Inf], par_bounds::AbstractArray=[-Inf,Inf], hard_bounds::Bool=false)
         par_range = _var_par_check(par_range)
-        N = length(par_range[2])
         par_vector = compute_parameters(p, par_range, N)
         BifAnalysisProblem(p,par_range,N, eval_func,ic_bounds,par_bounds,hard_bounds,par_vector)
     end
