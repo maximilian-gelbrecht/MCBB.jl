@@ -114,11 +114,7 @@ end
 function setup_ic_par_mc_problem(prob::ODEProblem, ic_ranges::Array{T,1}, parameters::DEParameters, var_par::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function},Tuple{Symbol,Union{AbstractArray,Function}}}) where T <: AbstractArray
     N_dim_ic = length(ic_ranges)
     N_dim = N_dim_ic + 1
-
-    if length(var_par)==2
-        new_var_par = (var_par[1],var_par[2],reconstruct)
-        var_par = new_var_par
-    end
+    var_par = _var_par_check(var_par)
 
     # construct a 2d-array that holds all the ICs and Parameters for the MonteCarlo run
     (ic_par, N_mc) = _ic_par_matrix(N_dim_ic, N_dim, ic_ranges, var_par)
@@ -130,11 +126,7 @@ end
 function setup_ic_par_mc_problem(prob::DiscreteProblem, ic_ranges::Array{T,1}, parameters::DEParameters, var_par::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function},Tuple{Symbol,Union{AbstractArray,Function}}}) where T <: AbstractArray
     N_dim_ic = length(ic_ranges)
     N_dim = N_dim_ic + 1
-
-    if length(var_par)==2
-        new_var_par = (var_par[1],var_par[2],reconstruct)
-        var_par = new_var_par
-    end
+    var_par = _var_par_check(var_par)
 
     (ic_par, N_mc) = _ic_par_matrix(N_dim_ic, N_dim, ic_ranges, var_par)
     ic_par_problem = (prob, i, repeat) -> DiscreteProblem(prob.f, ic_par[i,1:N_dim_ic], prob.tspan, var_par[3](parameters; (var_par[1], ic_par[i,N_dim])))
@@ -145,11 +137,7 @@ end
 function setup_ic_par_mc_problem(prob::SDEProblem, ic_ranges::Array{T,1}, parameters::DEParameters, var_par::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function},Tuple{Symbol,Union{AbstractArray,Function}}}) where T <: AbstractArray
     N_dim_ic = length(ic_ranges)
     N_dim = N_dim_ic + 1
-
-    if length(var_par)==2
-        new_var_par = (var_par[1],var_par[2],reconstruct)
-        var_par = new_var_par
-    end
+    var_par = _var_par_check(var_par)
 
     (ic_par, N_mc) = _ic_par_matrix(N_dim_ic, N_dim, ic_ranges, var_par)
     ic_par_problem = (prob, i, repeat) -> SDEProblem(prob.f, prob.g, ic_par[i,1:N_dim_ic], prob.tspan, var_par[3](parameters; (var_par[1], ic_par[i,N_dim])))
@@ -157,20 +145,26 @@ function setup_ic_par_mc_problem(prob::SDEProblem, ic_ranges::Array{T,1}, parame
 end
 
 # for all problem types and random ICs
-function setup_ic_par_mc_problem(prob::DEProblem, ic_gens::Array{<:Function,1}, N_ic::Int, parameters::DEParameters, var_par::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function},Tuple{Symbol,Union{AbstractArray,Function}}})
+function setup_ic_par_mc_problem(prob::DEProblem, ic_gens::Array{<:Function,1}, N_ic::Int, parameters::DEParameters, var_par::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function}, Tuple{Symbol,Union{AbstractArray,Function}}})
     N_dim_ic = length(prob.u0)
     N_dim = N_dim_ic + 1
-
-    if length(var_par)==2
-        new_var_par = (var_par[1],var_par[2],reconstruct)
-        var_par = new_var_par
-    end
+    var_par = _var_par_check(var_par)
 
     (ic_par, N_mc) = _ic_par_matrix(N_dim_ic, N_dim, N_ic, ic_gens, var_par)
     ic_par_problem = define_new_problem(prob, ic_par, parameters, N_dim_ic, ic_gens, var_par)
     (ic_par_problem, ic_par, N_mc)
 end
 setup_ic_par_mc_problem(prob::DEProblem, ic_gens::Function, N_ic::Int, parameters::DEParameters, var_par::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function},Tuple{Symbol,Union{AbstractArray,Function}}}) = setup_ic_par_mc_problem(prob, [ic_gens], N_ic, parameters, var_par)
+
+function _var_par_check(var_par::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function}, Tuple{Symbol,Union{AbstractArray,Function}}})
+    if length(var_par)==2
+        new_var_par = (var_par[1],var_par[2],reconstruct)
+        var_par = new_var_par
+    else
+        new_var_par = var_par
+    end
+    return new_var_par
+end
 
 # functions defining new problems that generate new ics when the trial needs to be repeated
 function define_new_problem(prob::ODEProblem, ic_par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::Array{T,1}, var_par::Tuple{Symbol,Union{AbstractArray,Function},<:Function}) where T <: Function
