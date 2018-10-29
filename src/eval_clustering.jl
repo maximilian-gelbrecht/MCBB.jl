@@ -24,7 +24,7 @@ function distance_matrix(sol::myMCSol, par::AbstractArray, distance_func::Functi
     end
     PairwiseListMatrix(mat_elements)
 end
-function distance_matrix(sol::myMCSol, par::AbstractArray, weights::AbstractArray)
+function distance_matrix(sol::myMCSol, par::AbstractArray, weights::AbstractArray=[1.,0.5,0.5,1.])
     if length(weights)!=(length(sol.sol.u[1])+1) # +1 because of the parameter
         error("Length of weights does not fit length of solution measurements")
     end
@@ -43,13 +43,6 @@ function distance_matrix(sol::myMCSol, distance_func::Function)
         end
     end
     PairwiseListMatrix(mat_elements)
-end
-function distance_matrix(sol::myMCSol)
-    weights = [1, 0.5, 0.5]
-    if length(weights)!=length(sol.sol.u[1])
-        error("Length of weights does not fit length of solution measurements")
-    end
-    distance_matrix(sol, (x,y,p1,p2) -> weighted_norm(x,y,p1,p2,weights))
 end
 distance_matrix(sol::myMCSol) = distance_matrix(sol, weighted_norm)
 
