@@ -87,7 +87,7 @@ end
 
 # custom solve for the BifAnalysisProblem.
 # Saves and evaluates only after transient at a constant step size
-function solve(prob::BifAnalysisProblem, N_t=400::Int, rel_transient_time::Float64=0.5, kwargs...)
+function solve(prob::BifAnalysisProblem, N_t=400::Int, rel_transient_time::Float64=0.9, kwargs...)
     t_save = collect(tsave_array(prob.prob, N_t, rel_transient_time))
 
     par_vector = prob.par
@@ -97,7 +97,7 @@ function solve(prob::BifAnalysisProblem, N_t=400::Int, rel_transient_time::Float
 
     sol_i = solve_command(prob.prob)
     sol = []
-    push!(sol,eval_ode_run(sol_i, 1)[1])
+    push!(sol,prob.eval_func(sol_i, 1)[1])
     for istep=2:prob.N
         # bounds check for new par
         if (par_vector[istep] < prob.par_bounds[1]) | (par_vector[istep] > prob.par_bounds[2])
@@ -131,7 +131,7 @@ function solve(prob::BifAnalysisProblem, N_t=400::Int, rel_transient_time::Float
 
         deprob = remake(deprob, u0=new_u0)
         sol_i = solve_command(deprob)
-        push!(sol,eval_ode_run(sol_i, istep)[1])
+        push!(sol,prob.eval_func(sol_i, istep)[1])
     end
 
     return BifAnalysisSolution(sol, par_vector, prob.N)
