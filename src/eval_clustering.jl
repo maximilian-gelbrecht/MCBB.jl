@@ -19,7 +19,7 @@ function distance_matrix(sol::myMCSol, par::AbstractArray, distance_func::Functi
     for i=1:sol.N_mc
         for j=i+1:sol.N_mc
             i_tot += 1
-            mat_elements[i_tot] = distance_func(sol.sol.u[i], sol.sol.u[j], par[i], par[j])
+            mat_elements[i_tot] = distance_func(sol.sol[i], sol.sol[j], par[i], par[j])
         end
     end
     PairwiseListMatrix(mat_elements)
@@ -39,7 +39,7 @@ function distance_matrix(sol::myMCSol, distance_func::Function)
     for i=1:sol.N_mc
         for j=i+1:sol.N_mc
             i_tot += 1
-            mat_elements[i_tot] = distance_func(sol.sol.u[i],sol.sol.u[j])
+            mat_elements[i_tot] = distance_func(sol.sol[i],sol.sol[j])
         end
     end
     PairwiseListMatrix(mat_elements)
