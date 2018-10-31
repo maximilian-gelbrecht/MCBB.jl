@@ -62,11 +62,11 @@ struct BifAnalysisProblem
         new(p, par_range, N, eval_func, ic_bounds, par_bounds, hard_bounds, par_vector)
     end
 end
-parameter(prob::BifAnalysisProblem) = prob.par_vector
+parameter(prob::BifAnalysisProblem) = prob.par
 
 struct BifAnalysisSolution <: myMCSol
     sol::AbstractArray
-    par_vec::AbstractArray
+    par::AbstractArray
     N_mc::Int
 end
 
@@ -87,22 +87,31 @@ end
 
 # custom solve for the BifAnalysisProblem.
 # Saves and evaluates only after transient at a constant step size
-function solve(prob::BifAnalysisProblem, N_t=400::Int, rel_transient_time::Float64=0.9, kwargs...)
+# N_t - Int, Number of timesteps of each solution of a DEProblem
+# rel_transient_time - Percentage of time after which the solutions are evaluated
+# return_probs - if 'true' returns a array of DEProblems that were solved
+function solve(prob::BifAnalysisProblem, N_t=400::Int, rel_transient_time::Float64=0.9, return_probs=false, kwargs...)
     t_save = collect(tsave_array(prob.prob, N_t, rel_transient_time))
 
     par_vector = prob.par
 
     solve_command(prob_in) = solve(prob_in, dense=false, save_everystep=false, saveat=t_save, savestart=false; kwargs...)
 
-
     sol_i = solve_command(prob.prob)
     sol = []
     push!(sol,prob.eval_func(sol_i, 1)[1])
+
+    if return_probs
+        prob_vec = []
+        push!(prob_vec,prob.prob)
+    end
+
     for istep=2:prob.N
         # bounds check for new par
         if (par_vector[istep] < prob.par_bounds[1]) | (par_vector[istep] > prob.par_bounds[2])
             if prob.hard_bounds
-                return BifAnalysisSolution(sol,par_vector[1:istep], length(par_vector[1:istep]))
+                par_vector = par_vector[1:istep]
+                break
             else
                 if (par_vector[istep] < prob.par_bounds[1])
                     par_vector[istep] = prob.par_bounds[1]
@@ -119,7 +128,8 @@ function solve(prob::BifAnalysisProblem, N_t=400::Int, rel_transient_time::Float
         # bounds check of new IC
         if (sum(new_u0 .< prob.ic_bounds[1])>0) | (sum(new_u0 .> prob.ic_bounds[2])<0)
             if prob.hard_bounds
-                return BifAnalysisSolution(sol,par_vector[1:step], length(par_vector[1:istep]))
+                par_vector = par_vector[1:step]
+                break
             else
                 if (sum(new_u0 .< prob.ic_bounds[1])>0) < prob.ic_bounds[1]
                     new_u0[new_u0 .< prob.ic_bounds[1]] = prob.ic_bounds[1]
@@ -130,11 +140,18 @@ function solve(prob::BifAnalysisProblem, N_t=400::Int, rel_transient_time::Float
         end
 
         deprob = remake(deprob, u0=new_u0)
+        if return_probs
+            push!(prob_vec,deprob)
+        end
         sol_i = solve_command(deprob)
         push!(sol,prob.eval_func(sol_i, istep)[1])
     end
 
-    return BifAnalysisSolution(sol, par_vector, prob.N)
+    if return_probs
+        return (BifAnalysisSolution(sol, par_vector, length(par_vector)), prob_vec)
+    else
+        return BifAnalysisSolution(sol, par_vector, prob.N)
+    end
 end
 
 # weirdly enough there is a problem_new_parameters routine in DiffEqBase for all problems types EXCEPT for discrete problems
