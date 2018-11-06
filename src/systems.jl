@@ -99,7 +99,7 @@ function non_local_kuramoto_ring(du, u, p::non_local_kuramoto_ring_parameters, t
         for jstep=1:p.N
             du[istep] -= p.coupling_function(p.fak*(istep - jstep))*sin(u[istep] - u[jstep] + p.phase_delay)
         end
-        #du[istep] /= p.fak
+        du[istep] /= p.fak
         du[istep] += p.omega_0
     end
 end
