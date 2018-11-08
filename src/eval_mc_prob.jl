@@ -56,7 +56,7 @@ function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:
 
     # per dimension measures
     for i_dim in state_filter
-        sol_i = @view sol[i_dim,2:end]
+        sol_i = sol[i_dim,2:end]
         if cyclic_setback
             _cyclic_setback!(sol_i)
         end
