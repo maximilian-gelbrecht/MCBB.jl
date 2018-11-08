@@ -90,12 +90,13 @@ end
 # N_t - Int, Number of timesteps of each solution of a DEProblem
 # rel_transient_time - Percentage of time after which the solutions are evaluated
 # return_probs - if 'true' returns a array of DEProblems that were solved
-function solve(prob::BifAnalysisProblem, N_t=400::Int, rel_transient_time::Float64=0.9, return_probs=false, kwargs...)
+# rel_tol - relative tolerance of the solver. espacially for systems with constantly growing variables such as certain phase oscilattors the tolerence has to be very small
+function solve(prob::BifAnalysisProblem, N_t=400::Int, rel_transient_time::Float64=0.9; return_probs::Bool=false, rel_tol::Float64=1e-9, kwargs...)
     t_save = collect(tsave_array(prob.prob, N_t, rel_transient_time))
 
     par_vector = prob.par
 
-    solve_command(prob_in) = solve(prob_in, dense=false, save_everystep=false, saveat=t_save, savestart=false; kwargs...)
+    solve_command(prob_in) = solve(prob_in, dense=false, rel_tol=rel_tol, save_everystep=false, saveat=t_save, savestart=false; kwargs...)
 
     sol_i = solve_command(prob.prob)
     sol = []
