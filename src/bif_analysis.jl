@@ -91,7 +91,8 @@ end
 # rel_transient_time - Percentage of time after which the solutions are evaluated
 # return_probs - if 'true' returns a array of DEProblems that were solved
 # rel_tol - relative tolerance of the solver. espacially for systems with constantly growing variables such as certain phase oscilattors the tolerence has to be very small
-function solve(prob::BifAnalysisProblem, N_t=400::Int, rel_transient_time::Float64=0.9; return_probs::Bool=false, rel_tol::Float64=1e-9, cyclic_setback::Bool=false, kwargs...)
+# cyclic_ic - if true the initial conditions are always within [-pi,pi]
+function solve(prob::BifAnalysisProblem, N_t=400::Int, rel_transient_time::Float64=0.9; return_probs::Bool=false, rel_tol::Float64=1e-9, cyclic_ic::Bool=false, kwargs...)
     t_save = collect(tsave_array(prob.prob, N_t, rel_transient_time))
 
     par_vector = prob.par
@@ -126,6 +127,11 @@ function solve(prob::BifAnalysisProblem, N_t=400::Int, rel_transient_time::Float
 
         new_u0 = sol_i[end]
 
+        if cyclic_ic
+            new_u0 = mod(new_u0,2pi)
+            new_u0 > pi ? new_u0 -= 2pi : new_u0
+        end
+        
         # bounds check of new IC
         if (sum(new_u0 .< prob.ic_bounds[1])>0) | (sum(new_u0 .> prob.ic_bounds[2])<0)
             if prob.hard_bounds
