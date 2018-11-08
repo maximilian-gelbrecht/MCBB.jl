@@ -91,7 +91,7 @@ end
 # rel_transient_time - Percentage of time after which the solutions are evaluated
 # return_probs - if 'true' returns a array of DEProblems that were solved
 # rel_tol - relative tolerance of the solver. espacially for systems with constantly growing variables such as certain phase oscilattors the tolerence has to be very small
-function solve(prob::BifAnalysisProblem, N_t=400::Int, rel_transient_time::Float64=0.9; return_probs::Bool=false, rel_tol::Float64=1e-9, kwargs...)
+function solve(prob::BifAnalysisProblem, N_t=400::Int, rel_transient_time::Float64=0.9; return_probs::Bool=false, rel_tol::Float64=1e-9, cyclic_setback::Bool=false, kwargs...)
     t_save = collect(tsave_array(prob.prob, N_t, rel_transient_time))
 
     par_vector = prob.par

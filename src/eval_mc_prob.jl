@@ -16,7 +16,8 @@ import Distributions, StatsBase
 # eval_funcs :: array of functions that should be applied to every dimension of the solution (except for mean and std which are always computed). Need to be (Array w/ Samples ::AbstractArray, Mean::Number, Std::Number) -> Measure
 # global_eval_funcs :: array of functions that should be applied to the complete N-dimensional solution, need to be (Array w/ Samples ::AbstractArray, Mean::Number, Std::Number) -> Measure
 # failure_handling :: How failure of integration is handled. Should be :None (do no checks), :Inf (If retcode==:DtLessThanMin: return Inf) or :Repeat (If no succes, repeat the trial (only works with random initial conditions))
-function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:Function,1}, global_eval_funcs::AbstractArray, failure_handling::Symbol=:None )
+# cyclic_setback :: Bool, if true the N*2Pi is substracted from the solution so that the first element of the solution that is analysed is within [-pi, pi]
+function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:Function,1}, global_eval_funcs::AbstractArray; failure_handling::Symbol=:None, cyclic_setback::Bool=false)
 
     (N_dim, N_t) = size(sol)
     N_dim_measures = length(eval_funcs) + 2 # mean and var are always computed
@@ -55,7 +56,11 @@ function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:
 
     # per dimension measures
     for i_dim in state_filter
-        sol_i = sol[i_dim,2:end]
+        sol_i = @view sol[i_dim,2:end]
+        if cyclic_setback
+            _cyclic_setback!(sol_i)
+        end
+
         (dim_measures[1][i_dim],dim_measures[2][i_dim]) = StatsBase.mean_and_std(sol_i; corrected=true)
         for i_meas=3:N_dim_measures
             dim_measures[3][i_dim] = eval_funcs[i_meas-2](sol_i, dim_measures[1][i_dim], dim_measures[2][i_dim])
@@ -94,6 +99,20 @@ function check_inf_nan(sol::myMCSol)
         end
     end
     nan_inf
+end
+
+# function helping to evaluate phase oscillators / other cyclic systems. Often these systems produce growing values. This routine substructs N*2*Pi from the values of the array so that arr_in[1] is in [-pi,pi]
+# works inplace
+function _cyclic_setback!(arr_in::AbstractArray)
+    arr1_tmp = arr_in[1]
+
+    # transform arr_in[1] back to [-pi,pi]
+    arr_in[1] = mod(arr_in[1],2pi)
+    arr_in[1] > pi ? arr_in[1] -= 2pi : arr_in[1]
+
+    subtr = arr1_tmp - arr_in[1]
+
+    arr_in[2:end] = arr_in[2:end] .- subtr;
 end
 
 # empirical_1D_KL_divergence
