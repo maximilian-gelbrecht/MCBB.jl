@@ -129,7 +129,7 @@ function solve(prob::BifAnalysisProblem, N_t=400::Int, rel_transient_time::Float
 
         if cyclic_ic
             new_u0 = mod.(new_u0,2pi)
-            new_u0[new_u0 > pi] -= 2pi
+            new_u0[new_u0 .> pi] -= 2pi
         end
 
         # bounds check of new IC
