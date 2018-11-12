@@ -187,7 +187,7 @@ function empirical_1D_KL_divergence_pc(u::AbstractArray, mu::Number, sig::Number
             kld += Inf
         end
     end
-    kld *= 1./N
+    kld *= 1. /N
     kld -= 1    # Perez-Cruz estimator converges as KL_pc - 1 -> KL
 end
 

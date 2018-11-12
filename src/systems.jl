@@ -90,6 +90,7 @@ end
     omega_0::Number
     phase_delay::Number
     coupling_function::Function
+
 end
 non_local_kuramoto_ring_parameters(N::Integer, omega_0::Number,phase_delay::Number, coupling_function::Function) = non_local_kuramoto_ring_parameters(N, (2pi)/N, omega_0, phase_delay, coupling_function)
 
@@ -107,7 +108,7 @@ end
 # order_parameter
 # Kuratomo Order Parameter
 function order_parameter(u::AbstractArray, N::Int)
-    1./N*sqrt((sum(sin.(u)))^2+(sum(cos.(u)))^2)
+    1. /N*sqrt((sum(sin.(u)))^2+(sum(cos.(u)))^2)
 end
 
 # reference: Shraiman et al 1992
