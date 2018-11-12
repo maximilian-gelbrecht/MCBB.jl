@@ -19,7 +19,7 @@ export order_parameter
 export empirical_1D_KL_divergence_pc, empirical_1D_KL_divergence_hist, wasserstein_hist
 export _compute_wasserstein_hist
 export wasserstein_ecdf
-export curve_entropy
+#export curve_entropy
 export k_dist, cluster_measures, cluster_n_noise, cluster_membership
 
 

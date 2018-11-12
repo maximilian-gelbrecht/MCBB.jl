@@ -2,7 +2,8 @@
 ## All functions that evaluate the solutions directly
 ###############
 
-using DifferentialEquations, Miniball, Interpolations, Distances
+using DifferentialEquations, Interpolations, Distances
+# using Miniball
 import Distributions, StatsBase
 
 # eval_ode_run, (sol, i) -> (evaluated_solution, repeat=False)
@@ -263,6 +264,7 @@ end
 # could be used as an additional measure for the clustering
 # bounded [0,1]
 #
+"""
 function curve_entropy(sol::AbstractArray, r_eps::Float64=1e-15)
     D = mcs_diameter(sol)
     if D > r_eps
@@ -287,3 +289,4 @@ function mcs_diameter(u::AbstractArray)
     mcs = miniball(u)
     2.*sqrt(mcs.squared_radius)
 end
+"""
