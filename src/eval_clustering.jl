@@ -1,7 +1,8 @@
 ###########
 ##### Results Evaluation functions
 ###########
-using Distributions, Clustering, PairwiseListMatrices
+using Distributions, Clustering
+#using PairwiseListMatrices
 
 
 # test distance matrix to output pairwisematrix to save memory.
@@ -11,10 +12,11 @@ function distance_matrix(sol::myMCSol, par::AbstractArray, distance_func::Functi
     max_par = maximum(par)
     par_range = max_par - min_par
     par_rel = (par .- min_par)./par_range
-    N_entries = (sol.N_mc * (sol.N_mc - 1)) / 2
-    mat_elements = zeros(N_entries)
+    # N_entries = (sol.N_mc * (sol.N_mc - 1)) / 2
+    mat_elements = zeros((sol.N_mc,sol.N_mc))
 
     # add parameter to solutions
+    """
     i_tot = 0
     for i=1:sol.N_mc
         for j=i+1:sol.N_mc
@@ -23,7 +25,17 @@ function distance_matrix(sol::myMCSol, par::AbstractArray, distance_func::Functi
         end
     end
     PairwiseListMatrix(mat_elements)
+    """
+
+    for i=1:sol.N_mc
+        for j=i+1:sol.N_mc
+            mat_elements[i,j] = distance_func(sol.sol[i], sol.sol[j], par[i], par[j])
+
+        end
+    end
+    mat_elements += transpose(mat_elements)
 end
+
 function distance_matrix(sol::myMCSol, par::AbstractArray, weights::AbstractArray=[1.,0.5,0.5,1.])
     if length(weights)!=(length(sol.sol.u[1])+1) # +1 because of the parameter
         error("Length of weights does not fit length of solution measurements")
@@ -32,9 +44,11 @@ function distance_matrix(sol::myMCSol, par::AbstractArray, weights::AbstractArra
 end
 
 function distance_matrix(sol::myMCSol, distance_func::Function)
-    N_entries = (sol.N_mc * (sol.N_mc - 1)) / 2
-    mat_elements = zeros(N_entries)
+    #N_entries = (sol.N_mc * (sol.N_mc - 1)) / 2
+    #mat_elements = zeros(N_entries)
+    mat_elements = zeros((sol.N_mc,sol.N_mc))
     # add parameter to solutions
+    """
     i_tot = 0
     for i=1:sol.N_mc
         for j=i+1:sol.N_mc
@@ -43,6 +57,13 @@ function distance_matrix(sol::myMCSol, distance_func::Function)
         end
     end
     PairwiseListMatrix(mat_elements)
+    """
+    for i=1:sol.N_mc
+        for j=i+1:sol.N_mc
+            mat_elements[i,j] = distance_func(sol.sol[i],sol.sol[j])
+        end
+    end
+    mat_elements += transpose(mat_elements)
 end
 distance_matrix(sol::myMCSol) = distance_matrix(sol, weighted_norm)
 
