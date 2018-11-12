@@ -1,6 +1,5 @@
 julia 0.6.2
 DifferentialEquations
-Miniball
 Distances
 Parameters
 Clustering
