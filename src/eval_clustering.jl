@@ -4,19 +4,31 @@
 using Distributions, Clustering
 #using PairwiseListMatrices
 
-
-# test distance matrix to output pairwisematrix to save memory.
+# calculates the distance matrix
 # also incorporates the parameter values as additional weights
-function distance_matrix(sol::myMCSol, par::AbstractArray, distance_func::Function)
+#
+# sol: solution
+# par: parameter as Array of length sol.N_mc
+# distance_func: distance function that maps (x1,x2,p1,p2) -> D(x1,x2; p1,p2)
+# relative parameter: if true the parameter values are rescaled to be within [0,1]
+function distance_matrix(sol::myMCSol, par::AbstractArray, distance_func::Function, relative_parameter::Bool=false)
     min_par = minimum(par)
     max_par = maximum(par)
     par_range = max_par - min_par
     par_rel = (par .- min_par)./par_range
-    # N_entries = (sol.N_mc * (sol.N_mc - 1)) / 2
     mat_elements = zeros((sol.N_mc,sol.N_mc))
 
-    # add parameter to solutions
+    if relative_parameter
+        par_c = par_rel
+    else
+        par_c = copy(par) # do we really need the copy here? I don't know
+    end
+
     """
+    # PairwiseListMatrix is not supported for 1.0 yet
+
+    N_entries = (sol.N_mc * (sol.N_mc - 1)) / 2
+
     i_tot = 0
     for i=1:sol.N_mc
         for j=i+1:sol.N_mc
@@ -29,18 +41,19 @@ function distance_matrix(sol::myMCSol, par::AbstractArray, distance_func::Functi
 
     for i=1:sol.N_mc
         for j=i+1:sol.N_mc
-            mat_elements[i,j] = distance_func(sol.sol[i], sol.sol[j], par[i], par[j])
+            mat_elements[i,j] = distance_func(sol.sol[i], sol.sol[j], par_c[i], par_c[j])
 
         end
     end
     mat_elements += transpose(mat_elements)
 end
 
-function distance_matrix(sol::myMCSol, par::AbstractArray, weights::AbstractArray=[1.,0.5,0.5,1.])
+# more handy version with distance function already defined
+function distance_matrix(sol::myMCSol, par::AbstractArray, weights::AbstractArray=[1.,0.5,0.5,1.], relative_parameter::Bool=false)
     if length(weights)!=(length(sol.sol.u[1])+1) # +1 because of the parameter
         error("Length of weights does not fit length of solution measurements")
     end
-    distance_matrix(sol, par, (x,y,p1,p2) -> weighted_norm(x,y,p1,p2,weights))
+    distance_matrix(sol, par, (x,y,p1,p2) -> weighted_norm(x,y,p1,p2,weights), relative_parameter)
 end
 
 function distance_matrix(sol::myMCSol, distance_func::Function)
@@ -49,6 +62,7 @@ function distance_matrix(sol::myMCSol, distance_func::Function)
     mat_elements = zeros((sol.N_mc,sol.N_mc))
     # add parameter to solutions
     """
+    # PairwiseListMatrix is not supported for 1.0 yet
     i_tot = 0
     for i=1:sol.N_mc
         for j=i+1:sol.N_mc
