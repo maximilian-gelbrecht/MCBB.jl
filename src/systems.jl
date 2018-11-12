@@ -126,7 +126,7 @@ end
     b::Array{Float64}
     c::Array{Float64}
     K::Float64 # coupling
-    L::AbstractSparseMatrix # Laplacian
+    L::Array{Float64} # Laplacian
     N::Int # number of nodes
 end
 
