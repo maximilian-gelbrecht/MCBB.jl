@@ -132,6 +132,7 @@ function cluster_measures(prob::myMCProblem, sol::myMCSol, clusters::DbscanResul
     N_cluster = length(clusters.seeds)+1 # plus 1 -> plus "noise cluster" / not clustered points
     N_dim = length(sol.sol.u[1][1])
     par = parameter(prob)
+    ca = clusters.assignments
 
     # windows
     min_par = minimum(par)
@@ -150,18 +151,24 @@ function cluster_measures(prob::myMCProblem, sol::myMCSol, clusters::DbscanResul
         window_max = window_min + window_size
         p_windows[i] = 0.5*(window_min + window_max)
 
-        par_ind = (par .>= window_min) .& (par .<= window_max)
+        par_ind_bool = (par .>= window_min) .& (par .< window_max) # parameter indices as bools
+        par_ind = find(par_ind_bool) # parameter indices as numbers
+
         window_ca = ca[par_ind] # cluster assigments in this window
 
-        N_c_i = zeros(Int,(N_cluster, sol.N_meas, N_dim), Int64) # counts how many valeus are within the window for each cluster (for normalization)
+        N_c_i = zeros(Int,(N_cluster, sol.N_meas, N_dim), Int64) # counts how many values are within the window for each cluster (for normalization)
+
+        # collect and copy data
         for i_ca in eachindex(window_ca)
             for i_meas=1:sol.N_meas
                 for i_dim=1:N_dim
-                    cluster_measures[window_ca[i_ca]+1, i_meas, i_dim,i] += sol.sol[ ,  ] # TO DO
+                    cluster_measures[window_ca[i_ca]+1, i_meas, i_dim,i] += sol.sol[par_ind[i_ca]][i_meas][i_dim]
                     N_c_i[window_ca[i_ca]+1, i_meas, i_dim] += 1
                 end
             end
         end
+
+        # normalize/average it
         for i_cluster=1:N_cluster
             for i_meas=1:sol.N_meas
                 for i_dim=1:N_dim
@@ -172,12 +179,6 @@ function cluster_measures(prob::myMCProblem, sol::myMCSol, clusters::DbscanResul
             end
         end
     end
-
-
-    # this goes throgh all solutions and sorts them into the clusters (dependend on the parameter)
-    # then potentially a sliding window is applied
-
-
     (p_windows, cluster_measures)
 end
 
