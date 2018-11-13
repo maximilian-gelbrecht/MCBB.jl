@@ -107,7 +107,7 @@ function cluster()
 end
 
 # return mean values of all measures for each cluster
-function cluster_measures(sol::myMCSol, clusters::DbscanResult)
+function cluster_means(sol::myMCSol, clusters::DbscanResult)
     N_cluster = length(clusters.seeds)+1 # plus 1 -> plus "noise cluster" / not clustered points
     N_dim = length(sol.sol.u[1][1])
     mean_measures = zeros((N_cluster,sol.N_meas,N_dim))
@@ -118,6 +118,93 @@ function cluster_measures(sol::myMCSol, clusters::DbscanResult)
     end
     mean_measures ./ sol.N_mc
 end
+
+# returns for each cluster seperatly per dimension and per measure the (parameter, value of measure) pairs
+# this is accumulated (and normalized) over a sliding window
+#
+# returns the array with the parameter values of each window and a 4-dimensional matrix with dimensions:
+#           - i_cluster: number of cluster (noise cluster is the first cluster)
+#           - i_meas: number of the measures (e.g. 1 is usually mean, 2 is std and so on)
+#           - i_dim: number of the dimension (of the system)
+#           - i_window: number of the window/parameter value
+#
+function cluster_measures(prob::myMCProblem, sol::myMCSol, clusters::DbscanResult, window_size::Number, window_offset::Number)
+    N_cluster = length(clusters.seeds)+1 # plus 1 -> plus "noise cluster" / not clustered points
+    N_dim = length(sol.sol.u[1][1])
+    par = parameter(prob)
+
+    # windows
+    min_par = minimum(par)
+    max_par = maximum(par)
+    par_range = max_par - min_par
+
+    N_windows = Int(ceil(par_range/window_offset)) - Int(ceil(window_size/window_offset)) + 1
+    if N_windows <= 1
+        warn("Only 1 or less Windows in cluster_measures")
+    end
+    p_windows = zeros(N_windows)
+    cluster_measures = zeros((N_cluster, sol.N_meas, N_dim, N_windows))
+
+    for i=1:N_windows
+        window_min = min_par + (i-1)*window_offset
+        window_max = window_min + window_size
+        p_windows[i] = 0.5*(window_min + window_max)
+
+        par_ind = (par .>= window_min) .& (par .<= window_max)
+        window_ca = ca[par_ind] # cluster assigments in this window
+
+        N_c_i = zeros(Int,(N_cluster, sol.N_meas, N_dim), Int64) # counts how many valeus are within the window for each cluster (for normalization)
+        for i_ca in eachindex(window_ca)
+            for i_meas=1:sol.N_meas
+                for i_dim=1:N_dim
+                    cluster_measures[window_ca[i_ca]+1, i_meas, i_dim,i] += sol.sol[ ,  ] # TO DO
+                    N_c_i[window_ca[i_ca]+1, i_meas, i_dim] += 1
+                end
+            end
+        end
+        for i_cluster=1:N_cluster
+            for i_meas=1:sol.N_meas
+                for i_dim=1:N_dim
+                    if !(N_c_i[i_cluster, i_meas, i_dim] == 0)
+                        cluster_measures[i_cluster, i_meas, i_dim] /= N_c_i[i_cluster, i_meas, i_dim]
+                    end
+                end
+            end
+        end
+    end
+
+
+    # this goes throgh all solutions and sorts them into the clusters (dependend on the parameter)
+    # then potentially a sliding window is applied
+
+
+    (p_windows, cluster_measures)
+end
+
+# This function returns the distributions as histograms of ICs (and Parameter) in each dimension for cluster seperatly
+#
+#
+#
+#
+
+struct cluster_ic_spaces
+    a
+    function cluster_ic_spaces(prob::myMCProblem, sol::myMCSol, clusters::DbscanResult, hist_parameter)
+        false
+
+        # go through each cluster
+        # maybe introduce struct/type for the results
+
+        for i_cluster=1:N_cluster
+            false
+        end
+    end
+end
+
+
+
+
+
 
 # returns the number of points assignt to the "noise" cluster (somehow this is not automaticlly returned by the routine)
 function cluster_n_noise(clusters::DbscanResult)
@@ -152,9 +239,6 @@ end
 # this method uses a sliding window over the parameter axis.
 # should be used when parameters are randomly generated.
 # - normalize: normalize by number of parameters per window
-
-# NOT PROPERLY TESTET YET,
-# ONLY TESTED THAT IT OUTPUTS SOMETHING
 function cluster_membership(par::AbstractArray, clusters::DbscanResult, window_size::Number, window_offset::Number, normalize::Bool=true)
     N_cluster = length(clusters.seeds) + 1  # plus 1 -> plus "noise cluster" / not clustered points
     ca = clusters.assignments
@@ -193,6 +277,8 @@ function cluster_membership(par::AbstractArray, clusters::DbscanResult, window_s
     end
     (p_windows, memberships)
 end
+
+
 
 
 # helper function for estimating a espilon value for dbscan.
