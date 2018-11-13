@@ -21,7 +21,7 @@ import DifferentialEquations.problem_new_parameters
 #       par_bounds:: Bounds for the parameter that should not be exceeded
 #       hard_bounds:: If a bound is reached: if true, stops the iteration, false continous with (upper/lower bound as IC)
 
-struct BifAnalysisProblem
+struct BifAnalysisProblem <: myMCProblem
     prob::DEProblem # Base DifferentialEquations Problem
     par_range::Tuple{Symbol,Union{AbstractArray,Function},<:Function}
     N::Int64
