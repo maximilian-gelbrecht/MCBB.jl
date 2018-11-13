@@ -20,7 +20,7 @@ export empirical_1D_KL_divergence_pc, empirical_1D_KL_divergence_hist, wasserste
 export _compute_wasserstein_hist
 export wasserstein_ecdf
 #export curve_entropy
-export k_dist, cluster_measures, cluster_n_noise, cluster_membership
+export k_dist, cluster_measures, cluster_means, cluster_n_noise, cluster_membership
 
 
 # Contains example systems
