@@ -51,7 +51,7 @@ fdist = k_dist(D,k);
 # analysis
 db_eps = 1
 db_res = dbscan(full(D),db_eps,k)
-cluster_meas = cluster_measures(ko_sol,db_res);
+cluster_meas = cluster_means(ko_sol,db_res);
 cluster_n = cluster_n_noise(db_res);
 cluster_members = cluster_membership(parameter(ko_emcp),db_res,0.2,0.05);
 

@@ -43,7 +43,7 @@ fdist = k_dist(D,4);
 db_eps = 150
 db_res = dbscan(full(D),db_eps,4)
 
-cluster_meas = cluster_measures(log_sol,db_res);
+cluster_meas = cluster_means(log_sol,db_res);
 cluster_n = cluster_n_noise(db_res);
 cluster_members = cluster_membership(parameter(log_emcp),db_res,0.2,0.05);
 
