@@ -1,7 +1,7 @@
 ###########
 ##### Results Evaluation functions
 ###########
-using Distributions, Clustering
+using Distributions, Clustering, StatsBase
 #using PairwiseListMatrices
 
 # calculates the distance matrix
@@ -182,23 +182,57 @@ function cluster_measures(prob::myMCProblem, sol::myMCSol, clusters::DbscanResul
     (p_windows, cluster_measures)
 end
 
-# This function returns the distributions as histograms of ICs (and Parameter) in each dimension for cluster seperatly
+# This function/struct returns the distributions as histograms of ICs (and Parameter) in each dimension for cluster seperatly, it also returns the data itself, means and stds
+# fields of the struct:
+#               - data : array of array of arrays, the ICs and pars for each cluster and dimension
+#               - histograms: N_cluster x N_dim Array of Histograms of ICs/Par
+#               - means: Means of each dimension for each cluster
+#               - stds: Stds of each dimension for each cluster
 #
 #
-#
-#
+struct ClusterICSpaces
+    data::AbstractArray
+    histograms::AbstractArray
+    means::AbstractArray
+    stds::AbstractArray
 
-struct cluster_ic_spaces
-    a
-    function cluster_ic_spaces(prob::myMCProblem, sol::myMCSol, clusters::DbscanResult, hist_parameter)
-        false
+    function ClusterICSpaces(prob::myMCProblem, sol::myMCSol, clusters::DbscanResult, nbins::Int64=20)
 
-        # go through each cluster
-        # maybe introduce struct/type for the results
+        N_cluster = length(clusters.seeds)+1 # plus 1 -> plus "noise cluster" / not clustered points
+        N_dim = length(sol.sol.u[1][1])
 
-        for i_cluster=1:N_cluster
-            false
+        icp = prob.ic_par
+        ca = clusters.assignments
+
+        # collect the data for each cluster and dimension
+        data = [[[] for i=1:N_dim+1] for i=1:N_cluster] # +1 for the parameter
+        for i=1:sol.N_mc
+            i_cluster = ca[i] + 1  # plus 1 -> plus "noise cluster" / not clustered points
+            for i_dim=1:N_dim # ICs
+                push!(data[i_cluster][i_dim],icp[i,i_dim])
+            end
+            push!(data[i_cluster][N_dim+1],icp[i,N_dim+1]) # parameter
         end
+
+        # fit histograms
+        hist_tmp = fit(Histogram, data[1][1], nbins=nbins)
+        hists = Array(typeof(hist_tmp),(N_cluster,N_dim+1))
+        for i_cluster=1:N_cluster
+            for i_dim=1:N_dim+1
+                hists[i_cluster,i_dim] = fit(Histogram, data[i_cluster][i_dim], nbins=nbins)
+            end
+        end
+
+        # compute means and std
+        means = zeros(N_cluster,N_dim+1)
+        stds = zeros(N_cluster,N_dim+1)
+        for i_cluster=1:N_cluster
+            for i_dim=1:N_dim+1
+                (means[i_cluster,i_dim], stds[i_cluster,i_dim]) = mean_and_std(data[i_cluster][i_dim])
+            end
+        end
+
+        new(data, hists, means, stds)
     end
 end
 
