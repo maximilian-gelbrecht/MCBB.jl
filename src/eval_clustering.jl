@@ -189,12 +189,19 @@ end
 #               - means: Means of each dimension for each cluster
 #               - stds: Stds of each dimension for each cluster
 #
+#               - cross_dim_means: list of Means of ICs across IC-dimensions per Cluster
+#               - cross_dim_stds: list of Std of ICs across IC-dimensions per Cluster
+#               - cross_dim_kurts: list of Kurtosis of ICs across IC-dimensions per Cluster
 #
 struct ClusterICSpaces
     data::AbstractArray
     histograms::AbstractArray
     means::AbstractArray
     stds::AbstractArray
+
+    cross_dim_means::AbstractArray
+    cross_dim_stds::AbstractArray
+    cross_dim_skews::AbstractArray
 
     function ClusterICSpaces(prob::myMCProblem, sol::myMCSol, clusters::DbscanResult, nbins::Int64=20)
 
@@ -205,12 +212,23 @@ struct ClusterICSpaces
         ca = clusters.assignments
 
         # collect the data for each cluster and dimension
+        cross_dim_means = [[] for i=1:N_cluster]
+        cross_dim_stds = [[] for i=1:N_cluster]
+        cross_dim_skews = [[] for i=1:N_cluster]
+
         data = [[[] for i=1:N_dim+1] for i=1:N_cluster] # +1 for the parameter
         for i=1:sol.N_mc
             i_cluster = ca[i] + 1  # plus 1 -> plus "noise cluster" / not clustered points
             for i_dim=1:N_dim # ICs
                 push!(data[i_cluster][i_dim],icp[i,i_dim])
             end
+
+            i_mean, i_std = mean_and_std(icp[i,1:N_dim])
+            i_skew = skewness(icp[i,1:N_dim], m=i_mean)
+            push!(cross_dim_means[i_cluster], i_mean)
+            push!(cross_dim_stds[i_cluster], i_std)
+            push!(cross_dim_skews[i_cluster], i_skew)
+
             push!(data[i_cluster][N_dim+1],icp[i,N_dim+1]) # parameter
         end
 
@@ -232,7 +250,7 @@ struct ClusterICSpaces
             end
         end
 
-        new(data, hists, means, stds)
+        new(data, hists, means, stds, cross_dim_means, cross_dim_stds, cross_dim_kurts)
     end
 end
 

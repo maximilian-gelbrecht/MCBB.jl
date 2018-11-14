@@ -118,7 +118,7 @@ function setup_ic_par_mc_problem(prob::ODEProblem, ic_ranges::Array{T,1}, parame
 
     # construct a 2d-array that holds all the ICs and Parameters for the MonteCarlo run
     (ic_par, N_mc) = _ic_par_matrix(N_dim_ic, N_dim, ic_ranges, var_par)
-    ic_par_problem = (prob, i, repeat) -> ODEProblem(prob.f, ic_par[i,1:N_dim_ic], prob.tspan, var_par[3](parameters; (var_par[1], ic_par[i,N_dim])))
+    ic_par_problem = (prob, i, repeat) -> ODEProblem(prob.f, ic_par[i,1:N_dim_ic], prob.tspan, var_par[3](parameters; Dict(var_par[1]=>ic_par[i,N_dim])...))
     (ic_par_problem, ic_par, N_mc)
 end
 
@@ -129,7 +129,7 @@ function setup_ic_par_mc_problem(prob::DiscreteProblem, ic_ranges::Array{T,1}, p
     var_par = _var_par_check(var_par)
 
     (ic_par, N_mc) = _ic_par_matrix(N_dim_ic, N_dim, ic_ranges, var_par)
-    ic_par_problem = (prob, i, repeat) -> DiscreteProblem(prob.f, ic_par[i,1:N_dim_ic], prob.tspan, var_par[3](parameters; (var_par[1], ic_par[i,N_dim])))
+    ic_par_problem = (prob, i, repeat) -> DiscreteProblem(prob.f, ic_par[i,1:N_dim_ic], prob.tspan, var_par[3](parameters; Dict(var_par[1]=>ic_par[i,N_dim])...))
     (ic_par_problem, ic_par, N_mc)
 end
 
@@ -140,7 +140,7 @@ function setup_ic_par_mc_problem(prob::SDEProblem, ic_ranges::Array{T,1}, parame
     var_par = _var_par_check(var_par)
 
     (ic_par, N_mc) = _ic_par_matrix(N_dim_ic, N_dim, ic_ranges, var_par)
-    ic_par_problem = (prob, i, repeat) -> SDEProblem(prob.f, prob.g, ic_par[i,1:N_dim_ic], prob.tspan, var_par[3](parameters; (var_par[1], ic_par[i,N_dim])))
+    ic_par_problem = (prob, i, repeat) -> SDEProblem(prob.f, prob.g, ic_par[i,1:N_dim_ic], prob.tspan, var_par[3](parameters; Dict(var_par[1]=> ic_par[i,N_dim])...))
     (ic_par_problem, ic_par, N_mc)
 end
 
@@ -170,7 +170,7 @@ end
 function define_new_problem(prob::ODEProblem, ic_par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::Array{T,1}, var_par::Tuple{Symbol,Union{AbstractArray,Function},<:Function}) where T <: Function
     function new_problem(prob, i, repeat)
         _repeat_check(repeat, ic_par, ic_gens)
-        ODEProblem(prob.f, ic_par[i,1:N_dim_ic], prob.tspan,  var_par[3](parameters; (var_par[1], ic_par[i,N_dim_ic+1])))
+        ODEProblem(prob.f, ic_par[i,1:N_dim_ic], prob.tspan,  var_par[3](parameters; Dict(var_par[1]=> ic_par[i,N_dim_ic+1])...))
     end
     new_problem
 end
@@ -180,7 +180,7 @@ end
 function define_new_problem(prob::DiscreteProblem, ic_par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::Array{<:Function,1}, var_par::Tuple{Symbol,Union{AbstractArray,Function},<:Function})
     function new_problem(prob, i, repeat)
         _repeat_check(repeat, ic_par, ic_gens)
-        DiscreteProblem(prob.f, ic_par[i,1:N_dim_ic], prob.tspan,  var_par[3](parameters; (var_par[1], ic_par[i,N_dim_ic+1])))
+        DiscreteProblem(prob.f, ic_par[i,1:N_dim_ic], prob.tspan,  var_par[3](parameters; Dict(var_par[1] => ic_par[i,N_dim_ic+1])...))
     end
     new_problem
 end
@@ -188,7 +188,7 @@ end
 function define_new_problem(prob::SDEProblem, ic_par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::Array{<:Function,1}, var_par::Tuple{Symbol,Union{AbstractArray,Function},<:Function})
     function new_problem(prob, i, repeat)
         _repeat_check(repeat, ic_par, ic_gens)
-        SDEProblem(prob.f, prob.g, ic_par[i,1:N_dim_ic], prob.tspan,  var_par[3](parameters; (var_par[1], ic_par[i,N_dim_ic+1])))
+        SDEProblem(prob.f, prob.g, ic_par[i,1:N_dim_ic], prob.tspan,  var_par[3](parameters; Dict(var_par[1] => ic_par[i,N_dim_ic+1])...))
     end
     new_problem
 end
@@ -225,10 +225,10 @@ function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, ic_ranges::Array{T,1}, var_pa
         error("Zero inital conditions. Either at least one of the ranges has length 0 or an overflow occured")
     end
 
-    N_ic_pars = tuple(N_ic_pars...) # need this as tuple for CartesianRange
+    N_ic_pars = tuple(N_ic_pars...) # need this as tuple for CartesianIndices
 
     ic_par = zeros((N_mc, N_dim))
-    for (i_mc, i_ci) in enumerate(CartesianRange(N_ic_pars))
+    for (i_mc, i_ci) in enumerate(CartesianIndices(N_ic_pars))
          for i_dim=1:N_dim_ic
              ic_par[i_mc, i_dim] = ic_ranges[i_dim][i_ci[i_dim]]
          end
@@ -278,7 +278,7 @@ function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, N_ic::Int, ic_gens::Array{T,1
     end
 
     ic_par = zeros((N_mc, N_dim))
-    for (i_mc, i_ci) in enumerate(CartesianRange(N_ic_pars))
+    for (i_mc, i_ci) in enumerate(CartesianIndices(N_ic_pars))
         ic_par[i_mc, 1:N_dim_ic] = ics[i_ci[1],:]
         ic_par[i_mc, end] = var_par[2][i_ci[2]]
     end

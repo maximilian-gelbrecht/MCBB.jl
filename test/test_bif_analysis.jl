@@ -1,13 +1,14 @@
 # test the BifAnalysisProblem
 
 using HighBifLib
+using DifferentialEquations
 using Distributions
 using LightGraphs
 
 pars = logistic_parameters(2.1)
 dp = DiscreteProblem(logistic, [0.5], (0.,100.), pars)
 
-r_range = 2:0.1:4
+r_range = 2.:0.1:4.
 bap1 = BifAnalysisProblem(dp, (:r,r_range), eval_ode_run)
 
 r_fun = (r_old)->r_old+0.05*rand()

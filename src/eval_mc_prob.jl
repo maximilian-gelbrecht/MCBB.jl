@@ -138,7 +138,7 @@ function empirical_1D_KL_divergence_hist(u::AbstractArray, mu::Number, sig::Numb
    k = (hist_bins - 1)/2. # number of bins on each side of the histogram
    bin_width = (n_stds*sig) / k
    bin_centers = mu-k*bin_width:bin_width:mu+k*bin_width
-   bin_edges = bin_centers .- bin_width/2.
+   bin_edges = collect(bin_centers .- bin_width/2.)
    push!(bin_edges, k*bin_width + bin_width/2.)
 
    hist = StatsBase.fit(StatsBase.Histogram, u, StatsBase.AnalyticWeights(ones(length(u))), bin_edges; closed=:left)
@@ -251,7 +251,7 @@ function wasserstein_ecdf(u::AbstractArray, mu::Number, sig::Number)
     us = sort(u)
 
     deltas = diff(us)
-    normal_cdf(x) = 0.5*(1.+erf((x-mu)/sqrt(2.*sig*sig)))
+    normal_cdf(x) = 0.5*(1. + erf((x-mu)/sqrt(2. * sig * sig)))
 
     u_ecdf = (1:1:N)./N
     u_ecdf = u_ecdf[1:end-1]
@@ -287,6 +287,6 @@ end
 function mcs_diameter(u::AbstractArray)
     # miniball routine needs a N_t x d matrix
     mcs = miniball(u)
-    2.*sqrt(mcs.squared_radius)
+    2. * sqrt(mcs.squared_radius)
 end
 """

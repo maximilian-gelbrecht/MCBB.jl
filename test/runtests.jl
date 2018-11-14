@@ -2,15 +2,12 @@
 
 #Start Test Script
 using HighBifLib
-using Base.Test
+using Test
 
 # Run tests
-
-tic()
+println("Test BifAnalysisProblem")
+@time @test include("test_bif_analysis.jl")
 println("Test Discrete Problems")
 @time @test include("discrete_prob_example.jl")
 println("Test ODE Problems")
 @time @test include("ode_prob_example.jl")
-println("Test BifAnalysisProblem")
-@time @test include("test_bif_analysis.jl")
-toc()

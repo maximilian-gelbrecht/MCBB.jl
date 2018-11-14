@@ -41,7 +41,7 @@ D = distance_matrix(log_sol, parameter(log_emcp));
 fdist = k_dist(D,4);
 
 db_eps = 150
-db_res = dbscan(full(D),db_eps,4)
+db_res = dbscan(D,db_eps,4)
 
 cluster_meas = cluster_means(log_sol,db_res);
 cluster_n = cluster_n_noise(db_res);
