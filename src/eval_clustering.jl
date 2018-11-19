@@ -113,7 +113,7 @@ function cluster_means(sol::myMCSol, clusters::DbscanResult)
     mean_measures = zeros((N_cluster,sol.N_meas,N_dim))
     for i_sol=1:sol.N_mc
         for i_meas=1:sol.N_meas
-            mean_measures[clusters.assignments[i_sol]+1,i_meas,:] += sol.sol.u[i_sol][i_meas]
+            mean_measures[clusters.assignments[i_sol]+1,i_meas,:] += sol.sol[i_sol][i_meas]
         end
     end
     mean_measures ./ sol.N_mc
@@ -152,17 +152,17 @@ function cluster_measures(prob::myMCProblem, sol::myMCSol, clusters::DbscanResul
         p_windows[i] = 0.5*(window_min + window_max)
 
         par_ind_bool = (par .>= window_min) .& (par .< window_max) # parameter indices as bools
-        par_ind = find(par_ind_bool) # parameter indices as numbers
+        par_ind = findall(par_ind_bool) # parameter indices as numbers
 
         window_ca = ca[par_ind] # cluster assigments in this window
 
-        N_c_i = zeros(Int,(N_cluster, sol.N_meas, N_dim), Int64) # counts how many values are within the window for each cluster (for normalization)
+        N_c_i = zeros(Int,(N_cluster, sol.N_meas, N_dim)) # counts how many values are within the window for each cluster (for normalization)
 
         # collect and copy data
         for i_ca in eachindex(window_ca)
             for i_meas=1:sol.N_meas
                 for i_dim=1:N_dim
-                    cluster_measures[window_ca[i_ca]+1, i_meas, i_dim,i] += sol.sol[par_ind[i_ca]][i_meas][i_dim]
+                    cluster_measures[window_ca[i_ca]+1, i_meas, i_dim, i] += sol.sol[par_ind[i_ca]][i_meas][i_dim]
                     N_c_i[window_ca[i_ca]+1, i_meas, i_dim] += 1
                 end
             end
@@ -173,7 +173,7 @@ function cluster_measures(prob::myMCProblem, sol::myMCSol, clusters::DbscanResul
             for i_meas=1:sol.N_meas
                 for i_dim=1:N_dim
                     if !(N_c_i[i_cluster, i_meas, i_dim] == 0)
-                        cluster_measures[i_cluster, i_meas, i_dim] /= N_c_i[i_cluster, i_meas, i_dim]
+                        cluster_measures[i_cluster, i_meas, i_dim, i] /= N_c_i[i_cluster, i_meas, i_dim]
                     end
                 end
             end
@@ -224,20 +224,28 @@ struct ClusterICSpaces
             end
 
             i_mean, i_std = mean_and_std(icp[i,1:N_dim])
-            i_skew = skewness(icp[i,1:N_dim], m=i_mean)
+            i_skew = skewness(icp[i,1:N_dim], i_mean)
             push!(cross_dim_means[i_cluster], i_mean)
             push!(cross_dim_stds[i_cluster], i_std)
             push!(cross_dim_skews[i_cluster], i_skew)
-
             push!(data[i_cluster][N_dim+1],icp[i,N_dim+1]) # parameter
         end
 
-        # fit histograms
-        hist_tmp = fit(Histogram, data[1][1], nbins=nbins)
-        hists = Array(typeof(hist_tmp),(N_cluster,N_dim+1))
         for i_cluster=1:N_cluster
             for i_dim=1:N_dim+1
-                hists[i_cluster,i_dim] = fit(Histogram, data[i_cluster][i_dim], nbins=nbins)
+                data[i_cluster][i_dim] = convert.(Float64,data[i_cluster][i_dim])
+            end
+        end
+        data = convert(Array{Array{Array{Float64,1},1},1}, data)
+        cross_dim_means = convert(Array{Array{Float64,1},1}, cross_dim_means)
+        cross_dim_stds = convert(Array{Array{Float64,1},1}, cross_dim_stds)
+        cross_dim_skews = convert(Array{Array{Float64,1},1}, cross_dim_skews)
+
+        # fit histograms
+        hists = [[] for i=1:N_cluster]
+        for i_cluster=1:N_cluster
+            for i_dim=1:N_dim+1
+                push!(hists[i_cluster],fit(Histogram, data[i_cluster][i_dim], nbins=nbins, closed=:left))
             end
         end
 
@@ -250,7 +258,7 @@ struct ClusterICSpaces
             end
         end
 
-        new(data, hists, means, stds, cross_dim_means, cross_dim_stds, cross_dim_kurts)
+        new(data, hists, means, stds, cross_dim_means, cross_dim_stds, cross_dim_skews)
     end
 end
 

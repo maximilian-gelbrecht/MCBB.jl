@@ -15,7 +15,7 @@ import Base.sort, Base.sort!
 # ic_gens - Array of Functions or Array of Numbers/Ranges, sets or generates the initial cond per dimension
 # N_ic - if ic_gens is a array of functions / ICs generators, this is the total number of ICs that should be generated, if ic_gens is an Array of AbstractArray this argument is omited and not included in the function call
 # pars - Parameter Instance of the Problem
-# par_range_tupe - tuple with Symbol that is the name of the Parameter that should be varied and range or functions that governs how the Parameter is varied, an extra function can be given in case new parameters should be constructed with another function than the default reconstruct from Parameters.jl
+# par_range_tuple - tuple with Symbol that is the name of the Parameter that should be varied and range or functions that governs how the Parameter is varied, an extra function can be given in case new parameters should be constructed with another function than the default reconstruct from Parameters.jl
 # eval_ode_func - evalalution function for the MonteCarloProblem
 # tail_frac - float [0,1] (relative) time after which the trajectory/solution is saved and evaluated, default value 0.9
 #
@@ -24,23 +24,24 @@ struct BifAnaMCProblem <: myMCProblem
     N_mc::Int64
     rel_transient_time::Float64 # float [0,1] (relative) time after which the trajectory/solution is saved and evaluated
     ic_par::AbstractArray # matrix that stores all ICs and Pars for each run
+    par_var::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function},Tuple{Symbol,Union{AbstractArray,Function}}} # parameter variation tuple, is the same as par_range_tuple
 
     # inner constructer used for randomized ICs
     function BifAnaMCProblem(p::Union{DiscreteProblem, ODEProblem, SDEProblem}, ic_gens::Array{<:Function,1}, N_ic::Int, pars::DEParameters, par_range_tuple::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function},Tuple{Symbol,Union{AbstractArray,Function}}}, eval_ode_func::Function, tail_frac::Number)
         (ic_coupling_problem, ic_par, N_mc) = setup_ic_par_mc_problem(p, ic_gens, N_ic, pars, par_range_tuple)
         mcp = MonteCarloProblem(p, prob_func=ic_coupling_problem, output_func=eval_ode_func)
-        new(mcp, N_mc, tail_frac, ic_par)
+        new(mcp, N_mc, tail_frac, ic_par, par_range_tuple)
     end
 
     # inner constructer used for non-randomized ICs
     function BifAnaMCProblem(p::Union{DiscreteProblem, ODEProblem, SDEProblem}, ic_ranges::Array{<:AbstractArray,1}, pars::DEParameters, par_range_tuple::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function},Tuple{Symbol,Union{AbstractArray,Function}}}, eval_ode_func::Function, tail_frac::Number)
         (ic_coupling_problem, ic_par, N_mc) = setup_ic_par_mc_problem(p, ic_ranges, pars, par_range_tuple)
         mcp = MonteCarloProblem(p, prob_func=ic_coupling_problem, output_func=eval_ode_func)
-        new(mcp, N_mc, tail_frac, ic_par)
+        new(mcp, N_mc, tail_frac, ic_par, par_range_tuple)
     end
 
     # Direct Constructor
-    BifAnaMCProblem(p::MonteCarloProblem, N_mc::Int64, rel_transient_time::Float64, ic_par::AbstractArray) = new(p, N_mc, rel_transient_time, ic_par)
+    BifAnaMCProblem(p::MonteCarloProblem, N_mc::Int64, rel_transient_time::Float64, ic_par::AbstractArray, par_range_tuple::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function},Tuple{Symbol,Union{AbstractArray,Function}}}) = new(p, N_mc, rel_transient_time, ic_par, par_range_tuple)
 end
 BifAnaMCProblem(p::Union{DiscreteProblem, ODEProblem, SDEProblem}, ic_gens::Function, N_ic::Int, pars::DEParameters, par_range_tuple::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function},Tuple{Symbol,Union{AbstractArray,Function}}}, eval_ode_func::Function, tail_frac::Number) = BifAnaMCProblem(p, [ic_gens], N_ic, pars, par_range_tuple, eval_ode_func, tail_frac)
 BifAnaMCProblem(p::Union{DiscreteProblem, ODEProblem, SDEProblem}, ic_gens::Union{Array{<:Function,1},Function}, N_ic::Int, pars::DEParameters, par_range_tuple::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function},Tuple{Symbol,Union{AbstractArray,Function}}}, eval_ode_func::Function) = BifAnaMCProblem(p,ic_gens,N_ic,pars,par_range_tuple,eval_ode_func, 0.9)
@@ -301,13 +302,14 @@ end
 
 # custom solve for the BifAnaMCProblem defined earlier. solves the MonteCarlo Problem for OrdinaryDiffEq, but saves and evaluates only after transient at a constant step size, the results are sorted by parameter value
 # prob :: MC Problem of type defined in this library
-function solve(prob::BifAnaMCProblem, alg=nothing, N_t=400::Int, kwargs...)
+function solve(prob::BifAnaMCProblem, alg=nothing, N_t=400::Int, parallel_type=:parfor; kwargs...)
     t_save = collect(tsave_array(prob.p.prob, N_t, prob.rel_transient_time))
     if alg!=nothing
-        sol = solve(prob.p, alg, num_monte=prob.N_mc, dense=false, save_everystep=false, saveat=t_save, savestart=false, parallel_type=:parfor; kwargs...)
+        sol = solve(prob.p, alg, num_monte=prob.N_mc, dense=false, save_everystep=false, saveat=t_save, savestart=false, parallel_type=parallel_type; kwargs...)
     else
-        sol = solve(prob.p, num_monte=prob.N_mc, dense=false, save_everystep=false, saveat=t_save, savestart=false, parallel_type=:parfor; kwargs...)
+        sol = solve(prob.p, num_monte=prob.N_mc, dense=false, save_everystep=false, saveat=t_save, savestart=false, parallel_type=parallel_type; kwargs...)
     end
+
     mysol = BifMCSol(sol, prob.N_mc, N_t, length(sol[1]))
 
     inf_nan = check_inf_nan(mysol)

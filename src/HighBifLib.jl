@@ -9,6 +9,7 @@ export non_local_kuramoto_ring_parameters, non_local_kuramoto_ring
 export myMCProblem, BifAnaMCProblem, myMCSol, sort, sort!, parameter, show_results, solve
 export ParameterVar
 export tsave_array
+export ClusterICSpaces
 export BifAnalysisProblem
 export BifAnalysisSolution, BifMCSol
 export setup_ic_par_mc_problem, define_new_problem, eval_ode_run, check_inf_nan
@@ -21,6 +22,7 @@ export _compute_wasserstein_hist
 export wasserstein_ecdf
 #export curve_entropy
 export k_dist, cluster_measures, cluster_means, cluster_n_noise, cluster_membership
+export custom_problem_new_parameters
 
 
 # Contains example systems

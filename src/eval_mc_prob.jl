@@ -84,6 +84,61 @@ function eval_ode_run(sol, i)
     eval_ode_run(sol, i, state_filter, eval_funcs, global_eval_funcs)
 end
 
+# evaluation function that also includes a response analysis with a contiuation of the integration
+# it records the differnce in Distance of the measures chosen thus each time recording a pair = 1(dp,dD)
+#
+# takes all input arguments of eval_ode_run and N_dim, __) additionally:
+#           prob: the BifAnaMCProblem
+#           eps: Float,
+#           distance_function: Distance function also used for the distance matrix computation
+#           parameter_weighted: Does the distance function also weight the parameters? If true distance func has to have 4 input arguments, if not only 2, signature: (x1,x2,p1,p2) -> distance or (x1,x2)-> distance
+#           relative_parameter_flag: uses the relative paramater weighting in the distance calculation
+#           N_t: number of time steps saved in the integration (default: 200)
+#           alg: algorithm used in the integration (default: automatic detection)
+#           kwargs: all other keyword arguments are handed over to solve()
+#
+function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:Function,1}, global_eval_funcs::AbstractArray, failure_handling::Symbol, cyclic_setback::Bool, prob::BifAnaMCProblem, distance_func::Function, parameter_weighted::Bool=true, relative_parameter_flag::Bool=false, N_t::Int=200, alg=nothing; kwargs...)
+
+    (N_dim, __) = size(sol)
+
+    meas_1 = eval_ode_run(sol, i, state_filter, eval_funcs, global_eval_funcs, failure_handling, cyclic_setback)
+
+    # we define a new MonteCarloProblem, so that we can reuse all the other old code. it has only three problems to solve, (p - eps, p, p+eps) for a relativly short integration time.
+    ic_par = zeros((3,N_dim+1))
+
+    # new IC is end point of last solution
+    ic_par[1,1:N_dim] = sol[end]
+    ic_par[2,1:N_dim] = sol[end]
+    ic_par[3,1:N_dim] = sol[end]
+
+    # need par_var tuple hear as well -> maybe do it as a field of the problem structure
+    ic_par[1,end] = prob.ic_par[i,end]
+    ic_par[2,end] = prob.ic_par[i,end]
+    ic_par[3,end] = prob.ic_par[i,end]
+
+    new_tspan = (probi.tspan[1],probi.tspan[1]+0.15*(probi.tspan[2]-probi.tspan[1]))
+
+    function new_prob(probi, i, repeat)
+        n_prob = remake(probi, u0=ic_par[i,1:N_dim])
+        n_prob = remake(nprob, tspan=new_tspan)
+        custom_problem_new_parameters(nprob, prob.par_var[3](prob.prob.p; Dict(prob.par_var[1] => ic_par[i,end])...))
+    end
+    mcp = MonteCarloProblem(prob.prob.p, prob_func=new_prob, output_func=(sol,i)->eval_ode_run(sol, i, state_filter, eval_funcs, global_eval_funcs, failure_handling,cyclic_setback))
+    bamcp = BifAnaMCProblem(mcp, 3, 0., ic_par, prob.par_var) # 3 problems and no transient time
+    mcpsol = solve(bamcp, N_t=150, parallel_type=:none)
+
+    if parameter_weighted
+        D = distance_matrix(mcpsol, parameter(bamcp), distance_func, rel_par_flag)
+    else
+        D = distance_matrix(mcpsol, distance_func, rel_par_flag)
+    end
+
+    # symmetric difference
+    dD = (D[1,2] + D[2,3])/2.
+    (tuple(meas_1[1]...,dD),false)
+end
+
+
 # checks if any of the results is Inf or NaN and returns the indices in a dictionary
 function check_inf_nan(sol::myMCSol)
     N = sol.N_mc
