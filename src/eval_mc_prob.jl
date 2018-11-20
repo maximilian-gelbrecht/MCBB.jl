@@ -88,8 +88,9 @@ end
 # it records the differnce in Distance of the measures chosen thus each time recording a pair = 1(dp,dD)
 #
 # takes all input arguments of eval_ode_run and N_dim, __) additionally:
-#           prob: the BifAnaMCProblem
-#           eps: Float,
+#           par_var:: parameter variation tuple, same as for BifAnaMCProblem
+#           eps: Float, the integration is continued for p_new = p+/-eps
+#           par_bounds: bounds that should not be exceeded by p +/- eps
 #           distance_function: Distance function also used for the distance matrix computation
 #           parameter_weighted: Does the distance function also weight the parameters? If true distance func has to have 4 input arguments, if not only 2, signature: (x1,x2,p1,p2) -> distance or (x1,x2)-> distance
 #           relative_parameter_flag: uses the relative paramater weighting in the distance calculation
@@ -97,11 +98,13 @@ end
 #           alg: algorithm used in the integration (default: automatic detection)
 #           kwargs: all other keyword arguments are handed over to solve()
 #
-function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:Function,1}, global_eval_funcs::AbstractArray, failure_handling::Symbol, cyclic_setback::Bool, prob::BifAnaMCProblem, distance_func::Function, parameter_weighted::Bool=true, relative_parameter_flag::Bool=false, N_t::Int=200, alg=nothing; kwargs...)
+function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:Function,1}, global_eval_funcs::AbstractArray, failure_handling::Symbol, cyclic_setback::Bool, par_var::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function},Tuple{Symbol,Union{AbstractArray,Function}}}, eps::Float64, par_bounds::AbstractArray, distance_func, parameter_weighted::Bool=true, relative_parameter_flag::Bool=false, N_t::Int=200, alg=nothing; kwargs...)
 
     (N_dim, __) = size(sol)
+    probi = sol.prob
+    par_var = _var_par_check(par_var)
 
-    meas_1 = eval_ode_run(sol, i, state_filter, eval_funcs, global_eval_funcs, failure_handling, cyclic_setback)
+    meas_1 = eval_ode_run(sol, i, state_filter, eval_funcs, global_eval_funcs; failure_handling=failure_handling, cyclic_setback=cyclic_setback)
 
     # we define a new MonteCarloProblem, so that we can reuse all the other old code. it has only three problems to solve, (p - eps, p, p+eps) for a relativly short integration time.
     ic_par = zeros((3,N_dim+1))
@@ -112,23 +115,30 @@ function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:
     ic_par[3,1:N_dim] = sol[end]
 
     # need par_var tuple hear as well -> maybe do it as a field of the problem structure
-    ic_par[1,end] = prob.ic_par[i,end]
-    ic_par[2,end] = prob.ic_par[i,end]
-    ic_par[3,end] = prob.ic_par[i,end]
-
-    new_tspan = (probi.tspan[1],probi.tspan[1]+0.15*(probi.tspan[2]-probi.tspan[1]))
-
-    function new_prob(probi, i, repeat)
-        n_prob = remake(probi, u0=ic_par[i,1:N_dim])
-        n_prob = remake(nprob, tspan=new_tspan)
-        custom_problem_new_parameters(nprob, prob.par_var[3](prob.prob.p; Dict(prob.par_var[1] => ic_par[i,end])...))
+    ic_par[1,end] = getfield(probi.p, par_var[1]) - eps
+    ic_par[2,end] = getfield(probi.p, par_var[1])
+    ic_par[3,end] = getfield(probi.p, par_var[1]) + eps
+    if ic_par[1,end] < par_bounds[1]
+        ic_par[1,end] = par_bounds[1]
     end
-    mcp = MonteCarloProblem(prob.prob.p, prob_func=new_prob, output_func=(sol,i)->eval_ode_run(sol, i, state_filter, eval_funcs, global_eval_funcs, failure_handling,cyclic_setback))
-    bamcp = BifAnaMCProblem(mcp, 3, 0., ic_par, prob.par_var) # 3 problems and no transient time
+    if ic_par[3,end] > par_bounds[2]
+        ic_par[3,end] = par_bounds[2]
+    end
+
+    new_tspan = (probi.tspan[1],probi.tspan[1]+0.25*(probi.tspan[2]-probi.tspan[1]))
+    #new_tspan = probi.tspan
+    function new_prob(baseprob, i, repeat)
+        n_prob = remake(baseprob, u0=ic_par[i,1:N_dim])
+        n_prob = remake(n_prob, tspan=new_tspan)
+        custom_problem_new_parameters(n_prob, par_var[3](probi.p; Dict(par_var[1] => ic_par[i,end])...))
+    end
+
+    mcp = MonteCarloProblem(probi, prob_func=new_prob, output_func=(sol,i)->eval_ode_run(sol, i, state_filter, eval_funcs, global_eval_funcs; failure_handling=failure_handling, cyclic_setback=cyclic_setback))
+    bamcp = BifAnaMCProblem(mcp, 3, 0., ic_par, par_var) # 3 problems and no transient time
     mcpsol = solve(bamcp, N_t=150, parallel_type=:none)
 
     if parameter_weighted
-        D = distance_matrix(mcpsol, parameter(bamcp), distance_func, rel_par_flag)
+        D = distance_matrix(mcpsol, parameter(bamcp), distance_func, relative_parameter_flag)
     else
         D = distance_matrix(mcpsol, distance_func, rel_par_flag)
     end
@@ -178,7 +188,7 @@ end
 # reference pdf: e.g. Normal(mean,std)
 # hist_bins: number of bins of the histogram to estimate the empirical pdf of the data
 # n_stds: Interval that the histogram covers in numbers of stds (it covers  mean +/- n_stds*std)
-function empirical_1D_KL_divergence_hist(u::AbstractArray, mu::Number, sig::Number, hist_bins::Int=31, n_stds::Number=3, sig_tol=1e-8::Number)
+function empirical_1D_KL_divergence_hist(u::AbstractArray, mu::Number, sig::Number, hist_bins::Int=31, n_stds::Number=3, sig_tol=1e-4::Number)
 
    if sig < sig_tol # very small sigmas lead to numerical problems.
        return 0. # In the limit sig -> 0, the reference distribution is a delta distribution and the data is constant thus also a delta distribution. hence the distributions are identical and the KL div should be zero.
