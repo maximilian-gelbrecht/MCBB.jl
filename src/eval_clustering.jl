@@ -12,13 +12,12 @@ using Distributions, Clustering, StatsBase
 # distance_func: distance function that maps (x1,x2,p1,p2) -> D(x1,x2; p1,p2)
 # relative parameter: if true the parameter values are rescaled to be within [0,1]
 function distance_matrix(sol::myMCSol, par::AbstractArray, distance_func::Function, relative_parameter::Bool=false)
-    min_par = minimum(par)
-    max_par = maximum(par)
-    par_range = max_par - min_par
-    par_rel = (par .- min_par)./par_range
     mat_elements = zeros((sol.N_mc,sol.N_mc))
-
     if relative_parameter
+        min_par = minimum(par)
+        max_par = maximum(par)
+        #par_range = max_par - min_par
+        par_rel = (par .- min_par)./max_par
         par_c = par_rel
     else
         par_c = copy(par) # do we really need the copy here? I don't know
@@ -109,10 +108,10 @@ end
 # return mean values of all measures for each cluster
 function cluster_means(sol::myMCSol, clusters::DbscanResult)
     N_cluster = length(clusters.seeds)+1 # plus 1 -> plus "noise cluster" / not clustered points
-    N_dim = length(sol.sol.u[1][1])
-    mean_measures = zeros((N_cluster,sol.N_meas,N_dim))
+    N_dim = sol.N_dim
+    mean_measures = zeros((N_cluster,sol.N_meas_dim,N_dim))
     for i_sol=1:sol.N_mc
-        for i_meas=1:sol.N_meas
+        for i_meas=1:sol.N_meas_dim
             mean_measures[clusters.assignments[i_sol]+1,i_meas,:] += sol.sol[i_sol][i_meas]
         end
     end
@@ -130,7 +129,7 @@ end
 #
 function cluster_measures(prob::myMCProblem, sol::myMCSol, clusters::DbscanResult, window_size::Number, window_offset::Number)
     N_cluster = length(clusters.seeds)+1 # plus 1 -> plus "noise cluster" / not clustered points
-    N_dim = length(sol.sol.u[1][1])
+    N_dim = sol.N_dim
     par = parameter(prob)
     ca = clusters.assignments
 
@@ -206,7 +205,7 @@ struct ClusterICSpaces
     function ClusterICSpaces(prob::myMCProblem, sol::myMCSol, clusters::DbscanResult, nbins::Int64=20)
 
         N_cluster = length(clusters.seeds)+1 # plus 1 -> plus "noise cluster" / not clustered points
-        N_dim = length(sol.sol.u[1][1])
+        N_dim = sol.N_dim
 
         icp = prob.ic_par
         ca = clusters.assignments
@@ -357,4 +356,25 @@ function k_dist(D::AbstractArray, k::Int=4)
         k_d[i] = D_i_s[k]
     end
     sort(k_d, rev=true)
+end
+
+function KNN_dist_relative(D::AbstractArray, rel_K::Float64=0.005)
+    (N, N_2) = size(D)
+    K = Int(round(N * rel_K))
+    KNN_dist(D, K)
+end
+
+function KNN_dist(D::AbstractArray, K::Int)
+    (N, N_2) = size(D)
+    if N!=N_2
+        error("k_dist: Input Matrix has to be a square matrix")
+    end
+    k_d = zeros(N, K)
+    for i=1:N
+        D_i_s = sort(D[i,:])
+        for ik=1:K
+            k_d[i,ik] = D_i_s[ik]
+        end
+    end
+    sum(k_d, dims=2) #? STIMMT DAS?
 end
