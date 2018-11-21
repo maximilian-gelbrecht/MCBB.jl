@@ -23,6 +23,7 @@ export wasserstein_ecdf
 #export curve_entropy
 export k_dist, cluster_measures, cluster_means, cluster_n_noise, cluster_membership
 export custom_problem_new_parameters
+export normalize, get_measure
 
 
 # Contains example systems
