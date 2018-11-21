@@ -68,6 +68,9 @@ struct BifAnalysisSolution <: myMCSol
     sol::AbstractArray
     par::AbstractArray
     N_mc::Int
+    N_meas::Int # number of measures used, N_meas = N_meas_dim + N_meas_global
+    N_meas_dim::Int # number of measures that are evaluated for every dimension
+    N_meas_global::Int # number of global measures, in the case of system dimension == 1, N_meas_global = 1 = N_meas and N_meas_dim = 0
 end
 
 # computes the parameters that are used for the calculation
@@ -136,7 +139,7 @@ function solve(prob::BifAnalysisProblem, N_t=400::Int, rel_transient_time::Float
         if (sum(new_u0 .< prob.ic_bounds[1])>0) | (sum(new_u0 .> prob.ic_bounds[2])<0)
             if prob.hard_bounds
                 par_vector = par_vector[1:step]
-                breakte
+                break
             else
                 if (sum(new_u0 .< prob.ic_bounds[1])>0) < prob.ic_bounds[1]
                     new_u0[new_u0 .< prob.ic_bounds[1]] = prob.ic_bounds[1]
@@ -155,9 +158,9 @@ function solve(prob::BifAnalysisProblem, N_t=400::Int, rel_transient_time::Float
     end
 
     if return_probs
-        return (BifAnalysisSolution(sol, par_vector, length(par_vector)), prob_vec)
+        return (BifAnalysisSolution(sol, par_vector, length(par_vector), get_measure_dimensions(sol)...), prob_vec)
     else
-        return BifAnalysisSolution(sol, par_vector, prob.N)
+        return BifAnalysisSolution(sol, par_vector, prob.N, get_measure_dimensions(sol)...)
     end
 end
 
