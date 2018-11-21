@@ -57,7 +57,10 @@ struct BifMCSol <: myMCSol
     sol::MonteCarloSolution
     N_mc::Int   # number of solutions saved / Monte Carlo trials runs
     N_t::Int  # number of time steps for each solutions
-    N_meas::Int # number of measures used
+    N_dim::Int # sytem dimension
+    N_meas::Int # number of measures used, N_meas = N_meas_dim + N_meas_global
+    N_meas_dim::Int # number of measures that are evaluated for every dimension
+    N_meas_global::Int # number of global measures, in the case of system dimension == 1, N_meas_global = 1 = N_meas and N_meas_dim = 0
 end
 
 # if using random ICs/Pars the solutions are also in random order. These functions returns the MonteCarloSolution object sorted by the value of the parameter
@@ -100,6 +103,47 @@ function show_results(sol::BifMCSol, prob::BifAnaMCProblem, min_par::Number, max
     ssol.sol.u[(p .> min_par) .& (p .< max_par)]
 end
 
+# return the results for the k-th measure as an array
+function get_measure(sol::BifMCSol, k::Int)
+    if k > sol.N_meas_dim
+        arr = zeros((sol.N_mc,sol.N_dim))
+        for i=1:sol.N_mc
+            arr[i,:] = sol.sol[i][k]
+        end
+    else
+        arr = zeros(sol.N_mc)
+        for i=1:sol.N_mc
+            arr[i] = sol.sol[i][k]
+        end
+    end
+    arr
+end
+
+# returns an instance of BifMCSol with the solutions normalized to be in range [0,1]
+# it is possible to only select that some of the measures are normalized by providing an array with the indices of the measures
+# that should be normalized, e.g. [1,2] for measure 1 and measure 2 to be normalized
+function normalize(sol::BifMCSol, k::AbstractArray)
+    N_meas = length(k)
+    max_meas = zeros(sol.N_meas)
+    min_meas = zeros(sol.N_meas)
+    meas_ranges = zeros(sol.N_meas)
+    for i in k
+        meas_tmp = get_measure(sol, i)
+        max_meas[i] = maximum(meas_tmp)
+        min_meas[i] = minimum(meas_tmp)
+    end
+    meas_ranges = max_meas .- min_meas
+
+    new_mc_sol = deepcopy(sol.sol)
+    for i_meas in k
+        for i_mc=1:sol.N_mc
+            new_mc_sol.u[i_mc][i_meas][:] = (sol.sol.u[i_mc][i_meas][:] .- min_meas[i_meas]) ./ meas_ranges[i_meas]
+        end
+    end
+
+    sol_new = BifMCSol(new_mc_sol, sol.N_mc, sol.N_t, sol.N_dim, sol.N_meas, sol.N_meas_dim, sol.N_meas_global)
+end
+normalize(sol::BifMCSol) = normalize(sol, 1:sol.N_meas)
 
 # the type of problem that we are most interested: varying the combined initial conditions (ic) and parameter (par) space
 # this routine helps setting up these problems
@@ -310,7 +354,9 @@ function solve(prob::BifAnaMCProblem, alg=nothing, N_t=400::Int, parallel_type=:
         sol = solve(prob.p, num_monte=prob.N_mc, dense=false, save_everystep=false, saveat=t_save, savestart=false, parallel_type=parallel_type; kwargs...)
     end
 
-    mysol = BifMCSol(sol, prob.N_mc, N_t, length(sol[1]))
+
+
+    mysol = BifMCSol(sol, prob.N_mc, N_t, length(prob.p.prob.u0), get_measure_dimensions(sol)...)
 
     inf_nan = check_inf_nan(mysol)
     if (length(inf_nan["Inf"])>0) | (length(inf_nan["NaN"])>0)
@@ -318,6 +364,22 @@ function solve(prob::BifAnaMCProblem, alg=nothing, N_t=400::Int, parallel_type=:
     end
     sort!(mysol, prob)
     mysol
+end
+
+function get_measure_dimensions(sol)
+    sol1 = sol[1] # use the first solution for the dimension determination
+
+    N_meas_dim = 0
+    N_meas_global = 0
+
+    for i=1:length(sol1)
+        if length(sol1[i]) > 1
+            N_meas_dim += 1
+        else
+            N_meas_global += 1
+        end
+    end
+    (N_meas_dim + N_meas_global, N_meas_dim, N_meas_global)
 end
 
 
