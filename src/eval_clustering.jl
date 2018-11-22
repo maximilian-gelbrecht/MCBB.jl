@@ -143,7 +143,8 @@ function cluster_measures(prob::myMCProblem, sol::myMCSol, clusters::DbscanResul
         warn("Only 1 or less Windows in cluster_measures")
     end
     p_windows = zeros(N_windows)
-    cluster_measures = zeros((N_cluster, sol.N_meas, N_dim, N_windows))
+    cluster_measures = zeros((N_cluster, sol.N_meas_dim, N_dim, N_windows))
+    cluster_measures_global = zeros((N_cluster, sol.N_meas_global, N_windows))
 
     for i=1:N_windows
         window_min = min_par + (i-1)*window_offset
@@ -155,33 +156,41 @@ function cluster_measures(prob::myMCProblem, sol::myMCSol, clusters::DbscanResul
 
         window_ca = ca[par_ind] # cluster assigments in this window
 
-        N_c_i = zeros(Int,(N_cluster, sol.N_meas, N_dim)) # counts how many values are within the window for each cluster (for normalization)
+        N_c_i = zeros(Int,(N_cluster, sol.N_meas_dim, N_dim)) # counts how many values are within the window for each cluster (for normalization)
+        N_c_i_global = zeros(Int, (N_cluster, sol.N_meas_global))
 
         # collect and copy data
         for i_ca in eachindex(window_ca)
-            for i_meas=1:sol.N_meas
+            for i_meas=1:sol.N_meas_dim
                 for i_dim=1:N_dim
                     cluster_measures[window_ca[i_ca]+1, i_meas, i_dim, i] += sol.sol[par_ind[i_ca]][i_meas][i_dim]
                     N_c_i[window_ca[i_ca]+1, i_meas, i_dim] += 1
                 end
             end
+            for i_meas=sol.N_meas_dim+1:sol.N_meas
+                cluster_measures_global[window_ca[i_ca]+1, i_meas - sol.N_meas_dim, i] += sol.sol[par_ind[i_ca]][i_meas] # correct i-meas index
+                N_c_i_global[window_ca[i_ca]+1, i_meas - sol.N_meas_dim] += 1
+            end
         end
 
         # normalize/average it
         for i_cluster=1:N_cluster
-            for i_meas=1:sol.N_meas
+            for i_meas=1:sol.N_meas_dim
                 for i_dim=1:N_dim
                     if !(N_c_i[i_cluster, i_meas, i_dim] == 0)
                         cluster_measures[i_cluster, i_meas, i_dim, i] /= N_c_i[i_cluster, i_meas, i_dim]
                     end
                 end
             end
+            for i_meas=1:sol.N_meas_global
+                cluster_measures_global[i_cluster, i_meas, i] /= N_c_i_global[i_cluster, i_meas]
+            end
         end
     end
-    (p_windows, cluster_measures)
+    (p_windows, cluster_measures, cluster_measures_global)
 end
 
-# This function/struct returns the distributions as histograms of ICs (and Parameter) in each dimension for cluster seperatly, it also returns the data itself, means and stds
+# This function/struct returns the distributions as histograms of ICs (and Parameter) in each dimension for cluster seperatly, it also returns the data itself, means and stds. If additional keyword arguments min_par, max_par are given, it limits the analysis to the specified parameter range
 # fields of the struct:
 #               - data : array of array of arrays, the ICs and pars for each cluster and dimension
 #               - histograms: N_cluster x N_dim Array of Histograms of ICs/Par
@@ -202,7 +211,7 @@ struct ClusterICSpaces
     cross_dim_stds::AbstractArray
     cross_dim_skews::AbstractArray
 
-    function ClusterICSpaces(prob::myMCProblem, sol::myMCSol, clusters::DbscanResult, nbins::Int64=20)
+    function ClusterICSpaces(prob::myMCProblem, sol::myMCSol, clusters::DbscanResult; min_par::Number=-Inf, max_par::Number=Inf, nbins::Int64=20)
 
         N_cluster = length(clusters.seeds)+1 # plus 1 -> plus "noise cluster" / not clustered points
         N_dim = sol.N_dim
@@ -217,17 +226,19 @@ struct ClusterICSpaces
 
         data = [[[] for i=1:N_dim+1] for i=1:N_cluster] # +1 for the parameter
         for i=1:sol.N_mc
-            i_cluster = ca[i] + 1  # plus 1 -> plus "noise cluster" / not clustered points
-            for i_dim=1:N_dim # ICs
-                push!(data[i_cluster][i_dim],icp[i,i_dim])
-            end
+            if (icp[i,end] > min_par) & (icp[i,end] < max_par)
+                i_cluster = ca[i] + 1  # plus 1 -> plus "noise cluster" / not clustered points
+                for i_dim=1:N_dim # ICs
+                    push!(data[i_cluster][i_dim],icp[i,i_dim])
+                end
 
-            i_mean, i_std = mean_and_std(icp[i,1:N_dim])
-            i_skew = skewness(icp[i,1:N_dim], i_mean)
-            push!(cross_dim_means[i_cluster], i_mean)
-            push!(cross_dim_stds[i_cluster], i_std)
-            push!(cross_dim_skews[i_cluster], i_skew)
-            push!(data[i_cluster][N_dim+1],icp[i,N_dim+1]) # parameter
+                i_mean, i_std = mean_and_std(icp[i,1:N_dim])
+                i_skew = skewness(icp[i,1:N_dim], i_mean)
+                push!(cross_dim_means[i_cluster], i_mean)
+                push!(cross_dim_stds[i_cluster], i_std)
+                push!(cross_dim_skews[i_cluster], i_skew)
+                push!(data[i_cluster][N_dim+1],icp[i,N_dim+1]) # parameter
+            end
         end
 
         for i_cluster=1:N_cluster
