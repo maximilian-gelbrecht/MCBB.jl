@@ -105,7 +105,7 @@ end
 
 # return the results for the k-th measure as an array
 function get_measure(sol::BifMCSol, k::Int)
-    if k > sol.N_meas_dim
+    if k <=  sol.N_meas_dim
         arr = zeros((sol.N_mc,sol.N_dim))
         for i=1:sol.N_mc
             arr[i,:] = sol.sol[i][k]
