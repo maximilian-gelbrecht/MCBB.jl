@@ -24,7 +24,7 @@ export wasserstein_ecdf
 export k_dist, cluster_measures, cluster_means, cluster_n_noise, cluster_membership
 export custom_problem_new_parameters
 export normalize, get_measure
-
+export KNN_dist, KNN_dist_relative
 
 # Contains example systems
 include("systems.jl")
