@@ -252,10 +252,18 @@ struct ClusterICSpaces
         cross_dim_skews = convert(Array{Array{Float64,1},1}, cross_dim_skews)
 
         # fit histograms
+        # the automatic bin edges of julia are somewhat lackluster and unconsistent, we define our own
+
+
         hists = [[] for i=1:N_cluster]
         for i_cluster=1:N_cluster
+            ic_min = minimum(minimum(data[i_cluster]))
+            ic_max = maximum(maximum(data[i_cluster]))
+            ic_range = ic_max - ic_min
+
+            edges = ic_min:ic_range/nbins:ic_max
             for i_dim=1:N_dim+1
-                push!(hists[i_cluster],fit(Histogram, data[i_cluster][i_dim], nbins=nbins, closed=:left))
+                push!(hists[i_cluster],normalize(fit(Histogram, data[i_cluster][i_dim], edges, closed=:left)))
             end
         end
 
