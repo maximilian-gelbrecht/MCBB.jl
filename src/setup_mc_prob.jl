@@ -51,7 +51,6 @@ BifAnaMCProblem(p::Union{DiscreteProblem, ODEProblem, SDEProblem}, ic_gens::Unio
 parameter(p::BifAnaMCProblem) = p.ic_par[:,end]
 
 
-
 # define structs for maps and custom solve based on dynamical systems library or discrete Problem
 
 struct BifMCSol <: myMCSol
@@ -145,6 +144,8 @@ function normalize(sol::BifMCSol, k::AbstractArray)
     sol_new = BifMCSol(new_mc_sol, sol.N_mc, sol.N_t, sol.N_dim, sol.N_meas, sol.N_meas_dim, sol.N_meas_global)
 end
 normalize(sol::BifMCSol) = normalize(sol, 1:sol.N_meas)
+
+# this routine replaces Infs with the specified values, this can under some circumstances be usefull when investigating systems that do not converge and you want to calculate distances
 
 # the type of problem that we are most interested: varying the combined initial conditions (ic) and parameter (par) space
 # this routine helps setting up these problems
@@ -264,7 +265,7 @@ function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, ic_ranges::Array{T,1}, var_pa
     end
     N_ic_pars[N_dim] = length(collect(var_par[2]))
     if prod(float(N_ic_pars)) > 1e10
-        warn("More than 1e10 initial cond. Are you sure what you are doing? Overflows might occur.")
+        @warn "More than 1e10 initial cond. Are you sure what you are doing? Overflows might occur."
     end
     N_mc = prod(N_ic_pars)
     if N_mc==0
@@ -347,7 +348,7 @@ end
 
 # custom solve for the BifAnaMCProblem defined earlier. solves the MonteCarlo Problem for OrdinaryDiffEq, but saves and evaluates only after transient at a constant step size, the results are sorted by parameter value
 # prob :: MC Problem of type defined in this library
-function solve(prob::BifAnaMCProblem, alg=nothing, N_t=400::Int, parallel_type=:parfor; kwargs...)
+function solve(prob::BifAnaMCProblem, alg=nothing, N_t=400::Int, parallel_type=:parfor; flag_check_inf_nan=true, kwargs...)
     t_save = collect(tsave_array(prob.p.prob, N_t, prob.rel_transient_time))
     if alg!=nothing
         sol = solve(prob.p, alg, num_monte=prob.N_mc, dense=false, save_everystep=false, saveat=t_save, savestart=false, parallel_type=parallel_type; kwargs...)
@@ -359,9 +360,11 @@ function solve(prob::BifAnaMCProblem, alg=nothing, N_t=400::Int, parallel_type=:
 
     mysol = BifMCSol(sol, prob.N_mc, N_t, length(prob.p.prob.u0), get_measure_dimensions(sol)...)
 
-    inf_nan = check_inf_nan(mysol)
-    if (length(inf_nan["Inf"])>0) | (length(inf_nan["NaN"])>0)
-        warn("Some elements of the solution are Inf or NaN, check the solution with check_inf_nan again!")
+    if flag_check_inf_nan
+        inf_nan = check_inf_nan(mysol)
+        if (length(inf_nan["Inf"])>0) | (length(inf_nan["NaN"])>0)
+            @warn "Some elements of the solution are Inf or NaN, check the solution with check_inf_nan again!"
+        end
     end
     sort!(mysol, prob)
     mysol

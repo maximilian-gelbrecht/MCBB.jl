@@ -18,22 +18,26 @@ import Distributions, StatsBase
 # global_eval_funcs :: array of functions that should be applied to the complete N-dimensional solution, need to be (Array w/ Samples ::AbstractArray, Mean::Number, Std::Number) -> Measure
 # failure_handling :: How failure of integration is handled. Should be :None (do no checks), :Inf (If retcode==:DtLessThanMin: return Inf) or :Repeat (If no succes, repeat the trial (only works with random initial conditions))
 # cyclic_setback :: Bool, if true the N*2Pi is substracted from the solution so that the first element of the solution that is analysed is within [-pi, pi]
-function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:Function,1}, global_eval_funcs::AbstractArray; failure_handling::Symbol=:None, cyclic_setback::Bool=false)
+# replace_inf ;: Number or Nothing, if a number replaces all Infs in the solution with this number. Can be usefull if one still wants to distinguish between different solutions containing Infs, +Inf is replaced by the Number, -Inf by (-1)*Number.
+function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:Function,1}, global_eval_funcs::AbstractArray; failure_handling::Symbol=:None, cyclic_setback::Bool=false, replace_inf=nothing)
 
-    (N_dim, N_t) = size(sol)
+    N_dim = length(sol.prob.u0)
     N_dim_measures = length(eval_funcs) + 2 # mean and var are always computed
     N_dim_global_measures = length(global_eval_funcs)
-
     if failure_handling==:None
         failure_handling=:None # do nothing
     elseif failure_handling==:Inf
-        if (sol.retcode == :DtLessThanMin)
-            last = sol.u[end]
-            N_dim = length(last)
-            inf_flag = false
-            for i=1:N_dim
-                if abs(last[i]) > 1e11
-                    inf_flag = true
+        if (sol.retcode == :DtLessThanMin) | (sol.retcode == :Unstable)
+            # in case it is so unstable that the solution is empty as no results are returned
+            if length(sol) == 0
+                inf_flag = true
+            else
+                last = sol.u[end]
+                inf_flag = false
+                for i=1:N_dim
+                    if abs(last[i]) > 1e11
+                        inf_flag = true
+                    end
                 end
             end
             if inf_flag
@@ -41,7 +45,7 @@ function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:
                 global_measures = [Inf for i=1:N_dim_global_measures]
                 return (tuple(dim_measures...,global_measures...),false)
             else
-                warn("Failure Handling Warning, DtLessThanMin but Solution not diverging.")
+                @warn "Failure Handling Warning, DtLessThanMin but Solution not diverging."
             end
         end
     elseif failure_handling==:Repeat
@@ -50,6 +54,14 @@ function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:
         end
     else
         error("failure_handling symbol not known")
+    end
+    (N_dim, N_t) = size(sol)
+
+    if replace_inf != nothing
+        inf_ind = isinf.(sol)
+        for i_dim=1:N_dim
+            sol.u[inf_ind[i_dim,:]] .= replace_inf
+        end
     end
 
     dim_measures = [zeros(Float64, N_dim) for i=1:N_dim_measures]
@@ -77,7 +89,7 @@ end
 
 # MonteCarloProblem needs a function with only (sol, i) as inputs and this way the default of all dimensions beeing evaluated is easier to handle than with an optional/keyword argument
 function eval_ode_run(sol, i)
-    (N_dim, __) = size(sol)
+    N_dim = length(sol.prob.u0)
     state_filter = collect(1:N_dim)
     eval_funcs = [empirical_1D_KL_divergence_hist]
     global_eval_funcs = []
@@ -96,11 +108,12 @@ end
 #           relative_parameter_flag: uses the relative paramater weighting in the distance calculation
 #           N_t: number of time steps saved in the integration (default: 200)
 #           alg: algorithm used in the integration (default: automatic detection)
+#           debug: if true, also returns the continuation problem in the tuple
 #           kwargs: all other keyword arguments are handed over to solve()
 #
-function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:Function,1}, global_eval_funcs::AbstractArray, failure_handling::Symbol, cyclic_setback::Bool, par_var::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function},Tuple{Symbol,Union{AbstractArray,Function}}}, eps::Float64, par_bounds::AbstractArray, distance_func, parameter_weighted::Bool=true, relative_parameter_flag::Bool=false, N_t::Int=200, alg=nothing; kwargs...)
+function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:Function,1}, global_eval_funcs::AbstractArray, failure_handling::Symbol, cyclic_setback::Bool, par_var::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function},Tuple{Symbol,Union{AbstractArray,Function}}}, eps::Float64, par_bounds::AbstractArray, distance_func, parameter_weighted::Bool=true, relative_parameter_flag::Bool=false, N_t::Int=200, alg=nothing, debug::Bool=false; kwargs...)
 
-    (N_dim, __) = size(sol)
+    N_dim = length(sol.prob.u0)
     probi = sol.prob
     par_var = _var_par_check(par_var)
 
@@ -142,10 +155,13 @@ function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:
     else
         D = distance_matrix(mcpsol, distance_func, rel_par_flag)
     end
-
     # symmetric difference
     dD = (D[1,2] + D[2,3])/2.
-    (tuple(meas_1[1]...,dD),false)
+    if debug
+        (tuple(meas_1[1]...,dD,[bamcp]),false)
+    else
+        (tuple(meas_1[1]...,dD),false)
+    end
 end
 
 
