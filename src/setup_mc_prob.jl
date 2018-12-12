@@ -7,6 +7,39 @@ using Parameters
 import Base.sort, Base.sort!
 import LinearAlgebra.normalize
 
+
+# Parameter Variation Struct
+# This struct holds information about the parameters and how they chould
+# be varied
+# For many cases this struct is automaticlly initialized when
+# calling BifAnaMCProblem with appropiate Tuples
+#
+# name, is the symbol of the name of the parameter to be varied
+# new_val, is the function that determines to which value it is changed, takes the
+#           index of the trial as an argument (i) -> new_value
+# function that returns a new parameter when given the old parameter and the new
+# value as a kwargs: (old_par; (Dict(name=>new_value))) -> new_par
+struct ParameterVar
+    name::Symbol
+    new_val::Function
+    new_par::Function
+
+    function ParameterVar(name::Symbol, func::Function, new_par::Function)
+        new(name,func,new_par)
+    end
+
+    function ParameterVar(name::Symbol, arr::AbstractArray, new_par::Function)
+        function new_val(i)
+            arr[i]
+        end
+        new(name,new_val,new_par)
+    end
+end
+ParameterVar(name::Symbol, func::Function) = ParameterVar(name, func, reconstruct)
+ParameterVar(name::Symbol, arr::AbstractArray) = ParameterVar(name, arr, reconstruct)
+
+
+
 # define a custom ODE Problem type, so that we can also define a custom solve for it!
 
 # The Main Scruct, defining a new Differential Equation Problem Type with its own solve()
@@ -348,15 +381,31 @@ end
 
 # custom solve for the BifAnaMCProblem defined earlier. solves the MonteCarlo Problem for OrdinaryDiffEq, but saves and evaluates only after transient at a constant step size, the results are sorted by parameter value
 # prob :: MC Problem of type defined in this library
-function solve(prob::BifAnaMCProblem, alg=nothing, N_t=400::Int, parallel_type=:parfor; flag_check_inf_nan=true, kwargs...)
+# alg :: Algorithm to use, same as for solve() from DifferentialEquations.jl
+# N_t :: Number of timesteps to be saved
+# parallel_type :: which form of parallelism should be used? same as for MonteCarloProblem from DifferentialEquations.jl
+# flag_check_inf_nan :: Does a check if any of the results are NaN or inf
+# custom_solve:: Function/Nothing, custom solve function
+# euler_inf :: If true, solves it Euler(), constant stepsize and tstops, usefull for some easy, but instable test models
+function solve(prob::BifAnaMCProblem, alg=nothing, N_t=400::Int, parallel_type=:parfor; flag_check_inf_nan=true, custom_solve::Union{Function,Nothing}=nothing, kwargs...)
     t_save = collect(tsave_array(prob.p.prob, N_t, prob.rel_transient_time))
-    if alg!=nothing
-        sol = solve(prob.p, alg, num_monte=prob.N_mc, dense=false, save_everystep=false, saveat=t_save, savestart=false, parallel_type=parallel_type; kwargs...)
+
+    if custom_solve!=nothing
+        sol = custom_solve(prob, t_save)
+    elseif alg!=nothing
+        sol = solve(prob.p, alg=alg, num_monte=prob.N_mc, dense=false, save_everystep=false, saveat=t_save, savestart=false, parallel_type=parallel_type; kwargs...)
     else
         sol = solve(prob.p, num_monte=prob.N_mc, dense=false, save_everystep=false, saveat=t_save, savestart=false, parallel_type=parallel_type; kwargs...)
     end
 
 
+    """
+    if alg!=nothing
+        sol = solve(prob.p, alg, num_monte=prob.N_mc, dense=false, save_everystep=false, saveat=t_save, savestart=false, parallel_type=parallel_type; kwargs...)
+    else
+        sol = solve(prob.p, num_monte=prob.N_mc, dense=false, save_everystep=false, saveat=t_save, savestart=false, parallel_type=parallel_type; kwargs...)
+    end
+    """
 
     mysol = BifMCSol(sol, prob.N_mc, N_t, length(prob.p.prob.u0), get_measure_dimensions(sol)...)
 
@@ -369,6 +418,7 @@ function solve(prob::BifAnaMCProblem, alg=nothing, N_t=400::Int, parallel_type=:
     sort!(mysol, prob)
     mysol
 end
+solve_euler_inf(prob::BifAnaMCProblem, t_save::AbstractArray; dt=0.1) = solve(prob.p, alg=Euler(), dt=dt, num_monte=prob.N_mc, parallel_type=:parfor, dense=false, saveat=t_save, tstops=t_save, savestart=false, save_everystep=false)
 
 function get_measure_dimensions(sol)
     sol1 = sol[1] # use the first solution for the dimension determination

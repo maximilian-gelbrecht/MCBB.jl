@@ -257,6 +257,11 @@ struct ClusterICSpaces
 
         hists = [[] for i=1:N_cluster]
         for i_cluster=1:N_cluster
+
+            if isempty(data[i_cluster][1])
+                continue
+            end
+
             ic_min = minimum(minimum(data[i_cluster]))
             ic_max = maximum(maximum(data[i_cluster]))
             ic_range = ic_max - ic_min

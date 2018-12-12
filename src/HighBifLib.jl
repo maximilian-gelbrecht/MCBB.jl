@@ -26,6 +26,9 @@ export custom_problem_new_parameters
 export normalize, get_measure
 export KNN_dist, KNN_dist_relative
 export DEParameters
+export solve_euler_inf, tsave_array
+
+export ParameterVar
 
 # Contains example systems
 include("systems.jl")

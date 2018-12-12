@@ -20,7 +20,6 @@ import Distributions, StatsBase
 # cyclic_setback :: Bool, if true the N*2Pi is substracted from the solution so that the first element of the solution that is analysed is within [-pi, pi]
 # replace_inf ;: Number or Nothing, if a number replaces all Infs in the solution with this number. Can be usefull if one still wants to distinguish between different solutions containing Infs, +Inf is replaced by the Number, -Inf by (-1)*Number.
 function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:Function,1}, global_eval_funcs::AbstractArray; failure_handling::Symbol=:None, cyclic_setback::Bool=false, replace_inf=nothing)
-
     N_dim = length(sol.prob.u0)
     N_dim_measures = length(eval_funcs) + 2 # mean and var are always computed
     N_dim_global_measures = length(global_eval_funcs)
@@ -59,8 +58,34 @@ function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:
 
     if replace_inf != nothing
         inf_ind = isinf.(sol)
+        pinf_ind = inf_ind .& (sol .> 0)
+        minf_ind = inf_ind .& (.~pinf_ind)
+
         for i_dim=1:N_dim
-            sol.u[inf_ind[i_dim,:]] .= replace_inf
+            #print("IDIM ")
+            #print(i_dim)
+
+            #println(minf_ind[i_dim,:])
+            #println(pinf_ind[i_dim,:])
+            #println(sum(pinf_ind[i_dim,:]))
+            #if sum(pinf_ind[i_dim,:]) > 0  # we need to check if they are any elements true, because otherwise the following assignments are not valid statements and would result in errors
+            #    sol.u[pinf_ind[i_dim,:]] .= replace_inf
+            #end
+            #println(sum(minf_ind[i_dim,:]))
+
+            #if sum(minf_ind[i_dim,:]) > 0
+            #    sol.u[minf_ind[i_dim,:]] .= (-1. *replace_inf)
+            #end
+            for it=1:N_t
+                if pinf_ind[i_dim,it]
+                    #println(sol.u[it,:][1][i_dim])
+                    sol.u[it,:][i_dim] = replace_inf
+                end
+                if minf_ind[i_dim,it]
+                    #println(sol.u[it,:][1][i_dim])
+                    sol.u[it,:][1][i_dim] = -1 * replace_inf
+                end
+            end
         end
     end
 
