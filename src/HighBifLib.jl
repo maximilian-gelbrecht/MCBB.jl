@@ -28,7 +28,7 @@ export KNN_dist, KNN_dist_relative
 export DEParameters
 export solve_euler_inf, tsave_array
 
-export ParameterVar
+export ParameterVar, ParameterVarArray, ParameterVarFunc
 
 # Contains example systems
 include("systems.jl")

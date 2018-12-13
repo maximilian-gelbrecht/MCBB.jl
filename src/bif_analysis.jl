@@ -15,6 +15,7 @@ import DifferentialEquations.problem_new_parameters
 #                    -   name of the parameter as a symbol
 #                    -   AbstractArray or Function that contains all parameters for the experiment or a function that generates parameter values, the function has to be format (oldvalue) -> (newvalue)
 #                   - OPTIONAL: a function that maps (old_parameter_instance; (par_range[1],new_parameter_value)) -> new_parameter_instance. Default is 'reconstruct' from @with_kw/Parameters.jl is used
+#                   - is automaticlly convertet to a ParameterVar struct
 #       N :: OPTIONAL
 #       eval_ode_run :: function, same as for MonteCarloProblems
 #       ic_bounds:: Bounds for the IC that should not be exceeded
@@ -22,8 +23,8 @@ import DifferentialEquations.problem_new_parameters
 #       hard_bounds:: If a bound is reached: if true, stops the iteration, false continous with (upper/lower bound as IC)
 
 struct BifAnalysisProblem <: myMCProblem
-    prob::Union{DiscreteProblem,ODEProblem,SDEProblem} # Base DifferentialEquations Problem
-    par_range::Tuple{Symbol,Union{AbstractArray,Function},<:Function}
+    prob::DiffEqBase.DEProblem # Base DifferentialEquations Problem
+    par_range::ParameterVar
     N::Int64
     eval_func::Function
     ic_bounds::AbstractArray
@@ -31,37 +32,22 @@ struct BifAnalysisProblem <: myMCProblem
     hard_bounds::Bool
     par::AbstractArray
 
-    # different constructors for different kinds of par_range tuples...
-
-    # 1. tuple has array
-    function BifAnalysisProblem(p::Union{DiscreteProblem,ODEProblem,SDEProblem}, par_range::Union{Tuple{Symbol,AbstractArray}, Tuple{Symbol,AbstractArray,<:Function}}, eval_func::Function, ic_bounds::AbstractArray=[-Inf,Inf], par_bounds::AbstractArray=[-Inf,Inf], hard_bounds::Bool=false)
-        par_range = _var_par_check(par_range)
-        N = length(par_range[2])
-        par_vector = compute_parameters(p, par_range, N)
-        N = length(par_vector) # updated N in case a boundary is hit
-        new(p, par_range, N, eval_func, ic_bounds, par_bounds, hard_bounds, par_vector)
-    end
-
-    # 2. tuple has function
-    function BifAnalysisProblem(p::Union{DiscreteProblem,ODEProblem,SDEProblem}, par_range::Union{Tuple{Symbol,<:Function,<:Function},Tuple{Symbol,<:Function}}, N::Integer, eval_func::Function, ic_bounds::AbstractArray=[-Inf,Inf], par_bounds::AbstractArray=[-Inf,Inf], hard_bounds::Bool=false)
-        par_range = _var_par_check(par_range)
-        par_vector = compute_parameters(p, par_range, N)
-        N = length(par_vector) # updated N in case a boundary is hit
-        BifAnalysisProblem(p, par_range, N, eval_func, ic_bounds, par_bounds, hard_bounds, par_vector)
-    end
-
-    # direct constructor
-    function BifAnalysisProblem(p::Union{DiscreteProblem,ODEProblem,SDEProblem}, par_range::Tuple{Symbol,Union{AbstractArray,Function},<:Function}, N::Int64, eval_func::Function, ic_bounds::AbstractArray=[-Inf,Inf],par_bounds::AbstractArray=[-Inf,Inf], hard_bounds::Bool=false)
+    function BifAnalysisProblem(p::DiffEqBase.DEProblem, par_range::ParameterVar, N::Int64, eval_func::Function, ic_bounds::AbstractArray=[-Inf,Inf],par_bounds::AbstractArray=[-Inf,Inf], hard_bounds::Bool=false)
         par_vector = compute_parameters(p, par_range, N)
         N = length(par_vector) # updated N in case a boundary is hit
         new(p, par_range, N, eval_func, ic_bounds, par_bounds, hard_bounds, par_vector)
     end
 
     # direct constructor
-    function BifAnalysisProblem(p::Union{DiscreteProblem,ODEProblem,SDEProblem}, par_range::Tuple{Symbol,Union{AbstractArray,Function},<:Function}, N::Int64, eval_func::Function, ic_bounds::AbstractArray,par_bounds::AbstractArray, hard_bounds::Bool, par_vector::AbstractArray)
+    function BifAnalysisProblem(p::DiffEqBase.DEProblem, par_range::ParameterVar, N::Int64, eval_func::Function, ic_bounds::AbstractArray,par_bounds::AbstractArray, hard_bounds::Bool, par_vector::AbstractArray)
         new(p, par_range, N, eval_func, ic_bounds, par_bounds, hard_bounds, par_vector)
     end
 end
+
+BifAnalysisProblem(p::DiffEqBase.DEProblem, par_range::Union{Tuple{Symbol, <:Function,<:Function}, Tuple{Symbol,<:Function}}, N::Int, eval_func::Function, ic_bounds::AbstractArray=[-Inf,Inf], par_bounds::AbstractArray=[-Inf,Inf], hard_bounds::Bool=false) = BifAnalysisProblem(p, ParameterVar(par_range...), N, eval_func, ic_bounds, par_bounds, hard_bounds)
+BifAnalysisProblem(p::DiffEqBase.DEProblem, par_range::Union{Tuple{Symbol, AbstractArray,<:Function}, Tuple{Symbol,AbstractArray}}, eval_func::Function, ic_bounds::AbstractArray=[-Inf,Inf], par_bounds::AbstractArray=[-Inf,Inf], hard_bounds::Bool=false) = BifAnalysisProblem(p, ParameterVar(par_range...), length(par_range[2]), eval_func, ic_bounds, par_bounds, hard_bounds)
+
+
 parameter(prob::BifAnalysisProblem) = prob.par
 
 struct BifAnalysisSolution <: myMCSol
@@ -74,19 +60,18 @@ struct BifAnalysisSolution <: myMCSol
 end
 
 # computes the parameters that are used for the calculation
-function compute_parameters(p::Union{DiscreteProblem,ODEProblem,SDEProblem}, par_range::Union{Tuple{Symbol, Union{AbstractArray,<:Function},<:Function}, Tuple{Symbol,Union{AbstractArray,<:Function}}}, N::Integer)
-    if typeof(par_range[2])<:Function
-        par_vector = zeros(N)
-        par_vector[1] = getfield(p.p,par_range[1]) # IC of first DEProblem
+compute_parameters(p::DiffEqBase.DEProblem , par_range::ParameterVarArray, N::Integer) = par_range.arr
 
-        for istep=2:N
-            par_vector[istep] = par_range[2](par_vector[istep-1])
-        end
-    else
-        par_vector = par_range[2]
+function compute_parameters(p::DiffEqBase.DEProblem , par_range::ParameterVarFunc, N::Integer)
+    par_vector = zeros(N)
+    par_vector[1] = getfield(p.p,par_range.name) # IC of first DEProblem
+
+    for istep=2:N
+        par_vector[istep] = par_range.new_val(par_vector[istep-1])
     end
     par_vector
 end
+
 
 # custom solve for the BifAnalysisProblem.
 # Saves and evaluates only after transient at a constant step size
@@ -126,7 +111,7 @@ function solve(prob::BifAnalysisProblem, N_t=400::Int, rel_transient_time::Float
             end
         end
 
-        deprob = custom_problem_new_parameters(prob.prob, prob.par_range[3](prob.prob.p; Dict(prob.par_range[1] => par_vector[istep])...))
+        deprob = custom_problem_new_parameters(prob.prob, prob.par_range.new_par(prob.prob.p; Dict(prob.par_range.name => par_vector[istep])...))
 
         new_u0 = sol_i[end]
 

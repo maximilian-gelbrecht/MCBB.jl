@@ -23,8 +23,8 @@ log_sol = solve(log_emcp)
 
 # random+random
 rdist = Uniform(3,3.3)
-r = ()->rand(rdist)
-pars = logistic_parameters(r())
+r = (i)->rand(rdist)
+pars = logistic_parameters(r(1))
 icdist = Uniform(0.1,0.9)
 ic_ranges = ()->rand(icdist)
 N_ic = 20

@@ -37,7 +37,7 @@ ko_sol = solve(ko_emcp)
 
 # random + random
 ic_ranges = [()->rand(ic_dist)]
-k_range = ()->rand(kdist)
+k_range = (i)->rand(kdist)
 
 ko_emcp = BifAnaMCProblem(rp, ic_ranges, N_ics, pars, (:K, k_range), eval_ode_run, tail_frac)
 ko_sol = solve(ko_emcp)

@@ -9,7 +9,7 @@ import LinearAlgebra.normalize
 
 
 # Parameter Variation Struct
-# This struct holds information about the parameters and how they chould
+# This struct holds information about the parameters and how they should
 # be varied
 # For many cases this struct is automaticlly initialized when
 # calling BifAnaMCProblem with appropiate Tuples
@@ -19,26 +19,40 @@ import LinearAlgebra.normalize
 #           index of the trial as an argument (i) -> new_value
 # function that returns a new parameter when given the old parameter and the new
 # value as a kwargs: (old_par; (Dict(name=>new_value))) -> new_par
-struct ParameterVar
+# N is either nothing if a function for new_value is supplied or the length of the array if a array is supplied for new_val
+abstract type ParameterVar end
+
+struct ParameterVarArray <: ParameterVar
+    name::Symbol
+    new_val::Function
+    new_par::Function
+    N::Integer
+    arr::AbstractArray
+
+    function ParameterVarArray(name::Symbol, arr::AbstractArray, new_par::Function)
+        function new_val(i)
+            arr[i]
+        end
+        new(name,new_val,new_par,length(collect(arr)),arr)
+    end
+end
+ParameterVarArray(name::Symbol, arr::AbstractArray) = ParameterVar(name, arr, reconstruct)
+
+struct ParameterVarFunc <: ParameterVar
     name::Symbol
     new_val::Function
     new_par::Function
 
-    function ParameterVar(name::Symbol, func::Function, new_par::Function)
+    function ParameterVarFunc(name::Symbol, func::Function, new_par::Function)
         new(name,func,new_par)
     end
-
-    function ParameterVar(name::Symbol, arr::AbstractArray, new_par::Function)
-        function new_val(i)
-            arr[i]
-        end
-        new(name,new_val,new_par)
-    end
 end
-ParameterVar(name::Symbol, func::Function) = ParameterVar(name, func, reconstruct)
-ParameterVar(name::Symbol, arr::AbstractArray) = ParameterVar(name, arr, reconstruct)
+ParameterVarFunc(name::Symbol, func::Function) = ParameterVar(name, func, reconstruct)
 
-
+ParameterVar(name::Symbol,new_val::AbstractArray,new_par::Function) = ParameterVarArray(name, new_val, new_par)
+ParameterVar(name::Symbol,new_val::AbstractArray) = ParameterVarArray(name, new_val)
+ParameterVar(name::Symbol,new_val::Function, new_par::Function) = ParameterVarFunc(name, new_val, new_par)
+ParameterVar(name::Symbol,new_val::Function) = ParameterVarFunc(name, new_val)
 
 # define a custom ODE Problem type, so that we can also define a custom solve for it!
 
@@ -58,27 +72,34 @@ struct BifAnaMCProblem <: myMCProblem
     N_mc::Int64
     rel_transient_time::Float64 # float [0,1] (relative) time after which the trajectory/solution is saved and evaluated
     ic_par::AbstractArray # matrix that stores all ICs and Pars for each run
-    par_var::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function},Tuple{Symbol,Union{AbstractArray,Function}}} # parameter variation tuple, is the same as par_range_tuple
+    par_var::ParameterVar # parameter variation tuple, is the same as par_range_tuple
 
     # inner constructer used for randomized ICs
-    function BifAnaMCProblem(p::Union{DiscreteProblem, ODEProblem, SDEProblem}, ic_gens::Array{<:Function,1}, N_ic::Int, pars::DEParameters, par_range_tuple::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function},Tuple{Symbol,Union{AbstractArray,Function}}}, eval_ode_func::Function, tail_frac::Number)
+    function BifAnaMCProblem(p::DiffEqBase.DEProblem, ic_gens::Array{<:Function,1}, N_ic::Int, pars::DEParameters, par_range_tuple::ParameterVar, eval_ode_func::Function, tail_frac::Number)
         (ic_coupling_problem, ic_par, N_mc) = setup_ic_par_mc_problem(p, ic_gens, N_ic, pars, par_range_tuple)
         mcp = MonteCarloProblem(p, prob_func=ic_coupling_problem, output_func=eval_ode_func)
         new(mcp, N_mc, tail_frac, ic_par, par_range_tuple)
     end
 
     # inner constructer used for non-randomized ICs
-    function BifAnaMCProblem(p::Union{DiscreteProblem, ODEProblem, SDEProblem}, ic_ranges::Array{<:AbstractArray,1}, pars::DEParameters, par_range_tuple::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function},Tuple{Symbol,Union{AbstractArray,Function}}}, eval_ode_func::Function, tail_frac::Number)
+    function BifAnaMCProblem(p::DiffEqBase.DEProblem, ic_ranges::Array{<:AbstractArray,1}, pars::DEParameters, par_range_tuple::ParameterVar, eval_ode_func::Function, tail_frac::Number)
         (ic_coupling_problem, ic_par, N_mc) = setup_ic_par_mc_problem(p, ic_ranges, pars, par_range_tuple)
         mcp = MonteCarloProblem(p, prob_func=ic_coupling_problem, output_func=eval_ode_func)
         new(mcp, N_mc, tail_frac, ic_par, par_range_tuple)
     end
 
     # Direct Constructor
-    BifAnaMCProblem(p::MonteCarloProblem, N_mc::Int64, rel_transient_time::Float64, ic_par::AbstractArray, par_range_tuple::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function},Tuple{Symbol,Union{AbstractArray,Function}}}) = new(p, N_mc, rel_transient_time, ic_par, par_range_tuple)
+    BifAnaMCProblem(p::MonteCarloProblem, N_mc::Int64, rel_transient_time::Float64, ic_par::AbstractArray, par_range_tuple::ParameterVar) = new(p, N_mc, rel_transient_time, ic_par, par_range_tuple)
 end
-BifAnaMCProblem(p::Union{DiscreteProblem, ODEProblem, SDEProblem}, ic_gens::Function, N_ic::Int, pars::DEParameters, par_range_tuple::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function},Tuple{Symbol,Union{AbstractArray,Function}}}, eval_ode_func::Function, tail_frac::Number) = BifAnaMCProblem(p, [ic_gens], N_ic, pars, par_range_tuple, eval_ode_func, tail_frac)
-BifAnaMCProblem(p::Union{DiscreteProblem, ODEProblem, SDEProblem}, ic_gens::Union{Array{<:Function,1},Function}, N_ic::Int, pars::DEParameters, par_range_tuple::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function},Tuple{Symbol,Union{AbstractArray,Function}}}, eval_ode_func::Function) = BifAnaMCProblem(p,ic_gens,N_ic,pars,par_range_tuple,eval_ode_func, 0.9)
+BifAnaMCProblem(p::DiffEqBase.DEProblem, ic_gens::Function, N_ic::Int, pars::DEParameters, par_range_tuple::ParameterVar, eval_ode_func::Function, tail_frac::Number) = BifAnaMCProblem(p, [ic_gens], N_ic, pars, par_range_tuple, eval_ode_func, tail_frac)
+BifAnaMCProblem(p::DiffEqBase.DEProblem, ic_gens::Union{Array{<:Function,1},Function}, N_ic::Int, pars::DEParameters, par_range_tuple::ParameterVar, eval_ode_func::Function) = BifAnaMCProblem(p,ic_gens,N_ic,pars,par_range_tuple,eval_ode_func, 0.9)
+
+# automaticlly convert appropiate tuples to ParameterVar
+BifAnaMCProblem(p::DiffEqBase.DEProblem, ic_gens::Array{<:Function,1}, N_ic::Int, pars::DEParameters, par_range_tuple::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function},Tuple{Symbol,Union{AbstractArray,Function}}}, eval_ode_func::Function, tail_frac::Number) = BifAnaMCProblem(p,ic_gens, N_ic, pars, ParameterVar(par_range_tuple...), eval_ode_func, tail_frac)
+BifAnaMCProblem(p::DiffEqBase.DEProblem, ic_ranges::Array{<:AbstractArray,1}, pars::DEParameters, par_range_tuple::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function},Tuple{Symbol,Union{AbstractArray,Function}}}, eval_ode_func::Function, tail_frac::Number) = BifAnaMCProblem(p, ic_ranges, pars, ParameterVar(par_range_tuple...), eval_ode_func, tail_frac)
+BifAnaMCProblem(p::DiffEqBase.DEProblem, ic_gens::Function, N_ic::Int, pars::DEParameters, par_range_tuple::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function},Tuple{Symbol,Union{AbstractArray,Function}}}, eval_ode_func::Function, tail_frac::Number) = BifAnaMCProblem(p, ic_gens, N_ic, pars, ParameterVar(par_range_tuple...), eval_ode_func, tail_frac)
+BifAnaMCProblem(p::DiffEqBase.DEProblem, ic_gens::Union{Array{<:Function,1},Function}, N_ic::Int, pars::DEParameters, par_range_tuple::Union{Tuple{Symbol,Union{AbstractArray,Function} ,<:Function},Tuple{Symbol,Union{AbstractArray,Function}}}, eval_ode_func::Function) = BifAnaMCProblem(p,ic_gens,N_ic,pars,ParameterVar(par_range_tuple...),eval_ode_func)
+
 
 # utility function that returns the parameter of a BifAnaMCProblem
 parameter(p::BifAnaMCProblem) = p.ic_par[:,end]
@@ -191,84 +212,50 @@ normalize(sol::BifMCSol) = normalize(sol, 1:sol.N_meas)
 #   ic_par_problem :: function mapping (prob, i, repeat) tuple to new ODEProblem, needed by MonteCarloProblem
 #   ic_par :: N_mc x N_dim sized array that holds the values of the ICs and parameters for each Iteration
 #   N_mc :: int, number of ODEProblems to solve, needed for solve()
-function setup_ic_par_mc_problem(prob::ODEProblem, ic_ranges::Array{T,1}, parameters::DEParameters, var_par::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function},Tuple{Symbol,Union{AbstractArray,Function}}}) where T <: AbstractArray
-    N_dim_ic = length(ic_ranges)
+function setup_ic_par_mc_problem(prob::DiffEqBase.DEProblem, ic_ranges::Array{T,1}, parameters::DEParameters, var_par::ParameterVar) where T <: AbstractArray
+    N_dim_ic = length(prob.u0)
     N_dim = N_dim_ic + 1
-    var_par = _var_par_check(var_par)
-
-    # construct a 2d-array that holds all the ICs and Parameters for the MonteCarlo run
-    (ic_par, N_mc) = _ic_par_matrix(N_dim_ic, N_dim, ic_ranges, var_par)
-    ic_par_problem = (prob, i, repeat) -> ODEProblem(prob.f, ic_par[i,1:N_dim_ic], prob.tspan, var_par[3](parameters; Dict(var_par[1]=>ic_par[i,N_dim])...))
-    (ic_par_problem, ic_par, N_mc)
-end
-
-# for discrete problems and non-random ICs
-function setup_ic_par_mc_problem(prob::DiscreteProblem, ic_ranges::Array{T,1}, parameters::DEParameters, var_par::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function},Tuple{Symbol,Union{AbstractArray,Function}}}) where T <: AbstractArray
-    N_dim_ic = length(ic_ranges)
-    N_dim = N_dim_ic + 1
-    var_par = _var_par_check(var_par)
 
     (ic_par, N_mc) = _ic_par_matrix(N_dim_ic, N_dim, ic_ranges, var_par)
-    ic_par_problem = (prob, i, repeat) -> DiscreteProblem(prob.f, ic_par[i,1:N_dim_ic], prob.tspan, var_par[3](parameters; Dict(var_par[1]=>ic_par[i,N_dim])...))
-    (ic_par_problem, ic_par, N_mc)
-end
 
-# for sdeproblems and non-random ICs
-function setup_ic_par_mc_problem(prob::SDEProblem, ic_ranges::Array{T,1}, parameters::DEParameters, var_par::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function},Tuple{Symbol,Union{AbstractArray,Function}}}) where T <: AbstractArray
-    N_dim_ic = length(ic_ranges)
-    N_dim = N_dim_ic + 1
-    var_par = _var_par_check(var_par)
-
-    (ic_par, N_mc) = _ic_par_matrix(N_dim_ic, N_dim, ic_ranges, var_par)
-    ic_par_problem = (prob, i, repeat) -> SDEProblem(prob.f, prob.g, ic_par[i,1:N_dim_ic], prob.tspan, var_par[3](parameters; Dict(var_par[1]=> ic_par[i,N_dim])...))
+    ic_par_problem = define_new_problem(prob, ic_par, parameters, N_dim_ic, ic_ranges, var_par)
     (ic_par_problem, ic_par, N_mc)
 end
 
 # for all problem types and random ICs
-function setup_ic_par_mc_problem(prob::Union{DiscreteProblem, ODEProblem, SDEProblem}, ic_gens::Array{<:Function,1}, N_ic::Int, parameters::DEParameters, var_par::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function}, Tuple{Symbol,Union{AbstractArray,Function}}})
+function setup_ic_par_mc_problem(prob::DiffEqBase.DEProblem, ic_gens::Array{<:Function,1}, N_ic::Int, parameters::DEParameters, var_par::ParameterVar)
     N_dim_ic = length(prob.u0)
     N_dim = N_dim_ic + 1
-    var_par = _var_par_check(var_par)
 
     (ic_par, N_mc) = _ic_par_matrix(N_dim_ic, N_dim, N_ic, ic_gens, var_par)
     ic_par_problem = define_new_problem(prob, ic_par, parameters, N_dim_ic, ic_gens, var_par)
     (ic_par_problem, ic_par, N_mc)
 end
-setup_ic_par_mc_problem(prob::Union{DiscreteProblem, ODEProblem, SDEProblem}, ic_gens::Function, N_ic::Int, parameters::DEParameters, var_par::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function},Tuple{Symbol,Union{AbstractArray,Function}}}) = setup_ic_par_mc_problem(prob, [ic_gens], N_ic, parameters, var_par)
-
-function _var_par_check(var_par::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function}, Tuple{Symbol,Union{AbstractArray,Function}}})
-    if length(var_par)==2
-        new_var_par = (var_par[1],var_par[2],reconstruct)
-        var_par = new_var_par
-    else
-        new_var_par = var_par
-    end
-    return new_var_par
-end
+setup_ic_par_mc_problem(prob::DiffEqBase.DEProblem, ic_gens::Function, N_ic::Int, parameters::DEParameters, var_par::ParameterVar) = setup_ic_par_mc_problem(prob, [ic_gens], N_ic, parameters, var_par)
 
 # functions defining new problems that generate new ics when the trial needs to be repeated
-function define_new_problem(prob::ODEProblem, ic_par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::Array{T,1}, var_par::Tuple{Symbol,Union{AbstractArray,Function},<:Function}) where T <: Function
+function define_new_problem(prob::ODEProblem, ic_par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::AbstractArray, var_par::ParameterVar)
     function new_problem(prob, i, repeat)
         _repeat_check(repeat, ic_par, ic_gens)
-        ODEProblem(prob.f, ic_par[i,1:N_dim_ic], prob.tspan,  var_par[3](parameters; Dict(var_par[1]=> ic_par[i,N_dim_ic+1])...))
+        ODEProblem(prob.f, ic_par[i,1:N_dim_ic], prob.tspan,  var_par.new_par(parameters; Dict(var_par.name=> ic_par[i,N_dim_ic+1])...))
     end
     new_problem
 end
 
 # same but for Discrete Problems
 # TO-DO: one could probably combine both methods by using remake()
-function define_new_problem(prob::DiscreteProblem, ic_par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::Array{<:Function,1}, var_par::Tuple{Symbol,Union{AbstractArray,Function},<:Function})
+function define_new_problem(prob::DiscreteProblem, ic_par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::AbstractArray, var_par::ParameterVar)
     function new_problem(prob, i, repeat)
         _repeat_check(repeat, ic_par, ic_gens)
-        DiscreteProblem(prob.f, ic_par[i,1:N_dim_ic], prob.tspan,  var_par[3](parameters; Dict(var_par[1] => ic_par[i,N_dim_ic+1])...))
+        DiscreteProblem(prob.f, ic_par[i,1:N_dim_ic], prob.tspan,  var_par.new_par(parameters; Dict(var_par.name => ic_par[i,N_dim_ic+1])...))
     end
     new_problem
 end
 
-function define_new_problem(prob::SDEProblem, ic_par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::Array{<:Function,1}, var_par::Tuple{Symbol,Union{AbstractArray,Function},<:Function})
+function define_new_problem(prob::SDEProblem, ic_par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::AbstractArray, var_par::ParameterVar)
     function new_problem(prob, i, repeat)
         _repeat_check(repeat, ic_par, ic_gens)
-        SDEProblem(prob.f, prob.g, ic_par[i,1:N_dim_ic], prob.tspan,  var_par[3](parameters; Dict(var_par[1] => ic_par[i,N_dim_ic+1])...))
+        SDEProblem(prob.f, prob.g, ic_par[i,1:N_dim_ic], prob.tspan,  var_par.new_par(parameters; Dict(var_par.name => ic_par[i,N_dim_ic+1])...))
     end
     new_problem
 end
@@ -287,16 +274,22 @@ function _repeat_check(repeat, ic_par::AbstractArray, ic_gens::Array{<:Function,
         end
     end
 end
+function _repeat_check(repeat, ic_par::AbstractArray, ic_gens::Array{T,1}) where T<:AbstractArray
+    if repeat > 1
+        error("Problem has to be repeated, but ICs are non-random, it would result in the same solution!")
+    end
+end
 
 
 # helper function for setup_ic_par_mc_problem(), sets up the big IC-parameter matrix for all runs
-# uses ranges for the initial cond.
-function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, ic_ranges::Array{T,1}, var_par::Tuple{Symbol,AbstractArray,<:Function}) where T <: AbstractArray
+
+# uses ranges for the initial cond. and ranges or for paramete
+function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, ic_ranges::Array{T,1}, var_par::ParameterVarArray) where T <: AbstractArray
     N_ic_pars = zeros(Int, N_dim)
     for (i_range, ic_range) in enumerate(ic_ranges)
         N_ic_pars[i_range] = length(collect(ic_range))
     end
-    N_ic_pars[N_dim] = length(collect(var_par[2]))
+    N_ic_pars[N_dim] = var_par.N
     if prod(float(N_ic_pars)) > 1e10
         @warn "More than 1e10 initial cond. Are you sure what you are doing? Overflows might occur."
     end
@@ -312,14 +305,15 @@ function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, ic_ranges::Array{T,1}, var_pa
          for i_dim=1:N_dim_ic
              ic_par[i_mc, i_dim] = ic_ranges[i_dim][i_ci[i_dim]]
          end
-         ic_par[i_mc, N_dim] = var_par[2][i_ci[N_dim]]
+         ic_par[i_mc, N_dim] = var_par.new_val(i_ci[N_dim])
     end
     (ic_par, N_mc)
 end
 
 # helper function for setup_ic_par_mc_problem()
-# uses (random) generator functions for the initial cond. AND the parameter evaluated_solution
-function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, N_ic::Int, ic_gens::Array{<:Function,1},  var_par::Tuple{Symbol,Function,<:Function})
+
+# uses random generators for IC and Parameter
+function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, N_ic::Int, ic_gens::Array{<:Function,1},  var_par::ParameterVarFunc)
     N_gens = length(ic_gens) # without the parameter geneartor
     if N_dim_ic % (N_gens) != 0
         err("Number of initial cond. genators and Number of initial cond. doesn't fit together")
@@ -332,16 +326,16 @@ function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, N_ic::Int, ic_gens::Array{<:F
                 ic_par[i_ic, N_gens*i_gen_steps - (N_gens - i_gen)] = ic_gens[i_gen]()
             end
         end
-        ic_par[i_ic,N_dim] = var_par[2]()
+        ic_par[i_ic,N_dim] = var_par.new_val(i_ic)
     end
     (ic_par, N_ic)
 end
 
-
 # helper function for setup_ic_par_mc_problem()
-# uses (random) generator functions for the initial cond.
-function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, N_ic::Int, ic_gens::Array{T,1},  var_par::Tuple{Symbol,AbstractArray,<:Function}) where T<:Function
-    N_ic_pars = (N_ic, length(collect(var_par[2])))
+# uses (random) generator functions for the initial cond. and ranges for Parameter
+# sets it up so that each parameter value has identical ICs
+function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, N_ic::Int, ic_gens::Array{T,1},  var_par::ParameterVarArray) where T<:Function
+    N_ic_pars = (N_ic, var_par.N)
     N_mc = prod(N_ic_pars)
     N_gens = length(ic_gens)
     if N_dim_ic % N_gens != 0
@@ -360,7 +354,7 @@ function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, N_ic::Int, ic_gens::Array{T,1
     ic_par = zeros((N_mc, N_dim))
     for (i_mc, i_ci) in enumerate(CartesianIndices(N_ic_pars))
         ic_par[i_mc, 1:N_dim_ic] = ics[i_ci[1],:]
-        ic_par[i_mc, end] = var_par[2][i_ci[2]]
+        ic_par[i_mc, end] = var_par.new_val(i_ci[2])
     end
     (ic_par, N_mc)
 end
