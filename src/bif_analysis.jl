@@ -44,8 +44,8 @@ struct BifAnalysisProblem <: myMCProblem
     end
 end
 
-BifAnalysisProblem(p::DiffEqBase.DEProblem, par_range::Union{Tuple{Symbol, <:Function,<:Function}, Tuple{Symbol,<:Function}}, N::Int, eval_func::Function, ic_bounds::AbstractArray=[-Inf,Inf], par_bounds::AbstractArray=[-Inf,Inf], hard_bounds::Bool=false) = BifAnalysisProblem(p, ParameterVar(par_range...), N, eval_func, ic_bounds, par_bounds, hard_bounds)
-BifAnalysisProblem(p::DiffEqBase.DEProblem, par_range::Union{Tuple{Symbol, AbstractArray,<:Function}, Tuple{Symbol,AbstractArray}}, eval_func::Function, ic_bounds::AbstractArray=[-Inf,Inf], par_bounds::AbstractArray=[-Inf,Inf], hard_bounds::Bool=false) = BifAnalysisProblem(p, ParameterVar(par_range...), length(par_range[2]), eval_func, ic_bounds, par_bounds, hard_bounds)
+BifAnalysisProblem(p::DiffEqBase.DEProblem, par_range::Union{Tuple{Symbol, <:Function,<:Function}, Tuple{Symbol,<:Function}}, N::Int, eval_func::Function, ic_bounds::AbstractArray=[-Inf,Inf], par_bounds::AbstractArray=[-Inf,Inf], hard_bounds::Bool=false) = BifAnalysisProblem(p, OneDimParameterVar(par_range...), N, eval_func, ic_bounds, par_bounds, hard_bounds)
+BifAnalysisProblem(p::DiffEqBase.DEProblem, par_range::Union{Tuple{Symbol, AbstractArray,<:Function}, Tuple{Symbol,AbstractArray}}, eval_func::Function, ic_bounds::AbstractArray=[-Inf,Inf], par_bounds::AbstractArray=[-Inf,Inf], hard_bounds::Bool=false) = BifAnalysisProblem(p, OneDimParameterVar(par_range...), length(par_range[2]), eval_func, ic_bounds, par_bounds, hard_bounds)
 
 
 parameter(prob::BifAnalysisProblem) = prob.par
