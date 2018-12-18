@@ -46,7 +46,6 @@ struct ParameterVarFunc <: OneDimParameterVar
     new_par::Function
 
     function ParameterVarFunc(name::Symbol, func::Function, new_par::Function)
-
         new(name,func,new_par)
     end
 end
