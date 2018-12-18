@@ -6,11 +6,39 @@ using Distributions, Clustering, StatsBase
 
 # calculates the distance matrix
 # also incorporates the parameter values as additional weights
-#
+# THIS IS A NEW VERSION, INTENDED ALSO FOR SETUPS WITH MORE THAN ONE PARAMETER
 # sol: solution
 # par: parameter as Array of length sol.N_mc
 # distance_func: distance function that maps (x1,x2,p1,p2) -> D(x1,x2; p1,p2)
 # relative parameter: if true the parameter values are rescaled to be within [0,1]
+#
+function distance_matrix(sol::myMCSol, prob::myMCProblem, distance_func::Function; relative_parameter::Bool=false)
+    mat_elements = zeros((sol.N_mc, sol.N_mc))
+
+    pars = parameter(prob)
+    N_pars = length(ParameterVar(prob))
+    par_c = copy(par)
+
+    if relative_parameter
+        for i_par=1:N_pars
+            min_par = minimum(par[:,i_par])
+            max_par = maximum(par[:,i_par])
+            #par_range = max_par - min_par
+            par_rel = (par[:,i_par] .- min_par)./max_par
+            par_c[:,i_par] = par_rel
+        end
+    end
+
+    for i=1:sol.N_mc
+        for j=i+1:sol.N_mc
+            mat_elements[i,j] = distance_func(vcat(sol.sol[i], par_c[i,:]), vcat(sol.sol[j], par_c[j,:]))
+        end
+    end
+    mat_elements += transpose(mat_elements)
+end
+distance_matrix(sol::myMCSol, prob::myMCProblem; relative_parameter::Bool=false) = distance_matrix(sol, prob, (x,y)->weighted_norm(x,y,vcat([1,0.5,0.5],ones(N_pars))))
+
+
 function distance_matrix(sol::myMCSol, par::AbstractArray, distance_func::Function, relative_parameter::Bool=false)
     mat_elements = zeros((sol.N_mc,sol.N_mc))
     if relative_parameter
@@ -22,21 +50,6 @@ function distance_matrix(sol::myMCSol, par::AbstractArray, distance_func::Functi
     else
         par_c = copy(par) # do we really need the copy here? I don't know
     end
-
-    """
-    # PairwiseListMatrix is not supported for 1.0 yet
-
-    N_entries = (sol.N_mc * (sol.N_mc - 1)) / 2
-
-    i_tot = 0
-    for i=1:sol.N_mc
-        for j=i+1:sol.N_mc
-            i_tot += 1
-            mat_elements[i_tot] = distance_func(sol.sol[i], sol.sol[j], par[i], par[j])
-        end
-    end
-    PairwiseListMatrix(mat_elements)
-    """
 
     for i=1:sol.N_mc
         for j=i+1:sol.N_mc
@@ -100,10 +113,6 @@ function weighted_norm(x, y, par1::Number, par2::Number, norm_function::Function
     weighted_norm(x,y, norm_function, weights[1:(end-1)]) + weights[end]*norm_function(par1,par2)
 end
 weighted_norm(x,y,par1::Number,par2::Number, weights::AbstractArray=[1., 0.5, 0.5, 0.25, 1.]) = weighted_norm(x,y,par1,par2,(x,y) -> sum(abs.(x .- y)), weights)
-
-function cluster()
-    false
-end
 
 # return mean values of all measures for each cluster
 function cluster_means(sol::myMCSol, clusters::DbscanResult)
@@ -318,6 +327,7 @@ function cluster_membership(par::AbstractArray, clusters::DbscanResult)
     memberships
 end
 
+
 # counts how many solutions are part of the individual clusters for each parameter step
 # -  par needs to be 1d mapping each run to its parameter value, e.g. ic_par[:,end]
 # this method uses a sliding window over the parameter axis.
@@ -355,14 +365,80 @@ function cluster_membership(par::AbstractArray, clusters::DbscanResult, window_s
         end
         if normalize
             if !(N_c_i == 0)
-                memberships[i, :] /= N_c_i
+                memberships[i, :] ./= N_c_i
             end
         end
     end
     (p_windows, memberships)
 end
 
+# new cluster memberships for more than one parameter
+# returns an N_par dimensional meshgrid of the parameter space and the for every cluster the relative
+# amount of points that belong to the cluster at the meshgrid-point
+#
+#
+function cluster_membership(prob::myMCProblem, clusters::DbscanResult, window_size::AbstractArray, window_offset::AbstractArray, normalize::Bool=true)
 
+    N_cluster = length(clusters.seeds) + 1  # plus 1 -> plus "noise cluster" / not clustered points
+    ca = clusters.assignments
+    N = length(ca)
+    N_pars = length(ParameterVar(prob))
+
+    if (length(window_size)!=N_pars)|(length(window_offset)!=N_pars)
+        error("Window Size and Window Offset need to have as many elements as they are parameters")
+    end
+
+    N_windows = zeros(N_pars)
+    min_pars = zeros(N_pars)
+    max_pars = zeros(N_pars)
+
+    windows_mins = []
+    # define meshgrid
+    # go over every parameter
+    for i_par = 1:N_par
+        min_par[i_par] = minimum(parameter(par,i_par))
+        max_par[i_par] = maximum(parameter(par,i_par))
+        par_range = max_par - min_par
+
+        push!(windows_mins, min_par:window_offset:(max_par-window_size))
+
+        if N_windows <= 1
+            warn("Only 1 or less Windows in cluster_membership")
+        end
+
+        N_windows[i_par] = length(windows[i_par])
+    end
+
+    memberships = zeros([N_windows;N_cluster]...)
+    parameter_mesh = zeros([N_windows;N_par]...)
+
+    #for ic in zip(Iterators.product(windows_min...),
+    for (ip,ic) in zip(Iterators.product(windows_min...),CartesianIndices(zeros(N_windows)))
+
+        par_ind = zeros(Bool, prob.N_mc)
+        for i_par in 1:N_pars
+            par_ind = par_ind .& ((parameter(prob,i_par) .> ip[i_par]) .& (parameter(prob,i_par) .< (ip[i_par] + window_size)))
+        end
+
+        window_ca = ca[par_ind]
+
+        N_c_i = 0
+        for i_ca in eachindex(window_ca)
+            memberships[ic,window[i_ca]+1] += 1
+            N_c_i += 1
+        end
+        if normalize
+            if !(N_c_i == 0)
+                memberships[ic,:] ./= N_c_i
+            end
+        end
+
+        parameter_mesh[ic,:] = collect(ip)
+    end
+
+    # return
+    (parameter_mesh, memberships)
+end
 
 
 # helper function for estimating a espilon value for dbscan.

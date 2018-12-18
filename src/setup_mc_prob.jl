@@ -46,6 +46,7 @@ struct ParameterVarFunc <: OneDimParameterVar
     new_par::Function
 
     function ParameterVarFunc(name::Symbol, func::Function, new_par::Function)
+
         new(name,func,new_par)
     end
 end
@@ -71,7 +72,7 @@ MultiDimParameterVar(parvar::ParameterVar) = MultiDimParameterVar([parvar])
 Base.getindex(parvar::MultiDimParameterVar, i::Int) = parvar.data[i]
 Base.length(parvar::MultiDimParameterVar) = parvar.N
 Base.length(par::OneDimParameterVar) = 1
-
+ParameterVar(prob::myMCProblem) = prob.par_var
 
 
 # define a custom ODE Problem type, so that we can also define a custom solve for it!
