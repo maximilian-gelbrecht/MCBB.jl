@@ -27,8 +27,8 @@ export normalize, get_measure
 export KNN_dist, KNN_dist_relative
 export DEParameters
 export solve_euler_inf, tsave_array
-
-export ParameterVar, ParameterVarArray, ParameterVarFunc
+export measure_on_parameter_sliding_window
+export ParameterVar, ParameterVarArray, ParameterVarFunc, OneDimParameterVar, MultiDimParameterVar, MultiDimParameterVarFunc, MultiDimParameterVarArray
 
 # Contains example systems
 include("systems.jl")

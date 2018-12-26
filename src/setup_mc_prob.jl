@@ -56,18 +56,23 @@ OneDimParameterVar(name::Symbol,new_val::AbstractArray) = ParameterVarArray(name
 OneDimParameterVar(name::Symbol,new_val::Function, new_par::Function) = ParameterVarFunc(name, new_val, new_par)
 OneDimParameterVar(name::Symbol,new_val::Function) = ParameterVarFunc(name, new_val)
 
+# new_par must take kwargs from all varied parameters and return a new parameter
+# (old_par; Dict(name=>new_value)) -> new_par
 struct MultiDimParameterVarFunc <: MultiDimParameterVar
     data::Array{ParameterVarFunc,1}
+    new_par::Function
     N::Int
 end
 
 struct MultiDimParameterVarArray <: MultiDimParameterVar
     data::Array{ParameterVarArray,1}
+    new_par::Function
     N::Int
 end
-MultiDimParameterVar(data::Array{ParameterVarFunc,1}) = MultiDimParameterVarFunc(data, length(data))
-MultiDimParameterVar(data::Array{ParameterVarArray,1}) = MultiDimParameterVarArray(data, length(data))
-MultiDimParameterVar(parvar::ParameterVar) = MultiDimParameterVar([parvar])
+MultiDimParameterVar(data::Array{ParameterVarFunc,1}, func::Function) = MultiDimParameterVarFunc(data, func, length(data))
+MultiDimParameterVar(data::Array{ParameterVarArray,1}, func::Function) = MultiDimParameterVarArray(data, func, length(data))
+MultiDimParameterVar(parvar::ParameterVar, func::Function) = MultiDimParameterVar([parvar], func)
+MultiDimParameterVar(parvar::ParameterVar) = MultiDimParameterVar(parvar, reconstruct)
 Base.getindex(parvar::MultiDimParameterVar, i::Int) = parvar.data[i]
 Base.length(parvar::MultiDimParameterVar) = parvar.N
 Base.length(par::OneDimParameterVar) = 1
@@ -481,7 +486,7 @@ function get_measure_dimensions(sol)
     N_meas_global = 0
 
     for i=1:length(sol1)
-        if length(sol1[i]) > 1
+        if typeof(sol1[i]) <: AbstractArray
             N_meas_dim += 1
         else
             N_meas_global += 1

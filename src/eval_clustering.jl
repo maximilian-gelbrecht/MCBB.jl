@@ -12,12 +12,12 @@ using Distributions, Clustering, StatsBase
 # distance_func: distance function that maps (x1,x2,p1,p2) -> D(x1,x2; p1,p2)
 # relative parameter: if true the parameter values are rescaled to be within [0,1]
 #
-function distance_matrix(sol::myMCSol, prob::myMCProblem, distance_func::Function; relative_parameter::Bool=false)
+function distance_matrix(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray; relative_parameter::Bool=false)
     mat_elements = zeros((sol.N_mc, sol.N_mc))
 
     pars = parameter(prob)
     N_pars = length(ParameterVar(prob))
-    par_c = copy(par)
+    par_c = copy(pars)
 
     if relative_parameter
         for i_par=1:N_pars
@@ -31,12 +31,17 @@ function distance_matrix(sol::myMCSol, prob::myMCProblem, distance_func::Functio
 
     for i=1:sol.N_mc
         for j=i+1:sol.N_mc
-            mat_elements[i,j] = distance_func(vcat(sol.sol[i], par_c[i,:]), vcat(sol.sol[j], par_c[j,:]))
+            for i_meas=1:sol.N_meas
+                mat_elements[i,j] += distance_func(weights[i_meas]*sol.sol[i][i_meas], weights[i_meas]*sol.sol[j][i_meas])
+            end
+            for i_par=1:N_pars
+                mat_elements[i,j] += distance_func(weights[sol.N_meas+i_par]*par_c[i,i_par], weights[sol.N_meas+i_par]*par_c[j,i_par])
+            end
         end
     end
     mat_elements += transpose(mat_elements)
 end
-distance_matrix(sol::myMCSol, prob::myMCProblem; relative_parameter::Bool=false) = distance_matrix(sol, prob, (x,y)->weighted_norm(x,y,vcat([1,0.5,0.5],ones(N_pars))))
+distance_matrix(sol::myMCSol, prob::myMCProblem, weights::AbstractArray; relative_parameter::Bool=false) = distance_matrix(sol, prob, (x,y)->sum(abs.(x .- y)), weights)
 
 
 function distance_matrix(sol::myMCSol, par::AbstractArray, distance_func::Function, relative_parameter::Bool=false)
@@ -127,6 +132,8 @@ function cluster_means(sol::myMCSol, clusters::DbscanResult)
     mean_measures ./ sol.N_mc
 end
 
+
+
 # returns for each cluster seperatly per dimension and per measure the (parameter, value of measure) pairs
 # this is accumulated (and normalized) over a sliding window
 #
@@ -136,65 +143,26 @@ end
 #           - i_dim: number of the dimension (of the system)
 #           - i_window: number of the window/parameter value
 #
-function cluster_measures(prob::myMCProblem, sol::myMCSol, clusters::DbscanResult, window_size::Number, window_offset::Number)
-    N_cluster = length(clusters.seeds)+1 # plus 1 -> plus "noise cluster" / not clustered points
+cluster_measures(prob::myMCProblem, sol::myMCSol, clusters::DbscanResult, window_size::Number, window_offset::Number) = cluster_measures(prob, sol, clusters, [window_size], [window_offset])
+function cluster_measures(prob::myMCProblem, sol::myMCSol, clusters::DbscanResult, window_size::AbstractArray, window_offset::AbstractArray)
+
     N_dim = sol.N_dim
-    par = parameter(prob)
-    ca = clusters.assignments
+    N_meas_dim = sol.N_meas_dim
+    N_meas_global = sol.N_meas_global
+    N_cluster = length(clusters.seeds) + 1  # plus 1 -> plus "noise cluster" / not clustered points
+    N_windows, __ = _sliding_window_parameter(prob, window_size, window_offset)
+    N_par = length(N_windows)
 
-    # windows
-    min_par = minimum(par)
-    max_par = maximum(par)
-    par_range = max_par - min_par
+    cluster_measures = zeros([N_cluster; N_meas_dim; N_dim; N_windows]...)
+    cluster_measures_global = zeros([N_cluster; N_meas_global; N_windows]...)
+    p_windows = []
 
-    N_windows = Int(ceil(par_range/window_offset)) - Int(ceil(window_size/window_offset)) + 1
-    if N_windows <= 1
-        warn("Only 1 or less Windows in cluster_measures")
+    for i_meas=1:N_meas_dim
+        p_windows, cluster_measures[:,i_meas,:,[Colon() for i=1:N_par]...] =  measure_on_parameter_sliding_window(prob, sol, i_meas, clusters, window_size, window_offset)
     end
-    p_windows = zeros(N_windows)
-    cluster_measures = zeros((N_cluster, sol.N_meas_dim, N_dim, N_windows))
-    cluster_measures_global = zeros((N_cluster, sol.N_meas_global, N_windows))
-
-    for i=1:N_windows
-        window_min = min_par + (i-1)*window_offset
-        window_max = window_min + window_size
-        p_windows[i] = 0.5*(window_min + window_max)
-
-        par_ind_bool = (par .>= window_min) .& (par .< window_max) # parameter indices as bools
-        par_ind = findall(par_ind_bool) # parameter indices as numbers
-
-        window_ca = ca[par_ind] # cluster assigments in this window
-
-        N_c_i = zeros(Int,(N_cluster, sol.N_meas_dim, N_dim)) # counts how many values are within the window for each cluster (for normalization)
-        N_c_i_global = zeros(Int, (N_cluster, sol.N_meas_global))
-
-        # collect and copy data
-        for i_ca in eachindex(window_ca)
-            for i_meas=1:sol.N_meas_dim
-                for i_dim=1:N_dim
-                    cluster_measures[window_ca[i_ca]+1, i_meas, i_dim, i] += sol.sol[par_ind[i_ca]][i_meas][i_dim]
-                    N_c_i[window_ca[i_ca]+1, i_meas, i_dim] += 1
-                end
-            end
-            for i_meas=sol.N_meas_dim+1:sol.N_meas
-                cluster_measures_global[window_ca[i_ca]+1, i_meas - sol.N_meas_dim, i] += sol.sol[par_ind[i_ca]][i_meas] # correct i-meas index
-                N_c_i_global[window_ca[i_ca]+1, i_meas - sol.N_meas_dim] += 1
-            end
-        end
-
-        # normalize/average it
-        for i_cluster=1:N_cluster
-            for i_meas=1:sol.N_meas_dim
-                for i_dim=1:N_dim
-                    if !(N_c_i[i_cluster, i_meas, i_dim] == 0)
-                        cluster_measures[i_cluster, i_meas, i_dim, i] /= N_c_i[i_cluster, i_meas, i_dim]
-                    end
-                end
-            end
-            for i_meas=1:sol.N_meas_global
-                cluster_measures_global[i_cluster, i_meas, i] /= N_c_i_global[i_cluster, i_meas]
-            end
-        end
+    for i_meas=N_meas_dim+1:N_meas_dim+N_meas_global
+        p_windows, c_temp = measure_on_parameter_sliding_window(prob, sol, i_meas, clusters, window_size, window_offset)
+        cluster_measures_global[:,i_meas - N_meas_dim,[Colon() for i=1:N_par]...] =  c_temp[:,1,[Colon() for i=1:N_par]...]
     end
     (p_windows, cluster_measures, cluster_measures_global)
 end
@@ -221,6 +189,10 @@ struct ClusterICSpaces
     cross_dim_skews::AbstractArray
 
     function ClusterICSpaces(prob::myMCProblem, sol::myMCSol, clusters::DbscanResult; min_par::Number=-Inf, max_par::Number=Inf, nbins::Int64=20)
+
+        if length(ParameterVar(prob))>1
+            error("Not yet implemented for systems with more than one parameter")
+        end
 
         N_cluster = length(clusters.seeds)+1 # plus 1 -> plus "noise cluster" / not clustered points
         N_dim = sol.N_dim
@@ -295,10 +267,6 @@ struct ClusterICSpaces
 end
 
 
-
-
-
-
 # returns the number of points assignt to the "noise" cluster (somehow this is not automaticlly returned by the routine)
 function cluster_n_noise(clusters::DbscanResult)
     count = 0
@@ -327,109 +295,49 @@ function cluster_membership(par::AbstractArray, clusters::DbscanResult)
     memberships
 end
 
-
+### OLD VERSION, WILL BE DELETED AT SOME POINT
 # counts how many solutions are part of the individual clusters for each parameter step
 # -  par needs to be 1d mapping each run to its parameter value, e.g. ic_par[:,end]
 # this method uses a sliding window over the parameter axis.
 # should be used when parameters are randomly generated.
 # - normalize: normalize by number of parameters per window
 function cluster_membership(par::AbstractArray, clusters::DbscanResult, window_size::Number, window_offset::Number, normalize::Bool=true)
-    N_cluster = length(clusters.seeds) + 1  # plus 1 -> plus "noise cluster" / not clustered points
-    ca = clusters.assignments
-    N = length(ca)
-
-    min_par = minimum(par)
-    max_par = maximum(par)
-    par_range = max_par - min_par
-
-    N_windows = Int(ceil(par_range/window_offset)) - Int(ceil(window_size/window_offset)) + 1
-    if N_windows <= 1
-        warn("Only 1 or less Windows in cluster_membership")
-    end
-
-    p_windows = zeros(N_windows)
-    memberships = zeros(N_windows, N_cluster)
-
-    for i=1:N_windows
-        window_min = min_par + (i-1)*window_offset
-        window_max = window_min + window_size
-        p_windows[i] = 0.5*(window_min + window_max)
-
-        par_ind = (par .>= window_min) .& (par .<= window_max)
-        window_ca = ca[par_ind]
-
-        N_c_i = 0
-        for i_ca in eachindex(window_ca)
-            memberships[i, window_ca[i_ca]+1] += 1
-            N_c_i += 1
-        end
-        if normalize
-            if !(N_c_i == 0)
-                memberships[i, :] ./= N_c_i
-            end
-        end
-    end
-    (p_windows, memberships)
+    error("This used to be an old version of cluster_membership, please use cluster_membership(prob::myMCProb, clusters::DbscanResult, window_size, window_offset) now")
 end
 
 # new cluster memberships for more than one parameter
-# returns an N_par dimensional meshgrid of the parameter space and the for every cluster the relative
+# returns an N_par dimensional meshgrid of the parameter space and the every cluster the relative
 # amount of points that belong to the cluster at the meshgrid-point
-#
 #
 function cluster_membership(prob::myMCProblem, clusters::DbscanResult, window_size::AbstractArray, window_offset::AbstractArray, normalize::Bool=true)
 
     N_cluster = length(clusters.seeds) + 1  # plus 1 -> plus "noise cluster" / not clustered points
     ca = clusters.assignments
     N = length(ca)
-    N_pars = length(ParameterVar(prob))
+    N_par = length(ParameterVar(prob))
 
-    if (length(window_size)!=N_pars)|(length(window_offset)!=N_pars)
-        error("Window Size and Window Offset need to have as many elements as they are parameters")
-    end
-
-    N_windows = zeros(N_pars)
-    min_pars = zeros(N_pars)
-    max_pars = zeros(N_pars)
-
-    windows_mins = []
-    # define meshgrid
-    # go over every parameter
-    for i_par = 1:N_par
-        min_par[i_par] = minimum(parameter(par,i_par))
-        max_par[i_par] = maximum(parameter(par,i_par))
-        par_range = max_par - min_par
-
-        push!(windows_mins, min_par:window_offset:(max_par-window_size))
-
-        if N_windows <= 1
-            warn("Only 1 or less Windows in cluster_membership")
-        end
-
-        N_windows[i_par] = length(windows[i_par])
-    end
+    N_windows, windows_mins = _sliding_window_parameter(prob, window_size, window_offset)
 
     memberships = zeros([N_windows;N_cluster]...)
     parameter_mesh = zeros([N_windows;N_par]...)
 
-    #for ic in zip(Iterators.product(windows_min...),
-    for (ip,ic) in zip(Iterators.product(windows_min...),CartesianIndices(zeros(N_windows)))
+    for (ip,ic) in zip(Iterators.product(windows_mins...),CartesianIndices(zeros(Int,N_windows...)))
 
-        par_ind = zeros(Bool, prob.N_mc)
-        for i_par in 1:N_pars
-            par_ind = par_ind .& ((parameter(prob,i_par) .> ip[i_par]) .& (parameter(prob,i_par) .< (ip[i_par] + window_size)))
+        par_ind = ones(Bool, prob.N_mc)
+        for i_par in 1:N_par
+            par_ind = par_ind .& ((parameter(prob,i_par) .> ip[i_par]) .& (parameter(prob,i_par) .< (ip[i_par] + window_size[i_par])))
         end
 
         window_ca = ca[par_ind]
-
+        #println(window_ca)
         N_c_i = 0
         for i_ca in eachindex(window_ca)
-            memberships[ic,window[i_ca]+1] += 1
+            memberships[ic,window_ca[i_ca]+1] += 1
             N_c_i += 1
         end
-        if normalize
-            if !(N_c_i == 0)
-                memberships[ic,:] ./= N_c_i
+        for i_cluster=1:N_cluster
+            if normalize
+                memberships[ic,i_cluster] ./= N_c_i
             end
         end
 
@@ -439,7 +347,98 @@ function cluster_membership(prob::myMCProblem, clusters::DbscanResult, window_si
     # return
     (parameter_mesh, memberships)
 end
+cluster_membership(prob::myMCProblem, clusters::DbscanResult, window_size::Number, window_offset::Number, normalize::Bool=true) = cluster_membership(prob, cluster, [window_size], [window_offset], normalize)
 
+
+
+# returns a measure along the sliding window parameter grid, either seperatly for each cluster or if the cluster input is omitted for all runs.
+measure_on_parameter_sliding_window(prob::myMCProblem, sol::myMCSol, i::Int, window_size::Number, window_offset::Number) = measure_on_parameter_sliding_window(prob, sol, i, [window_size], [window_offset])
+measure_on_parameter_sliding_window(prob::myMCProblem, sol::myMCSol, i::Int, clusters::DbscanResult, window_size::Number, window_offset::Number) = measure_on_parameter_sliding_window(prob, sol, i, clusters, [window_size], [window_offset])
+measure_on_parameter_sliding_window(prob::myMCProblem, sol::myMCSol, i::Int, window_size::AbstractArray, window_offset::AbstractArray) = measure_on_parameter_sliding_window(prob, sol, i, zeros(Int,prob.N_mc), 1, window_size, window_offset)
+measure_on_parameter_sliding_window(prob::myMCProblem, sol::myMCSol, i::Int, clusters::DbscanResult, window_size::AbstractArray, window_offset::AbstractArray) = measure_on_parameter_sliding_window(prob, sol, i, clusters.assignments, length(clusters.seeds) + 1, window_size, window_offset)
+function measure_on_parameter_sliding_window(prob::myMCProblem, sol::myMCSol, i::Int, clusters_assignments::AbstractArray, N_cluster::Int, window_size::AbstractArray, window_offset::AbstractArray)
+
+    ca = clusters_assignments
+    N = length(ca)
+    N_par = length(ParameterVar(prob))
+
+    N_windows, windows_mins = _sliding_window_parameter(prob, window_size, window_offset)
+
+    # get dimension of measure
+    obs = get_measure(sol, i)
+    if length(size(obs))==1
+        N_dim = 1
+    else
+        __, N_dim = size(obs)
+    end
+
+    #cluster_meas = zeros([N_windows;N_dim;N_cluster]...)
+    cluster_meas = zeros([N_cluster;N_dim;N_windows]...)
+    parameter_mesh = zeros([N_par;N_windows]...)
+
+    for (ip,ic) in zip(Iterators.product(windows_mins...),CartesianIndices(zeros(Int,N_windows...)))
+
+        par_ind = ones(Bool, prob.N_mc)
+        for i_par in 1:N_par
+            par_ind = par_ind .& ((parameter(prob,i_par) .> ip[i_par]) .& (parameter(prob,i_par) .< (ip[i_par] + window_size[i_par])))
+        end
+
+        window_ca = ca[par_ind]
+        par_ind_numbers = findall(par_ind)
+        # here we need to do something
+        N_c_i = zeros(Int,(N_dim, N_cluster)) # counts how many values are within the window for each cluster (for normalization)
+
+        # collect and copy data
+        for i_ca in eachindex(window_ca)
+            for i_dim=1:N_dim
+                cluster_meas[window_ca[i_ca]+1, i_dim, ic] += sol.sol[par_ind_numbers[i_ca]][i][i_dim]
+                N_c_i[i_dim, window_ca[i_ca]+1] += 1
+            end
+        end
+
+        # normalize/average it
+        for i_cluster=1:N_cluster
+            for i_dim=1:N_dim
+                if !(N_c_i[i_dim,i_cluster] == 0)
+                    cluster_meas[i_cluster, i_dim, ic] /= N_c_i[i_dim, i_cluster]
+                end
+            end
+        end
+
+        parameter_mesh[:,ic] = collect(ip)
+    end
+    if N_par == 1
+        parameter_mesh = parameter_mesh[1,:]
+    end 
+    (parameter_mesh, cluster_meas)
+end
+
+# function to calculate the sliding window parameter Array
+_sliding_window_parameter(prob::myMCProblem, window_size::Number, window_offset::Number) = _sliding_window_parameter(prob, [window_size], [window_offset])
+function _sliding_window_parameter(prob::myMCProblem, window_size::AbstractArray, window_offset::AbstractArray)
+
+    N_par = length(ParameterVar(prob))
+    if (length(window_size)!=N_par)|(length(window_offset)!=N_par)
+        error("Window Size and Window Offset need to have as many elements as they are parameters")
+    end
+
+    N_windows = zeros(Int,N_par)
+    windows_mins = []
+
+    # go over every parameter
+    for i_par = 1:N_par
+        min_par = minimum(parameter(prob,i_par))
+        max_par = maximum(parameter(prob,i_par))
+
+        push!(windows_mins, min_par:window_offset[i_par]:(max_par-window_size[i_par]))
+        N_windows[i_par] = length(windows_mins[i_par])
+
+        if N_windows[i_par] <= 1
+            warn("Only 1 or less Windows in cluster_membership")
+        end
+    end
+    (N_windows, windows_mins)
+end
 
 # helper function for estimating a espilon value for dbscan.
 # in the original paper, Ester et al. suggest to plot the k-dist graph (espaccially for k=4) to estimate a value for eps given minPts = k
