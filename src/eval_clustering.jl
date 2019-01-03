@@ -347,7 +347,7 @@ function cluster_membership(prob::myMCProblem, clusters::DbscanResult, window_si
     # return
     (parameter_mesh, memberships)
 end
-cluster_membership(prob::myMCProblem, clusters::DbscanResult, window_size::Number, window_offset::Number, normalize::Bool=true) = cluster_membership(prob, cluster, [window_size], [window_offset], normalize)
+cluster_membership(prob::myMCProblem, clusters::DbscanResult, window_size::Number, window_offset::Number, normalize::Bool=true) = cluster_membership(prob, clusters, [window_size], [window_offset], normalize)
 
 
 
