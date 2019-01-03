@@ -409,7 +409,7 @@ function measure_on_parameter_sliding_window(prob::myMCProblem, sol::myMCSol, i:
     end
     if N_par == 1
         parameter_mesh = parameter_mesh[1,:]
-    end 
+    end
     (parameter_mesh, cluster_meas)
 end
 
@@ -434,7 +434,7 @@ function _sliding_window_parameter(prob::myMCProblem, window_size::AbstractArray
         N_windows[i_par] = length(windows_mins[i_par])
 
         if N_windows[i_par] <= 1
-            warn("Only 1 or less Windows in cluster_membership")
+            @warn "Only 1 or less Windows in cluster_membership"
         end
     end
     (N_windows, windows_mins)
