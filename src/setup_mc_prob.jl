@@ -303,8 +303,8 @@ end
 function _new_val_dict(var_par::MultiDimParameterVar, ic_par::AbstractArray, N_dim_ic::Int, i::Int)
     par_arr = []
     N_dim_par = length(var_par)
-    for i=1:N_dim_par
-        push!(par_arr, (var_par[i].name, ic_par[i,N_dim_ic+i]))
+    for i_par=1:N_dim_par
+        push!(par_arr, (var_par[i_par].name, ic_par[i,N_dim_ic+i_par]))
     end
     Dict(par_arr)
 end
