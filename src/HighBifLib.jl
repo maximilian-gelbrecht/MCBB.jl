@@ -1,6 +1,17 @@
 module HighBifLib
 
+"""
+    myMCProblem
+
+Abstract type for all problem types defined in this library. Note that the DifferentialEquations.jl problem types are _not_  supertypes of this types.
+"""
 abstract type myMCProblem end
+
+"""
+    myMCSol
+
+Abstract type for all problem types defined in this library. Note that the DifferentialEquations.jl problem types are _not_  supertypes of this types.
+"""
 abstract type myMCSol end
 
 # export all functions declared

@@ -7,23 +7,37 @@ using Parameters
 import Base.sort, Base.sort!
 import LinearAlgebra.normalize
 
+"""
+    ParameterVar
 
-# Parameter Variation Struct
-# This struct holds information about the parameters and how they should
-# be varied
-# For many cases this struct is automaticlly initialized when
-# calling BifAnaMCProblem with appropiate Tuples
-#
-# name, is the symbol of the name of the parameter to be varied
-# new_val, is the function that determines to which value it is changed, takes the
-#           index of the trial as an argument (i) -> new_value
-# function that returns a new parameter when given the old parameter and the new
-# value as a kwargs: (old_par; (Dict(name=>new_value))) -> new_par
-# N is either nothing if a function for new_value is supplied or the length of the array if a array is supplied for new_val
+Parameter Variation types, these structs holds information about the parameters and how they should be varied. For many cases this struct is automaticlly initialized when calling `BifAnaMCProblem` with appropiate Tuples. It assumes that the paremeters are itself structs most commonly with a field that has to be varied.
+
+# Type Hierachy
+* `OneDimParameterVar, MultiDimParameterVar <: ParameterVar`
+* `ParameterVarArray, ParameterVarFunc <: OneDimParameterVar`
+* `MulitDimParameterVarArray, MultiDimParameterVarFunc <: MultiDimParameterVar`
+"""
 abstract type ParameterVar end
 abstract type OneDimParameterVar <: ParameterVar end
-abstract type MultiDimParameterVar <: ParameterVar end
 
+"""
+    ParameterVarArray
+
+Type for the parameter variation with an array that holds all parameter values.
+The struct has the fields:
+
+* `name`: Symbol of the name of the parameter
+* `new_val`:: Function that returns a new value, signature: `(i::Int) -> new_value::Number`
+* `new_par`:: Function that returns a new parameter struct, default: Parameters.reconstruct, signature: `(old_par; Dict(name=>new_val)) = new_par`
+* `N` :: Length of the array / Number of parameter values
+* `arr` :: The input array saved
+
+# Initialization
+* `ParameterVar(name::Symbol, arr::AbstractArray, new_par::Function)`
+* `ParameterVar(name::Symbol, arr::AbstractArray)`
+* `name` is the name of the field of the parameter struct that should be varied
+* `arr` is the array that containts all values the parameter should be varied to.
+"""
 struct ParameterVarArray <: OneDimParameterVar
     name::Symbol
     new_val::Function
@@ -40,6 +54,22 @@ struct ParameterVarArray <: OneDimParameterVar
 end
 ParameterVarArray(name::Symbol, arr::AbstractArray) = ParameterVarArray(name, arr, reconstruct)
 
+"""
+    ParameterVarFunc
+
+Struct for the parameter variation with a function that generates new values.
+The struct has the fields:
+
+* `name`: Symbol of the name of the parameter
+* `new_val`:: Function that returns a new value, signature: `(i::Int) -> new_value::Number`
+* `new_par`:: Function that returns a new parameter struct, default: Parameters.reconstruct, signature: `(old_par; Dict(name=>new_val)) = new_par`
+
+# Initialization
+* `ParameterVar(name::Symbol, func::Function, new_par::Function)`
+* `ParameterVar(name::Symbol, func::Function)`
+* `name` is the name of the field of the parameter struct that should be varied
+* `func` is the function that generates the parameter values, signature: `(i::Int) -> new_value::Number`
+"""
 struct ParameterVarFunc <: OneDimParameterVar
     name::Symbol
     new_val::Function
@@ -56,8 +86,26 @@ OneDimParameterVar(name::Symbol,new_val::AbstractArray) = ParameterVarArray(name
 OneDimParameterVar(name::Symbol,new_val::Function, new_par::Function) = ParameterVarFunc(name, new_val, new_par)
 OneDimParameterVar(name::Symbol,new_val::Function) = ParameterVarFunc(name, new_val)
 
-# new_par must take kwargs from all varied parameters and return a new parameter
-# (old_par; Dict(name=>new_value)) -> new_par
+"""
+    MultiDimParameterVar
+
+Holds information about multiple parameters that should be varied simultaneously.
+The struct has the fields:
+
+* `data`: 1-D Array of `ParamterVar`
+* `Function`: function that returns a new parameter struct given keyword arguments of _all_ parameters that should be varied. signature: `(old_par; Dict(name_1=>new_val_1, name_2=>new_val_2, ...)) = new_par`
+* `N`: Number of parameters that are varied.
+
+Internally there are two different types, `MultiDimParameterVarFunc` and `MultiDimParameterVarArray`. The only difference is what type of ParameterVar they store. The different types are needed for dispatching on them in the routines that setup `BifAnaMCProblem`
+
+# Initialization
+* `MultiDimParameterVar(data::Array{ParameterVarFunc,1}, func::Function)`
+* `MultiDimParameterVar(data::Array{ParameterVarArray,1}, func::Function)`
+* `MultiDimParameterVar(parvar::ParameterVar, func::Function)`
+* `MultiDimParameterVar(parvar::ParameterVar)`: default function is Parameters.reconstruct
+"""
+abstract type MultiDimParameterVar <: ParameterVar end
+
 struct MultiDimParameterVarFunc <: MultiDimParameterVar
     data::Array{ParameterVarFunc,1}
     new_par::Function
@@ -69,13 +117,32 @@ struct MultiDimParameterVarArray <: MultiDimParameterVar
     new_par::Function
     N::Int
 end
+
 MultiDimParameterVar(data::Array{ParameterVarFunc,1}, func::Function) = MultiDimParameterVarFunc(data, func, length(data))
 MultiDimParameterVar(data::Array{ParameterVarArray,1}, func::Function) = MultiDimParameterVarArray(data, func, length(data))
 MultiDimParameterVar(parvar::ParameterVar, func::Function) = MultiDimParameterVar([parvar], func)
 MultiDimParameterVar(parvar::ParameterVar) = MultiDimParameterVar(parvar, reconstruct)
+
+"""
+    getindex(parvar::MultiDimParameterVar, i::Int)
+
+Like regular arrays the individual ParameterVar entries can be accessed with square brackets e.g.: `parvar[i]`.
+"""
 Base.getindex(parvar::MultiDimParameterVar, i::Int) = parvar.data[i]
+
+"""
+    length(parvar::MultiDimParameterVar)
+
+Length returns the amount of Parameters that are setup to be varied.
+"""
 Base.length(parvar::MultiDimParameterVar) = parvar.N
 Base.length(par::OneDimParameterVar) = 1
+
+"""
+    ParameterVar(prob::myMCProblem)
+
+Given one of the problem types of this library its ParameterVar is returned.
+"""
 ParameterVar(prob::myMCProblem) = prob.par_var
 
 
@@ -92,14 +159,39 @@ ParameterVar(prob::myMCProblem) = prob.par_var
 # eval_ode_func - evalalution function for the MonteCarloProblem
 # tail_frac - float [0,1] (relative) time after which the trajectory/solution is saved and evaluated, default value 0.9
 #
+
+"""
+    BifAnaMCProblem
+
+Main type for the sample based bifurcation/stablity analysis based on `MonteCarloProblem` from DifferentialEquations. This struct holds information about the underlying differential equation and the parameters and initial conditions its supposed to be solved for. Many points from the initial conditions - parameter space are sampled. When solved the solutions is evaluated seperatly for each dimension and certain statistical measures like mean or standard deviation are saved.
+
+The struct has several different constructors following below.
+
+Note that its supertype is `myMCProblem`, but not any of the DifferentialEquations abstract problem types.
+
+The struct has the following fields:
+* `p`: `MonteCarloProblem` to be solved, part of DifferentialEquations
+* `N_mc`: Number of (Monte Carlo) runs to be solved
+* `rel_transient_time`: Only after this time (relative to the total integration time) the solutions are evaluated
+* `ic_par`: (``N_{mc} \\times (N_{dim_{ic}} + N_{par})``)-Matrix containing initial conditions and parameter values for each run.
+* `par_var`: `ParameterVar`, information about how the parameters are varied, see [`ParameterVar`](@ref)
+"""
 struct BifAnaMCProblem <: myMCProblem
     p::MonteCarloProblem
     N_mc::Int64
-    rel_transient_time::Float64 # float [0,1] (relative) time after which the trajectory/solution is saved and evaluated
-    ic_par::AbstractArray # matrix that stores all ICs and Pars for each run
-    par_var::ParameterVar # parameter variation tuple, is the same as par_range_tuple
+    rel_transient_time::Float64
+    ic_par::AbstractArray
+    par_var::ParameterVar
 
     # inner constructer used for randomized ICs
+    """
+        BifAnaMCProblem(p::DiffEqBase.DEProblem, ic_gens::Array{<:Function,1}, N_ic::Int, pars::DEParameters, par_range_tuple::ParameterVar, eval_ode_func::Function, tail_frac::Number)
+
+    Setup a BifAnaMCProblem with randomized initial conditions (and parameters).
+
+    * `p`:: A Problem from DifferentialEquations, currently supported are `DiscreteProblem`, `ODEProblem`, `SDEProblem`, the base problem one is interested in.
+    * `ic_gens`: A function or an array of functions
+    """
     function BifAnaMCProblem(p::DiffEqBase.DEProblem, ic_gens::Array{<:Function,1}, N_ic::Int, pars::DEParameters, par_range_tuple::ParameterVar, eval_ode_func::Function, tail_frac::Number)
         (ic_coupling_problem, ic_par, N_mc) = setup_ic_par_mc_problem(p, ic_gens, N_ic, pars, par_range_tuple)
         mcp = MonteCarloProblem(p, prob_func=ic_coupling_problem, output_func=eval_ode_func)
