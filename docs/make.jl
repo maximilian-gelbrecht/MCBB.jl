@@ -1,4 +1,4 @@
-using Documenter, HighBifLib
+using Documenter, HighBifLib, DifferentialEquations
 
 makedocs(sitename="HighBifLib", modules=[HighBifLib], doctest=true,
 pages = [
@@ -10,7 +10,7 @@ pages = [
     "Reference" => Any[
         "Problem Types" => "ref/problem_types.md",
         "ParameterVar" => "ref/parameter_var.md",
-        "Solution Types" => "ref/solution_types.md"
+        "Evaluation Functions" =>"ref/evaluation_funcs.md",
         ]
     ],
     )
