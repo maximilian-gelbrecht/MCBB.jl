@@ -53,7 +53,7 @@ db_eps = 1
 db_res = dbscan(D,db_eps,k)
 cluster_meas = cluster_means(ko_sol,db_res);
 cluster_n = cluster_n_noise(db_res);
-cluster_members = cluster_membership(parameter(ko_emcp),db_res,0.2,0.05);
+cluster_members = cluster_membership(ko_emcp,db_res,0.2,0.05);
 
 
 true

@@ -6,26 +6,52 @@ using DifferentialEquations, Interpolations, Distances
 # using Miniball
 import Distributions, StatsBase
 
-
-# eval_ode_run, (sol, i) -> (evaluated_solution, repeat=False)
-# evaluates each ODE run and computes all the statistics needed for the further calculations
-# right now these are: mean, std, skewness, relative entropy / KL div. to a gaussian and curve entropy
-#
-# input:
-# sol :: result of one of the monte carlo ode run, should have only timesteps with constant time intervals between them
-# i :: Int, number of iteration
-# state_filter :: array with indicies of all dimensions that should be evaluated
-# eval_funcs :: array of functions that should be applied to every dimension of the solution (except for mean and std which are always computed). Need to be (Array w/ Samples ::AbstractArray, Mean::Number, Std::Number) -> Measure
-# global_eval_funcs :: array of functions that should be applied to the complete N-dimensional solution, need to be (Array w/ Samples ::AbstractArray, Mean::Number, Std::Number) -> Measure
-# failure_handling :: How failure of integration is handled. Should be :None (do no checks), :Inf (If retcode==:DtLessThanMin: return Inf) or :Repeat (If no succes, repeat the trial (only works with random initial conditions))
-# cyclic_setback :: Bool, if true the N*2Pi is substracted from the solution so that the first element of the solution that is analysed is within [-pi, pi]
-# replace_inf ;: Number or Nothing, if a number replaces all Infs in the solution with this number. Can be usefull if one still wants to distinguish between different solutions containing Infs, +Inf is replaced by the Number, -Inf by (-1)*Number.
 """
     eval_ode_run
 
-Evaluation functions for the `MonteCarloProblem`. Given a set of measures the soltution `sol` is evaluated seperatly per dimension. An additional set of global measures take in the complete solution and return a single number. 
+Evaluation functions for the `MonteCarloProblem`. Given a set of measures the solution `sol` is evaluated seperatly per dimension. An additional set of global measures take in the complete solution and return a single number. Handing over the functions to `BifAnaMCProblem` (or `MonteCarloProblem`) the expected signature is `(sol, i::Int) -> (results, repeat::Bool)`. Here, there several more general versions that can be adjusted to the experiment.
 
+    eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:Function,1}, global_eval_funcs::AbstractArray; failure_handling::Symbol=:None, cyclic_setback::Bool=false, replace_inf=nothing)
 
+* `sol`: solution of one of the MonteCarloProblem runs, should have only timesteps with constant time intervals between them
+* `i`: Int, number of iteration/run
+* `state_filter`: Array with indicies of all dimensions (of the solutions) that should be evaluated
+* `eval_funcs`: Array of functions that should be applied to every dimension of the solution (except for mean and std which are always computed). Signature: (1-Dim Array w/ Samples ::AbstractArray, Mean::Number, Std::Number) -> Measure
+* `global_eval_funcs`: Array of functions that should be applied to the complete N-dimensional solution, signature (N-Dim Array w/ Samples ::AbstractArray, Mean::Number, Std::Number) -> Measure
+* `failure_handling`: How failure of integration is handled. Should be `:None` (do no checks), `:Inf` (If `retcode==:DtLessThanMin: return Inf`) or `:Repeat` (If no succes, repeat the trial (only works with random initial conditions))
+* `cyclic_setback`: Bool, if true ``N*2\\pi`` is substracted from the solution so that the first element of the solution that is analysed is within ``[-\\pi, \\pi]``. Usefull e.g. for phase oscillators.
+* `replace_inf`: Number or Nothing, if a number replaces all Infs in the solution with this number. Can be usefull if one still wants to distinguish between different solutions containing Infs, +Inf is replaced by the Number, -Inf by (-1)*Number.
+
+In order to derive a valid evaluation function from this for the `MonteCarloProblem` one can define a function similar to this:
+
+    function my_eval_ode_run(sol, i)
+        N_dim = length(sol.prob.u0)
+        state_filter = collect(1:N_dim)
+        eval_funcs = [empirical_1D_KL_divergence_hist]
+        global_eval_funcs = []
+        eval_ode_run(sol, i, state_filter, eval_funcs, global_eval_funcs)
+    end
+
+Latter function is also already available as a default `eval_ode_run` in this library:
+
+    eval_ode_run(sol, i)
+
+Default `eval_ode_run`, identical to the code above.
+
+# Continue Integration / Response Analysis
+
+     eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:Function,1}, global_eval_funcs::AbstractArray, failure_handling::Symbol, cyclic_setback::Bool, par_var::OneDimParameterVar, eps::Float64, par_bounds::AbstractArray, distance_func, parameter_weighted::Bool=true, relative_parameter_flag::Bool=false, N_t::Int=200, alg=nothing, debug::Bool=false; kwargs...)
+
+Evaluation function that continues each integration and computes the same measures for `par+eps` and `par-eps`. Returns the results of the usual `eval_ode_run` (all measures) and additionally the response of the distance function to the paramater increase/decrease.
+
+* `par_var`: `ParameterVar` struct, same as handed over to the problem type.
+* `eps`: Number, response at par+/-eps
+* `distance_func`: Same distance functions that will also be used for the later analysis/clustering
+* `paramater_weighted`: Should the distance be parameter weighted?
+* `relative_parameter_flag`: Should the parameter values be rescaled to [0,1]?
+* `N_t`: Time steps for the continued integration
+* `alg`: Algorithm for `solve()`
+* `debug`: If true, also returns the DifferentialEquations problem solved for the continuation.
 """
 function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:Function,1}, global_eval_funcs::AbstractArray; failure_handling::Symbol=:None, cyclic_setback::Bool=false, replace_inf=nothing)
     N_dim = length(sol.prob.u0)
@@ -115,24 +141,10 @@ end
 
 # evaluation function that also includes a response analysis with a contiuation of the integration
 # it records the differnce in Distance of the measures chosen thus each time recording a pair = 1(dp,dD)
-#
-# takes all input arguments of eval_ode_run and N_dim, __) additionally:
-#           par_var:: parameter variation tuple, same as for BifAnaMCProblem
-#           eps: Float, the integration is continued for p_new = p+/-eps
-#           par_bounds: bounds that should not be exceeded by p +/- eps
-#           distance_function: Distance function also used for the distance matrix computation
-#           parameter_weighted: Does the distance function also weight the parameters? If true distance func has to have 4 input arguments, if not only 2, signature: (x1,x2,p1,p2) -> distance or (x1,x2)-> distance
-#           relative_parameter_flag: uses the relative paramater weighting in the distance calculation
-#           N_t: number of time steps saved in the integration (default: 200)
-#           alg: algorithm used in the integration (default: automatic detection)
-#           debug: if true, also returns the continuation problem in the tuple
-#           kwargs: all other keyword arguments are handed over to solve()
-#
-function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:Function,1}, global_eval_funcs::AbstractArray, failure_handling::Symbol, cyclic_setback::Bool, par_var::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function},Tuple{Symbol,Union{AbstractArray,Function}}}, eps::Float64, par_bounds::AbstractArray, distance_func, parameter_weighted::Bool=true, relative_parameter_flag::Bool=false, N_t::Int=200, alg=nothing, debug::Bool=false; kwargs...)
+function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:Function,1}, global_eval_funcs::AbstractArray, failure_handling::Symbol, cyclic_setback::Bool, par_var::OneDimParameterVar, eps::Float64, par_bounds::AbstractArray, distance_func, parameter_weighted::Bool=true, relative_parameter_flag::Bool=false, N_t::Int=200, alg=nothing, debug::Bool=false; kwargs...)
 
     N_dim = length(sol.prob.u0)
     probi = sol.prob
-    par_var = _var_par_check(par_var)
 
     meas_1 = eval_ode_run(sol, i, state_filter, eval_funcs, global_eval_funcs; failure_handling=failure_handling, cyclic_setback=cyclic_setback)
 
@@ -145,9 +157,9 @@ function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:
     ic_par[3,1:N_dim] = sol[end]
 
     # need par_var tuple hear as well -> maybe do it as a field of the problem structure
-    ic_par[1,end] = getfield(probi.p, par_var[1]) - eps
-    ic_par[2,end] = getfield(probi.p, par_var[1])
-    ic_par[3,end] = getfield(probi.p, par_var[1]) + eps
+    ic_par[1,end] = getfield(probi.p, par_var.name) - eps
+    ic_par[2,end] = getfield(probi.p, par_var.name)
+    ic_par[3,end] = getfield(probi.p, par_var.name) + eps
     if ic_par[1,end] < par_bounds[1]
         ic_par[1,end] = par_bounds[1]
     end
@@ -160,7 +172,7 @@ function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:
     function new_prob(baseprob, i, repeat)
         n_prob = remake(baseprob, u0=ic_par[i,1:N_dim])
         n_prob = remake(n_prob, tspan=new_tspan)
-        custom_problem_new_parameters(n_prob, par_var[3](probi.p; Dict(par_var[1] => ic_par[i,end])...))
+        custom_problem_new_parameters(n_prob, par_var.new_par(probi.p; Dict(par_var.name => ic_par[i,end])...))
     end
 
     mcp = MonteCarloProblem(probi, prob_func=new_prob, output_func=(sol,i)->eval_ode_run(sol, i, state_filter, eval_funcs, global_eval_funcs; failure_handling=failure_handling, cyclic_setback=cyclic_setback))
@@ -182,7 +194,11 @@ function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:
 end
 
 
-# checks if any of the results is Inf or NaN and returns the indices in a dictionary
+"""
+    check_inf_nan(sol::myMCSol)
+
+Checks if any of the results is `inf` or `nan` and returns the indices in a dictionary with keys `Inf` and `NaN`
+"""
 function check_inf_nan(sol::myMCSol)
     N = sol.N_mc
     N_meas = sol.N_meas
@@ -200,8 +216,12 @@ function check_inf_nan(sol::myMCSol)
     nan_inf
 end
 
-# function helping to evaluate phase oscillators / other cyclic systems. Often these systems produce growing values. This routine substructs N*2*Pi from the values of the array so that arr_in[1] is in [-pi,pi]
-# works inplace
+
+"""
+    _cyclic_setback!(arr_in::AbstractArray)
+
+Function helping to evaluate phase oscillators / other cyclic systems. Often these systems produce growing values. This routine substracts ``N\\cdot 2\\cdot \\pi`` from the values of the array so that `arr_in[1]`` is in ``[-\\pi,\\pi]``. Works inplace.
+"""
 function _cyclic_setback!(arr_in::AbstractArray)
     arr1_tmp = arr_in[1]
 
@@ -214,13 +234,18 @@ function _cyclic_setback!(arr_in::AbstractArray)
     arr_in[2:end] = arr_in[2:end] .- subtr;
 end
 
-# empirical_1D_KL_divergence
-#
-# based on histograms (might actually not be a good estimator for KL)
-# u :: Input Array
-# reference pdf: e.g. Normal(mean,std)
-# hist_bins: number of bins of the histogram to estimate the empirical pdf of the data
-# n_stds: Interval that the histogram covers in numbers of stds (it covers  mean +/- n_stds*std)
+"""
+    empirical_1D_KL_divergence_hist(u::AbstractArray, mu::Number, sig::Number, hist_bins::Int=31, n_stds::Number=3, sig_tol=1e-4::Number)
+
+One measure that can be used with `eval_ode_run`. Computes the empirical Kullback-Leibler Divergence of the input to a normal distribution with the same mean and std as the input, thus it is a measure of normality. This version does this with histograms.
+
+* `u`: Input Array
+* `mu`: Mean of `u`
+* `sig`: Std of `u`
+* `hist_bins`: number of bins of the histogram to estimate the empirical pdf of the data
+* `n_stds`: Interval that the histogram covers in numbers of stds (it covers  mean +/- n_stds*std)
+* `sig_tol`: At times, all KL div methods run into difficulties when `sig` gets really small, for `sig<sig_tol` 0 is returned as a result because in the limit of `sig` -> 0 the reference distribution is a delta distribution and the data is constant thus also a delta distribution. hence the distributions are identical and the KL div should be zero.
+"""
 function empirical_1D_KL_divergence_hist(u::AbstractArray, mu::Number, sig::Number, hist_bins::Int=31, n_stds::Number=3, sig_tol=1e-4::Number)
 
    if sig < sig_tol # very small sigmas lead to numerical problems.
@@ -248,11 +273,15 @@ function empirical_1D_KL_divergence_hist(u::AbstractArray, mu::Number, sig::Numb
    StatsBase.kldivergence(hist.weights, refpdf_discrete)
 end
 
+"""
+    empirical_1D_KL_divergence_pc(u::AbstractArray, mu::Number, sig::Number)
 
-# KL divergence
-# estimate based on Perez-Cruz (IEEE, 2008)
-# estimates the KL divergence by using linearly interpolated empirical CDFs.
-# TO-DO: for large time series (N>10000) there is small risk that this yields Inf because the spacing between the samples becomes so small that the precision is not high enough to yield finite numbers.
+One measure that can be used with `eval_ode_run`. Computes the empirical Kullback-Leibler Divergence of the input to a normal distribution with the same mean and std as the input, thus it is a measure of normality. This version does this based on a linearly interpolated emperical CDF, see Perez-Cruz (IEEE, 2008). This version can run into numerical difficulties for discrete systems with alternating inputs like [a,-a,a,a] and large 2a. For reasonable continous input it is a better and parameter free approximation to the KL divergence than the histogram estimator.
+
+* `u`: Input Array
+* `mu`: Mean of `u`
+* `sig`: Std of `u`
+"""
 function empirical_1D_KL_divergence_pc(u::AbstractArray, mu::Number, sig::Number)
 
     N = length(u)
@@ -289,9 +318,13 @@ function empirical_1D_KL_divergence_pc(u::AbstractArray, mu::Number, sig::Number
     kld -= 1    # Perez-Cruz estimator converges as KL_pc - 1 -> KL
 end
 
-#
-# Empirical Cumulative Densitiy function for KL divergence (w/ Heaviside(0)=1/2 and linear approx. between the points) based on Perez-Cruz, IEEE, 2008
-# assumes that X is sorted and Xu is unique(X)!
+"""
+    ecdf_pc(X::AbstractArray, Xu::AbstractArray, eps::BigFloat)
+
+Empirical Cumulative Densitiy function for KL divergence (w/ Heaviside(0)=1/2 and linear approx. between the points) based on Perez-Cruz, IEEE, 2008. Assumes that `X` is sorted and `Xu` is `unique(X)`!
+
+* `eps`: Only needed if not all elements of `X` are unique for interpolation as interpolation won't work with doublicate values and some extreme cases cases like only 2 or 3 unique values / delta peaks need extra care. The aim is to add additonal values at `xi - eps`, just a little bit infront of the delta peaks, to get a good cdf estimate. Default argument is `eps=0.5*minimum(diff(unique(X))))`.
+"""
 function ecdf_pc(X::AbstractArray, Xu::AbstractArray, eps::BigFloat)
     N = length(X)
     Nu = length(Xu)
@@ -334,12 +367,17 @@ function ecdf_pc(X::AbstractArray, Xu::AbstractArray, eps::BigFloat)
     end
     itp
 end
-ecdf_pc(X::AbstractArray) = ecdf_pc(X, unique(X), 0.5*minimum(diff(unique(X))))
-ecdf_pc(X::AbstractArray, Xu::AbstractArray, eps::Float64) = ecdf_pc(X, unique(X), BigFloat(0.5*minimum(diff(unique(X)))))
+ecdf_pc(X::AbstractArray) = ecdf_pc(X, unique(X), BigFloat(0.5*minimum(diff(unique(X)))))
 
-# first calculates the ECDF then the wasserstein distance
-# computes \left( \int_{-\infty}^{+\infty} |ECDF_U(x)-CDF_REFERENCE(x)| dx
+"""
+    wasserstein_ecdf(u::AbstractArray, mu::Number, sig::Number)
 
+One measure that can be used with `eval_ode_run`. Computes the 1-wasserstein distance based on ECDFs.
+
+* `u`: Input Array
+* `mu`: Mean of `u`
+* `sig`: Std of `u`
+"""
 function wasserstein_ecdf(u::AbstractArray, mu::Number, sig::Number)
     if sig < 1e-10
         return 0.

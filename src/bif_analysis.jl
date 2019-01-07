@@ -3,28 +3,28 @@ using Parameters
 import DifferentialEquations.solve
 import DifferentialEquations.problem_new_parameters
 
-### Introduces a Problem type for Bifurcation analysis
-# sets up a DEProblem, solves it, then changes a parameter and sets the endpoint
-# of the previous to be IC of a new problem. repeats for a specified amount of time
-# times
-#
-# Arguments:
-#       p :: Base DifferentialEquations Problem
-#       par_range :: Description of how the parameter should be changed
-#               is a tuple of:
-#                    -   name of the parameter as a symbol
-#                    -   AbstractArray or Function that contains all parameters for the experiment or a function that generates parameter values, the function has to be format (oldvalue) -> (newvalue)
-#                   - OPTIONAL: a function that maps (old_parameter_instance; (par_range[1],new_parameter_value)) -> new_parameter_instance. Default is 'reconstruct' from @with_kw/Parameters.jl is used
-#                   - is automaticlly convertet to a ParameterVar struct
-#       N :: OPTIONAL
-#       eval_ode_run :: function, same as for MonteCarloProblems
-#       ic_bounds:: Bounds for the IC that should not be exceeded
-#       par_bounds:: Bounds for the parameter that should not be exceeded
-#       hard_bounds:: If a bound is reached: if true, stops the iteration, false continous with (upper/lower bound as IC)
+"""
+    ContinuationProblem <: myMCProblem
 
-struct BifAnalysisProblem <: myMCProblem
+Introduces a Problem type for Bifurcation analysis. It sets up a DEProblem, solves it, then changes a parameter and sets the endpoint of the previous to be IC of a new problem. Repeats for a specified amount of times
+
+# Constructor
+
+    ContinuationProblem(p::DiffEqBase.DEProblem, par_range::ParameterVar, N::Int64, eval_func::Function, ic_bounds::AbstractArray=[-Inf,Inf],par_bounds::AbstractArray=[-Inf,Inf], hard_bounds::Bool=false)
+
+* `p`: Base DifferentialEquations Problem
+* `par_range`: Description of how the parameter should be changed, `ParameterVar` OR a tuple of (First: name of the parameter as a symbol, Second: AbstractArray or Function that contains all parameters for the experiment or a function that generates parameter values. The function has to be format `(oldvalue) -> (newvalue)`, Third: OPTIONAL: a function that maps `(old_parameter_instance; (par_range[1],new_parameter_value)) -> new_parameter_instance`. Default is 'reconstruct' from @with_kw/Parameters.jl is used)
+* `N`: OPTIONAL, Only needed if parameter variation is given a function to generate new parameter values. If so, `N` is the total number of parameters and thus DEProblems to be solved
+* `eval_ode_run`: function, same as for `MonteCarloProblems`
+* `ic_bounds`: Bounds for the IC that should not be exceeded
+* `par_bounds`: Bounds for the parameter that should not be exceeded
+* `hard_bounds`: If a bound is reached: if true, stops the iteration, false continous with (upper/lower bound as IC)
+
+Fields of the struct are the same as the arguments of the constructor.
+"""
+struct ContinuationProblem <: myMCProblem
     prob::DiffEqBase.DEProblem # Base DifferentialEquations Problem
-    par_range::ParameterVar
+    par_range::OneDimParameterVar
     N::Int64
     eval_func::Function
     ic_bounds::AbstractArray
@@ -32,25 +32,37 @@ struct BifAnalysisProblem <: myMCProblem
     hard_bounds::Bool
     par::AbstractArray
 
-    function BifAnalysisProblem(p::DiffEqBase.DEProblem, par_range::ParameterVar, N::Int64, eval_func::Function, ic_bounds::AbstractArray=[-Inf,Inf],par_bounds::AbstractArray=[-Inf,Inf], hard_bounds::Bool=false)
+    function ContinuationProblem(p::DiffEqBase.DEProblem, par_range::OneDimParameterVar, N::Int64, eval_func::Function, ic_bounds::AbstractArray=[-Inf,Inf],par_bounds::AbstractArray=[-Inf,Inf], hard_bounds::Bool=false)
         par_vector = compute_parameters(p, par_range, N)
         N = length(par_vector) # updated N in case a boundary is hit
         new(p, par_range, N, eval_func, ic_bounds, par_bounds, hard_bounds, par_vector)
     end
 
     # direct constructor
-    function BifAnalysisProblem(p::DiffEqBase.DEProblem, par_range::ParameterVar, N::Int64, eval_func::Function, ic_bounds::AbstractArray,par_bounds::AbstractArray, hard_bounds::Bool, par_vector::AbstractArray)
+    function ContinuationProblem(p::DiffEqBase.DEProblem, par_range::OneDimParameterVar, N::Int64, eval_func::Function, ic_bounds::AbstractArray,par_bounds::AbstractArray, hard_bounds::Bool, par_vector::AbstractArray)
         new(p, par_range, N, eval_func, ic_bounds, par_bounds, hard_bounds, par_vector)
     end
 end
 
-BifAnalysisProblem(p::DiffEqBase.DEProblem, par_range::Union{Tuple{Symbol, <:Function,<:Function}, Tuple{Symbol,<:Function}}, N::Int, eval_func::Function, ic_bounds::AbstractArray=[-Inf,Inf], par_bounds::AbstractArray=[-Inf,Inf], hard_bounds::Bool=false) = BifAnalysisProblem(p, OneDimParameterVar(par_range...), N, eval_func, ic_bounds, par_bounds, hard_bounds)
-BifAnalysisProblem(p::DiffEqBase.DEProblem, par_range::Union{Tuple{Symbol, AbstractArray,<:Function}, Tuple{Symbol,AbstractArray}}, eval_func::Function, ic_bounds::AbstractArray=[-Inf,Inf], par_bounds::AbstractArray=[-Inf,Inf], hard_bounds::Bool=false) = BifAnalysisProblem(p, OneDimParameterVar(par_range...), length(par_range[2]), eval_func, ic_bounds, par_bounds, hard_bounds)
+ContinuationProblem(p::DiffEqBase.DEProblem, par_range::Union{Tuple{Symbol, <:Function,<:Function}, Tuple{Symbol,<:Function}}, N::Int, eval_func::Function, ic_bounds::AbstractArray=[-Inf,Inf], par_bounds::AbstractArray=[-Inf,Inf], hard_bounds::Bool=false) = ContinuationProblem(p, OneDimParameterVar(par_range...), N, eval_func, ic_bounds, par_bounds, hard_bounds)
+ContinuationProblem(p::DiffEqBase.DEProblem, par_range::Union{Tuple{Symbol, AbstractArray,<:Function}, Tuple{Symbol,AbstractArray}}, eval_func::Function, ic_bounds::AbstractArray=[-Inf,Inf], par_bounds::AbstractArray=[-Inf,Inf], hard_bounds::Bool=false) = ContinuationProblem(p, OneDimParameterVar(par_range...), length(par_range[2]), eval_func, ic_bounds, par_bounds, hard_bounds)
 
+parameter(prob::ContinuationProblem) = prob.par
 
-parameter(prob::BifAnalysisProblem) = prob.par
+"""
+    ContinuationSolution <: myMCSol
 
-struct BifAnalysisSolution <: myMCSol
+Solution object that is returned by `solve(prob::ContinuationProblem,...)`.
+
+Fields are:
+* `sol`: Array of Arrays, analogously to `MonteCarloSolution`
+* `par`: Array, parameters of all runs
+* `N_mc`: Number of runs / DEProblems solved
+* `N_meas`: number of measures used, ``N_{meas} = N_{meas_{dim}} + N_{meas_{global}}``
+* `N_meas_dim`: number of measures that are evalauted for every dimension seperatly
+* `N_meas_global`: number of measures that are evalauted globally
+"""
+struct ContinuationSolution <: myMCSol
     sol::AbstractArray
     par::AbstractArray
     N_mc::Int
@@ -59,9 +71,12 @@ struct BifAnalysisSolution <: myMCSol
     N_meas_global::Int # number of global measures, in the case of system dimension == 1, N_meas_global = 1 = N_meas and N_meas_dim = 0
 end
 
-# computes the parameters that are used for the calculation
-compute_parameters(p::DiffEqBase.DEProblem , par_range::ParameterVarArray, N::Integer) = par_range.arr
+"""
+    compute_parameters(p::DiffEqBase.DEProblem , par_range::OneDimParameterVar, N::Integer)
 
+Computes the parameters that are used for the calculation and returns them as an array.
+"""
+compute_parameters(p::DiffEqBase.DEProblem , par_range::ParameterVarArray, N::Integer) = par_range.arr
 function compute_parameters(p::DiffEqBase.DEProblem , par_range::ParameterVarFunc, N::Integer)
     par_vector = zeros(N)
     par_vector[1] = getfield(p.p,par_range.name) # IC of first DEProblem
@@ -72,15 +87,18 @@ function compute_parameters(p::DiffEqBase.DEProblem , par_range::ParameterVarFun
     par_vector
 end
 
+"""
+     solve(prob::ContinuationProblem, N_t=400::Int, rel_transient_time::Float64=0.9; return_probs::Bool=false, reltol::Float64=1e-9, cyclic_ic::Bool=false, kwargs...)
 
-# custom solve for the BifAnalysisProblem.
-# Saves and evaluates only after transient at a constant step size
-# N_t - Int, Number of timesteps of each solution of a DEProblem
-# rel_transient_time - Percentage of time after which the solutions are evaluated
-# return_probs - if 'true' returns a array of DEProblems that were solved
-# reltol - relative tolerance of the solver. espacially for systems with constantly growing variables such as certain phase oscilattors the tolerence has to be very small
-# cyclic_ic - if true the initial conditions are always within [-pi,pi]
-function solve(prob::BifAnalysisProblem, N_t=400::Int, rel_transient_time::Float64=0.9; return_probs::Bool=false, reltol::Float64=1e-9, cyclic_ic::Bool=false, kwargs...)
+Custom solve for the ContinuationProblem. Saves and evaluates only after transient at a constant step size.
+
+* `N_t` - Int, Number of timesteps of each solution of a DEProblem
+* `rel_transient_time` - Percentage of time after which the solutions are evaluated
+* `return_probs` - if 'true' returns a array of DEProblems that were solved
+* `reltol` - relative tolerance of the solver.Eespacially for systems with constantly growing variables such as certain phase oscilattors the tolerence has to be very small
+* `cyclic_ic` - if true the initial conditions are always within ``[-\\pi,\\pi]``
+"""
+function solve(prob::ContinuationProblem, N_t=400::Int, rel_transient_time::Float64=0.9; return_probs::Bool=false, reltol::Float64=1e-9, cyclic_ic::Bool=false, kwargs...)
     t_save = collect(tsave_array(prob.prob, N_t, rel_transient_time))
 
     par_vector = prob.par
@@ -143,9 +161,9 @@ function solve(prob::BifAnalysisProblem, N_t=400::Int, rel_transient_time::Float
     end
 
     if return_probs
-        return (BifAnalysisSolution(sol, par_vector, length(par_vector), get_measure_dimensions(sol)...), prob_vec)
+        return (ContinuationSolution(sol, par_vector, length(par_vector), get_measure_dimensions(sol)...), prob_vec)
     else
-        return BifAnalysisSolution(sol, par_vector, prob.N, get_measure_dimensions(sol)...)
+        return ContinuationSolution(sol, par_vector, prob.N, get_measure_dimensions(sol)...)
     end
 end
 

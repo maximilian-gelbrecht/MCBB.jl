@@ -45,6 +45,6 @@ db_res = dbscan(D,db_eps,4)
 
 cluster_meas = cluster_means(log_sol,db_res);
 cluster_n = cluster_n_noise(db_res);
-cluster_members = cluster_membership(parameter(log_emcp),db_res,0.2,0.05);
+cluster_members = cluster_membership(log_emcp,db_res,0.2,0.05);
 
 true

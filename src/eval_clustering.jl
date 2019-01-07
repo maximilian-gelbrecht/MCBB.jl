@@ -4,14 +4,19 @@
 using Distributions, Clustering, StatsBase
 #using PairwiseListMatrices
 
-# calculates the distance matrix
-# also incorporates the parameter values as additional weights
-# THIS IS A NEW VERSION, INTENDED ALSO FOR SETUPS WITH MORE THAN ONE PARAMETER
-# sol: solution
-# par: parameter as Array of length sol.N_mc
-# distance_func: distance function that maps (x1,x2,p1,p2) -> D(x1,x2; p1,p2)
-# relative parameter: if true the parameter values are rescaled to be within [0,1]
-#
+"""
+     distance_matrix(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray; relative_parameter::Bool=false)
+
+Calculate the distance matrix between all individual solutions.
+
+* `sol`: solution
+* `prob`: problem
+* `distance_func`: The actual calculating the distance between the measures/parameters of each solution with each other. Signature should be `(measure_1::Union{Array,Number}, measure_2::Union{Array,Number}) -> distance::Number. Example and default is `(x,y)->sum(abs.(x .- y))`.
+* `weights`: Instead of the actual measure `weights[i_measure]*measure` is handed over to `distance_func`. Thus `weights` need to be ``N_{meas}+N_{par}`` long array.
+* `relative_parameter`: If true, the paramater values during distance calcuation is rescaled to [0,1]
+
+Note, there are also deprecated, other versions of distance_matrix in the code.
+"""
 function distance_matrix(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray; relative_parameter::Bool=false)
     mat_elements = zeros((sol.N_mc, sol.N_mc))
 
@@ -119,7 +124,11 @@ function weighted_norm(x, y, par1::Number, par2::Number, norm_function::Function
 end
 weighted_norm(x,y,par1::Number,par2::Number, weights::AbstractArray=[1., 0.5, 0.5, 0.25, 1.]) = weighted_norm(x,y,par1,par2,(x,y) -> sum(abs.(x .- y)), weights)
 
-# return mean values of all measures for each cluster
+"""
+    cluster_means(sol::myMCSol, clusters::DbscanResult)
+
+Returns the mean of each measure for each cluster.
+"""
 function cluster_means(sol::myMCSol, clusters::DbscanResult)
     N_cluster = length(clusters.seeds)+1 # plus 1 -> plus "noise cluster" / not clustered points
     N_dim = sol.N_dim
@@ -132,17 +141,23 @@ function cluster_means(sol::myMCSol, clusters::DbscanResult)
     mean_measures ./ sol.N_mc
 end
 
+"""
+     cluster_measures(prob::myMCProblem, sol::myMCSol, clusters::DbscanResult, window_size::AbstractArray, window_offset::AbstractArray)
+     cluster_measures(prob::myMCProblem, sol::myMCSol, clusters::DbscanResult, window_size::Number, window_offset::Number)
 
+Calculated the measures for each cluster along a sliding window. Can also handle multiple parameters being varied.
 
-# returns for each cluster seperatly per dimension and per measure the (parameter, value of measure) pairs
-# this is accumulated (and normalized) over a sliding window
-#
-# returns the array with the parameter values of each window and a 4-dimensional matrix with dimensions:
-#           - i_cluster: number of cluster (noise cluster is the first cluster)
-#           - i_meas: number of the measures (e.g. 1 is usually mean, 2 is std and so on)
-#           - i_dim: number of the dimension (of the system)
-#           - i_window: number of the window/parameter value
-#
+* `prob`: problem
+* `sol`: solution of `prob`
+* `clusters`: results from a DBSCAN run.
+* `window_size`: Size of the window. In case multiple paramaters being varied has to be an array.
+* `window_offset`: Offset of the sliding window. In case multiple paramaters being varied has to be an array.
+
+Returns a tuple with:
+* `parameter_windows`: the center value of the sliding windows, in case multiple parameter are being varied, it is a meshgrid.
+* `cluster_measures`: (per dimension) measures on the parameter grid
+* `cluster_measures_global`: global measures on the parameter grid
+"""
 cluster_measures(prob::myMCProblem, sol::myMCSol, clusters::DbscanResult, window_size::Number, window_offset::Number) = cluster_measures(prob, sol, clusters, [window_size], [window_offset])
 function cluster_measures(prob::myMCProblem, sol::myMCSol, clusters::DbscanResult, window_size::AbstractArray, window_offset::AbstractArray)
 
@@ -167,17 +182,30 @@ function cluster_measures(prob::myMCProblem, sol::myMCSol, clusters::DbscanResul
     (p_windows, cluster_measures, cluster_measures_global)
 end
 
-# This function/struct returns the distributions as histograms of ICs (and Parameter) in each dimension for cluster seperatly, it also returns the data itself, means and stds. If additional keyword arguments min_par, max_par are given, it limits the analysis to the specified parameter range
-# fields of the struct:
-#               - data : array of array of arrays, the ICs and pars for each cluster and dimension
-#               - histograms: N_cluster x N_dim Array of Histograms of ICs/Par
-#               - means: Means of each dimension for each cluster
-#               - stds: Stds of each dimension for each cluster
-#
-#               - cross_dim_means: list of Means of ICs across IC-dimensions per Cluster
-#               - cross_dim_stds: list of Std of ICs across IC-dimensions per Cluster
-#               - cross_dim_kurts: list of Kurtosis of ICs across IC-dimensions per Cluster
-#
+"""
+    ClusterICSpaces
+
+This function/struct returns the distributions as histograms of ICs (and Parameter) in each dimension for cluster seperatly, it also returns the data itself, means and stds. If additional keyword arguments min_par, max_par are given, it limits the analysis to the specified parameter range.
+
+Fields of the struct:
+* `data`: array of array of arrays, the ICs and pars for each cluster and dimension
+* `histograms`: N_cluster x N_dim Array of Histograms of ICs/Par
+* `means`: Means of each dimension for each cluster
+* `stds`: Stds of each dimension for each cluster
+* `cross_dim_means`: list of Means of ICs across IC-dimensions per Cluster
+* `cross_dim_stds`: list of Std of ICs across IC-dimensions per Cluster
+* `cross_dim_kurts`: list of Kurtosis of ICs across IC-dimensions per Cluster
+
+# Constructor
+
+    ClusterICSpaces(prob::myMCProblem, sol::myMCSol, clusters::DbscanResult; min_par::Number=-Inf, max_par::Number=Inf, nbins::Int64=20)
+
+* `prob`: Problem
+* `sol`: solution of `prob`
+* `clusters`: DBSCAN results
+* `min_par`, `max_par`: restrict the analysis to parameters within this value range
+* `nbins`: Number of bins of the histograms 
+"""
 struct ClusterICSpaces
     data::AbstractArray
     histograms::AbstractArray
@@ -266,8 +294,11 @@ struct ClusterICSpaces
     end
 end
 
+"""
+    cluster_n_noise(clusters::DbscanResult)
 
-# returns the number of points assignt to the "noise" cluster (somehow this is not automaticlly returned by the routine)
+Returns the number of points assignt to the "noise" cluster (somehow this is not automaticlly returned by the routine of Clustering.jl).
+"""
 function cluster_n_noise(clusters::DbscanResult)
     count = 0
     for i=1:length(clusters.assignments)
@@ -278,8 +309,11 @@ function cluster_n_noise(clusters::DbscanResult)
     count
 end
 
-# counts how many solutions are part of the individual clusters for each parameter step
-# par needs to be 1d mapping each run to its parameter value, e.g. ic_par[:,end]
+"""
+    cluster_membership(par::AbstractArray, clusters::DbscanResult)
+
+Calculates the proportion of members for each cluster for all parameter values.
+"""
 function cluster_membership(par::AbstractArray, clusters::DbscanResult)
     N_cluster = length(clusters.seeds) + 1  # plus 1 -> plus "noise cluster" / not clustered points
     ca = clusters.assignments
@@ -305,10 +339,22 @@ function cluster_membership(par::AbstractArray, clusters::DbscanResult, window_s
     error("This used to be an old version of cluster_membership, please use cluster_membership(prob::myMCProb, clusters::DbscanResult, window_size, window_offset) now")
 end
 
-# new cluster memberships for more than one parameter
-# returns an N_par dimensional meshgrid of the parameter space and the every cluster the relative
-# amount of points that belong to the cluster at the meshgrid-point
-#
+"""
+    cluster_membership(prob::myMCProblem, clusters::DbscanResult, window_size::AbstractArray, window_offset::AbstractArray, normalize::Bool=true)
+    cluster_membership(prob::myMCProblem, clusters::DbscanResult, window_size::Number, window_offset::Number, normalize::Bool=true)
+
+Calculates the proportion of members for each cluster within a parameter sliding window.
+
+* `prob`: problem
+* `sol`: solution of `prob`
+* `clusters`: results from a DBSCAN run.
+* `window_size`: Size of the window. In case multiple paramaters being varied has to be an array.
+* `window_offset`: Offset of the sliding window. In case multiple paramaters being varied has to be an array.
+
+Returns a tuple with:
+* `parameter_windows`: the center value of the sliding windows, in case multiple parameter are being varied, it is a meshgrid.
+* `cluster_measures`: members of the clusters on the parameter grid
+"""
 function cluster_membership(prob::myMCProblem, clusters::DbscanResult, window_size::AbstractArray, window_offset::AbstractArray, normalize::Bool=true)
 
     N_cluster = length(clusters.seeds) + 1  # plus 1 -> plus "noise cluster" / not clustered points
@@ -349,9 +395,30 @@ function cluster_membership(prob::myMCProblem, clusters::DbscanResult, window_si
 end
 cluster_membership(prob::myMCProblem, clusters::DbscanResult, window_size::Number, window_offset::Number, normalize::Bool=true) = cluster_membership(prob, clusters, [window_size], [window_offset], normalize)
 
+"""
+    measure_on_parameter_sliding_window
 
+Does calculate measures (per cluster) on parameter sliding windows. This routine is called by `cluster_membership` and `cluster_measures` but can also be used for plotting measures on the parameter grid.
 
-# returns a measure along the sliding window parameter grid, either seperatly for each cluster or if the cluster input is omitted for all runs.
+    measure_on_parameter_sliding_window(prob::myMCProblem, sol::myMCSol, i::Int, clusters::DbscanResult, window_size::Number, window_offset::Number)
+
+Does return the `i`-th measure for each cluster seperatly on the parameter sliding window grid
+
+* `prob`: Problem
+* `sol`: solution of `prob`
+* `i`: function returns the `i`-th measure
+* `clusters`: results from a DBSCAN run.
+* `window_size`: Size of the window. In case multiple paramaters being varied has to be an array.
+* `window_offset`: Offset of the sliding window. In case multiple paramaters being varied has to be an array.
+
+    measure_on_parameter_sliding_window(prob::myMCProblem, sol::myMCSol, i::Int, window_size::Number, window_offset::Number)
+
+Does return the `i`-th measure on the parameter sliding window grid (does _not_ calculate the measure for each cluster seperatly)
+
+All methods return a tuple with:
+* `parameter_windows`: the center value of the sliding windows, in case multiple parameter are being varied, it is a meshgrid.
+* `cluster_measures`: members of the clusters on the parameter grid
+"""
 measure_on_parameter_sliding_window(prob::myMCProblem, sol::myMCSol, i::Int, window_size::Number, window_offset::Number) = measure_on_parameter_sliding_window(prob, sol, i, [window_size], [window_offset])
 measure_on_parameter_sliding_window(prob::myMCProblem, sol::myMCSol, i::Int, clusters::DbscanResult, window_size::Number, window_offset::Number) = measure_on_parameter_sliding_window(prob, sol, i, clusters, [window_size], [window_offset])
 measure_on_parameter_sliding_window(prob::myMCProblem, sol::myMCSol, i::Int, window_size::AbstractArray, window_offset::AbstractArray) = measure_on_parameter_sliding_window(prob, sol, i, zeros(Int,prob.N_mc), 1, window_size, window_offset)
@@ -440,9 +507,16 @@ function _sliding_window_parameter(prob::myMCProblem, window_size::AbstractArray
     (N_windows, windows_mins)
 end
 
-# helper function for estimating a espilon value for dbscan.
-# in the original paper, Ester et al. suggest to plot the k-dist graph (espaccially for k=4) to estimate a value for eps given minPts = k
-# it computes the distance to the k-th nearast neighbour for all data points given their distance matrix
+"""
+     k_dist(D::AbstractArray, k::Int=4)
+
+Helper function for estimating a espilon value for DBSCAN. In the original paper, Ester et al. suggest to plot the `k`-dist graph (espacially for ``k=4``) to estimate a value for `eps` given ``minPts = k``. It computes the distance to the `k`-th nearast neighbour for all data points given their distance matrix.
+
+* `D`: Distance matrix
+* `k`: calculate the distance to the `k`-th neighbour
+
+Returns sorted array with the k-dist of all elements of `D`.
+"""
 function k_dist(D::AbstractArray, k::Int=4)
     (N, N_2) = size(D)
     if N!=N_2
@@ -457,12 +531,28 @@ function k_dist(D::AbstractArray, k::Int=4)
     sort(k_d, rev=true)
 end
 
+"""
+    KNN_dist_relative(D::AbstractArray, rel_K::Float64=0.005)
+
+Returns the cumulative distance to the `rel_K*N` nearest neighbour.
+
+* `D`: Distance matrix
+* `rel_K`
+"""
 function KNN_dist_relative(D::AbstractArray, rel_K::Float64=0.005)
     (N, N_2) = size(D)
     K = Int(round(N * rel_K))
     KNN_dist(D, K)
 end
 
+"""
+    KNN_dist(D::AbstractArray, K::Int)
+
+Returns the cumulative `K-`th nearest neighbour distance.
+
+* `D`: Distance matrix
+* `K`
+"""
 function KNN_dist(D::AbstractArray, K::Int)
     (N, N_2) = size(D)
     if N!=N_2
