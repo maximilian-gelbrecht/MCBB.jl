@@ -27,7 +27,7 @@ Type for the parameter variation with an array that holds all parameter values.
 The struct has the fields:
 
 * `name`: Symbol of the name of the parameter
-* `new_val`:: Function that returns a new value, signature: `(i::Int) -> new_value::Number`
+* `new_val`:: Function that returns a new value, signature: `(i::Int) -> new_value::Number` or `()-> new_value::Number`
 * `new_par`:: Function that returns a new parameter struct, default: Parameters.reconstruct, signature: `(old_par; Dict(name=>new_val)) = new_par`
 * `N` :: Length of the array / Number of parameter values
 * `arr` :: The input array saved
@@ -76,6 +76,7 @@ struct ParameterVarFunc <: OneDimParameterVar
     new_par::Function
 
     function ParameterVarFunc(name::Symbol, func::Function, new_par::Function)
+        func = verify_func(func)
         new(name,func,new_par)
     end
 end
@@ -172,7 +173,7 @@ The type has two different main constructors and several others that do automati
 Setup a BifAnaMCProblem with _randomized_ initial conditions (and parameters).
 
 * `p`: A Problem from DifferentialEquations, currently supported are `DiscreteProblem`, `ODEProblem`, `SDEProblem`, the base problem one is interested in.
-* `ic_gens`: A function or an array of functions that generate the initial conditions for each trial. Function signature is `()->new_value::Number`. If only one function is provided its used for all IC dims, if ``M<N_{dim}`` functions with ``N_{dim}=k\\cdot M`` are provided these functions are repeated ``k`` times (usefull e.g. for coupled chaotic oscillators).
+* `ic_gens`: A function or an array of functions that generate the initial conditions for each trial. Function signature is `()->new_value::Number` or `(i_run)->new_value::Number`. If only one function is provided its used for all IC dims, if ``M<N_{dim}`` functions with ``N_{dim}=k\\cdot M`` are provided these functions are repeated ``k`` times (usefull e.g. for coupled chaotic oscillators).
 * `N_ic`: Number of trials to be computed, if parameter variation is varied by an array/range, `N_ic` is the number of initial conditions for each parameter value. Each parameter step then has the same `N_ic` idential initial conditions.
 * `pars`: parameter struct of the underlying system
 * `par_range_tuple`:  `ParameterVar`, information about how the parameters are varied, see [`ParameterVar`](@ref). Its also possible to hand over an appropiate tuple that will be automaticly converted to a `ParameterVar` type. A tuple of (First: name of the parameter as a symbol, Second: AbstractArray or Function that contains all parameters for the experiment or a function that generates parameter values. The function has to be format (oldvalue) -> (newvalue), Third: OPTIONAL: a function that maps (old_parameter_instance; (par_range[1],new_parameter_value)) -> new_parameter_instance. Default is 'reconstruct' from @with_kw/Parameters.jl is used) For examples see [`Basic Usage`](@ref).
@@ -409,7 +410,7 @@ Methods that are usually called automaticly while constructing a `BifAnaMCProble
     setup_ic_par_mc_problem(prob::DiffEqBase.DEProblem, ic_gens::Array{<:Function,1}, N_ic::Int, parameters::DEParameters, var_par::ParameterVar)
 
 * `prob`: A Problem from DifferentialEquations, currently supported are `DiscreteProblem`, `ODEProblem`, `SDEProblem`, the base problem one is interested in.
-* `ic_gens`: A function or an array of functions that generate the initial conditions for each trial.  Function signature is `()->new_value::Number`. If only one function is provided its used for all IC dims, if ``M<N_{dim}`` functions with ``N_{dim}=k\\cdot M`` are provided these functions are repeated ``k`` times (useful e.g. for coupled chaotic oscillators).
+* `ic_gens`: A function or an array of functions that generate the initial conditions for each trial.  Function signature is `()->new_value::Number` or `(i_run)->new_value::Number`. If only one function is provided its used for all IC dims, if ``M<N_{dim}`` functions with ``N_{dim}=k\\cdot M`` are provided these functions are repeated ``k`` times (useful e.g. for coupled chaotic oscillators).
 * `parameters`: parameter struct of the underlying system
 * `var_par`:  `ParameterVar`, information about how the parameters are varied, see [`ParameterVar`](@ref).
 """
@@ -430,6 +431,7 @@ function setup_ic_par_mc_problem(prob::DiffEqBase.DEProblem, ic_gens::Array{<:Fu
     N_dim_ic = length(prob.u0)
     N_dim = N_dim_ic + length(var_par)
 
+    ic_gens = verify_func.(ic_gens)
     (ic_par, N_mc) = _ic_par_matrix(N_dim_ic, N_dim, N_ic, ic_gens, var_par)
     ic_par_problem = define_new_problem(prob, ic_par, parameters, N_dim_ic, ic_gens, var_par)
     (ic_par_problem, ic_par, N_mc)
@@ -492,6 +494,23 @@ end
 function _new_val_dict(var_par::OneDimParameterVar, ic_par::AbstractArray, N_dim_ic::Int, i::Int)
     Dict(var_par.name => ic_par[i,N_dim_ic+1])
 end
+
+"""
+    verify_func(func::Function)
+
+Quick and dirty way to convert function with signature `()->result` to `(i)->result`. Note that this actually converts all function with a signature other than func(i::Number) to (i::Number)->func(). This will cause errors if it is used on function other than ()->result.
+"""
+function verify_func(func::Function)
+    try
+        func(1)
+    catch excp
+        if isa(excp, MethodError)
+            return ((i)->func())
+        end
+    end
+    return func
+end
+
 
 """
     _repeat_check(repeat, ic_par::AbstractArray, ic_gens)
@@ -602,7 +621,7 @@ function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, N_ic::Int, ic_gens::Array{<:F
     for i_ic=1:N_ic
         for i_gen_steps=1:N_gen_steps
             for i_gen=1:N_gens
-                ic_par[i_ic, N_gens*i_gen_steps - (N_gens - i_gen)] = ic_gens[i_gen]()
+                ic_par[i_ic, N_gens*i_gen_steps - (N_gens - i_gen)] = ic_gens[i_gen](i_ic)
             end
         end
         for i_par=1:length(var_par)
@@ -628,7 +647,7 @@ function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, N_ic::Int, ic_gens::Array{T,1
     for i_ic=1:N_ic # loop over ICs
         for i_gen_steps=1:N_gen_steps  # loops over phase space dim
             for i_gen=1:N_gens
-                ics[i_ic, N_gens*i_gen_steps - (N_gens - i_gen)] = ic_gens[i_gen]()
+                ics[i_ic, N_gens*i_gen_steps - (N_gens - i_gen)] = ic_gens[i_gen](i_ic)
             end
         end
     end
