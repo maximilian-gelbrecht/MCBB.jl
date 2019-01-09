@@ -62,7 +62,7 @@ In order to determine the ``\epsilon`` parameter of DBSCAN we suggest one of thr
 * cumulative KNN distance: [`KNN_dist`](@ref) and [`KNN_dist_relative`](@ref)
 * response analysis by continuation of the integration (more complicated and computationally intensive): [`eval_ode_run`](@ref)
 
-For many systems we tried, we found that all three methods yield similar results. In this case we take the median of the ``0.5%`` of all members nearest neighbour (in this case 25-NN).
+For many systems we tried, we found that all three methods yield similar results. In this case we take the median of the ``0.5\\%`` of all members nearest neighbour (in this case 25-NN).
 
 ```julia
 median(KNN_dist_relative(D))
@@ -149,5 +149,32 @@ ylabel("Order Parameter R");
 ![Kuramoto Order Parameter](img/output_6_0.png)
 
 As we see the cluster membership diagram really shows the onset of the synchronization.
+
+## How-to define your own systems.
+
+### System Functions
+
+The system function follow the notation of DifferentialEquations.jl and should thus have arguments `(du,u,p,t)` that are changed inplace. For example a Roessler system can be definded with:  
+
+```julia
+function roessler!(dx,x,p::roessler_pars,t)
+  dx[1] = - x[2] - x[3]
+  dx[2] = x[1] + p.a*x[2]
+  dx[3] = p.b + (x[1] - p.c)*x[3]
+end
+```
+For more information also see the documentation of DifferentialEquations.jl
+
+### Parameters
+
+All parameters have to have [`DEParameters`](@ref) as a supertype to work. Thus, for the Roessler example
+```julia
+struct roessler_pars <: DEParameters
+  a::Number
+  b::Number
+  c::Number
+end
+```
+works as the parameter type. See [`DEParameters`](@ref) and subsequent doc strings for a list of all pre-made functions and parameters.
 
 In the next section, we will show how these results can be further analyzed.
