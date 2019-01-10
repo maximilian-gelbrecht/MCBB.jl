@@ -1,9 +1,0 @@
-julia 0.6.2
-DifferentialEquations
-Distances
-Parameters
-Clustering
-Interpolations
-StatsBase
-Distributions
-HypothesisTests
