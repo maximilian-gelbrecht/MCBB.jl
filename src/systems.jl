@@ -201,8 +201,11 @@ function non_local_kuramoto_ring(du, u, p::non_local_kuramoto_ring_parameters, t
     end
 end
 
-# order_parameter
-# Kuratomo Order Parameter
+"""
+    order_parameter(u::AbstractArray, N::Int)
+
+Order Parameter of a Kuramoto System
+"""
 function order_parameter(u::AbstractArray, N::Int)
     1. /N*sqrt((sum(sin.(u)))^2+(sum(cos.(u)))^2)
 end

@@ -1,26 +1,37 @@
 Library and Script with Example to explore High Dimensional Bifurcations with sample and clustering based methods using Julia language.
 
-As of now this is only tested with Julia 0.6.2, but will be probably ported and used with Julia 1.0 as soon as all Libraries used work with it.
-
-# NEWS
-
-* now ported to Julia 1.0
+It uses Julia 1.0 (and is not backwards compatible to Julia < v0.7)
 
 # Install
 
-* Pkg.clone("git@gitlab.pik-potsdam.de:maxgelbr/HighBifLib.jl.git")
-* Pkg.test("HighBifLib") to test the installation
+In `Pkg` shell doing:
+```
+pkg> add https://gitlab.pik-potsdam.de:maxgelbr/HighBifLib.git
+```
+should work, otherwise (and if you want to contribute) you can manually clone it:
+```
+$ git clone git@gitlab.pik-potsdam.de:maxgelbr/HighBifLib.git
+$ cd HighBifLib
+pkg> dev /path/to/package
+```
+The `dev` will make Julia load the module always from the local files.
 
 # Updates
 
-* Pkg.update("HighBifLib")
+```
+pkg> update HighBifLib
+```
 
-# Development Notes
+# Built the documentation
 
-* It is possible to checkout/use branches with Julias Pkg as well, but have not tried this yet. So far I only used the master branch
-* Pkg.update/clone(..., fetch_all=true) and Pkg.checkout("HighBifLib","branch-name") should do the job (I hope so)
+There's a nice documentation that's not yet hosted (due to GitLab pages not being available at PIK-Gitlab). You can build it yourself, though! Assuming you downloaded the package (with e.g. `git clone ...`):
 
-# To-Do
-
-* more than 1 parameter dimension
-* update the Readme  
+```
+$ /path/to/julia1.0/binary /path/to/package/HighBifLib/docs/make.jl
+```
+The documentation then gets built in `/path/to/package/HighBifLib/docs/build`. You need a local webserver for hyperlinks to work:
+```
+$ cd /path/to/package/HighBifLib/docs/build/
+$ python3 -m http.server --bind localhost
+```
+Afterwards in your browser go to `localhost:8000`

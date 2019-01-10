@@ -16,5 +16,5 @@ pages = [
         "Continuation" => "ref/continuation.md",
         "Systems" => "ref/systems.md"
         ]
-    ],
+    ]
     )
