@@ -6,15 +6,24 @@ It uses Julia 1.0 (and is not backwards compatible to Julia < v0.7)
 
 In `Pkg` shell doing:
 ```
-pkg> add https://gitlab.pik-potsdam.de:maxgelbr/HighBifLib.git
+pkg> add git@gitlab.pik-potsdam.de:maxgelbr/HighBifLib.git
 ```
-should work, otherwise (and if you want to contribute) you can manually clone it:
+should work, if you encounter any problem updating all packages with
+```
+pkg> up
+```
+can help, otherwise (and if you want to contribute) you can manually clone it:
 ```
 $ git clone git@gitlab.pik-potsdam.de:maxgelbr/HighBifLib.git
 $ cd HighBifLib
 pkg> dev /path/to/package
 ```
 The `dev` will make Julia load the module always from the local files.
+
+Then, you can test the installation with
+```
+pkg> test HighBifLib
+```
 
 # Updates
 
@@ -34,4 +43,4 @@ The documentation then gets built in `/path/to/package/HighBifLib/docs/build`. Y
 $ cd /path/to/package/HighBifLib/docs/build/
 $ python3 -m http.server --bind localhost
 ```
-Afterwards in your browser go to `localhost:8000`
+Afterwards in your browser go to `localhost:8000`.
