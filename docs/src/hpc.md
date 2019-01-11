@@ -23,8 +23,7 @@ if cluster
     using ClusterManagers
     N_tasks = parse(Int, ARGS[1])
     N_worker = N_tasks
-    #addprocs(SlurmManager(N_worker))
-    addprocs(2)
+    addprocs(SlurmManager(N_worker))
 else
     using Plots
 end
