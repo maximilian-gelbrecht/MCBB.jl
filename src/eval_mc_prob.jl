@@ -53,7 +53,7 @@ Evaluation function that continues each integration and computes the same measur
 * `alg`: Algorithm for `solve()`
 * `debug`: If true, also returns the DifferentialEquations problem solved for the continuation.
 """
-function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:Function,1}, global_eval_funcs::AbstractArray; failure_handling::Symbol=:None, cyclic_setback::Bool=false, replace_inf=nothing)
+function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::AbstractArray, global_eval_funcs::AbstractArray; failure_handling::Symbol=:None, cyclic_setback::Bool=false, replace_inf=nothing)
     N_dim = length(sol.prob.u0)
     N_dim_measures = length(eval_funcs) + 2 # mean and var are always computed
     N_dim_global_measures = length(global_eval_funcs)
