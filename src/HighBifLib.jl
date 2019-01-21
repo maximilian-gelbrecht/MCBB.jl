@@ -16,6 +16,7 @@ abstract type myMCSol end
 
 # export all functions declared
 export kuramoto_parameters, kuramoto, kuramoto_network_parameters, kuramoto_network, logistic_parameters, logistic, henon_parameters, henon, roessler_parameters, roessler_network, lotka_volterra, lotka_volterra_parameters, second_order_kuramoto_chain, second_order_kuramoto_chain_parameters, remake_second_order_kuramoto_chain_paramaters
+export second_order_kuramoto, second_order_kuramoto_parameters
 export non_local_kuramoto_ring_parameters, non_local_kuramoto_ring
 export myMCProblem, BifAnaMCProblem, myMCSol, sort, sort!, parameter, show_results, solve
 export ParameterVar

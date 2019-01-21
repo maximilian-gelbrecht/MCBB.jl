@@ -162,7 +162,45 @@ function second_order_kuramoto_chain(du, u, p::second_order_kuramoto_chain_param
         du[p.systemsize + i] = p.drive[i] - p.damping * u[p.systemsize + i] - p.coupling * (sin(u[i] - u[i-1]) + sin(u[i] - u[i+1]))
     end
     du[2*p.systemsize] = p.drive[p.systemsize] - p.damping * u[2*p.systemsize] - p.coupling * (sin(u[p.systemsize] - u[p.systemsize-1]))
+    nothing
 end
+
+
+
+"""
+    second_order_kuramoto_parameters
+
+Fields:
+* `systemsize::Int`, number of oscillators
+* `damping::Float64`, Damping, also referred to as ``\\alpha``
+* `coupling::Float64`, Coupling strength, also referred to as ``\\lambda``
+* `incidence`, oriented incidence matix of the network, also referred to as ``\\E_{ei}``
+indicating if a vertex ``i`` belongs to an edge ``e``. Following the conventions of LightGraphs
+* `drive::Array{Float64}`, external driving, also referred to as ``\\Omega``
+"""
+@with_kw struct second_order_kuramoto_parameters <: DEParameters
+    systemsize::Int
+    damping::Float64 = 0.1
+    coupling::Float64 = 8.
+    incidence
+    drive::Array{Float64}
+end
+
+"""
+    second_order_kuramoto(du, u, p::second_order_kuramoto_parameters, t)
+
+Second order Kuramoto system on the adjacency matrix ``A_{ij} = E'_{ie} E_{ej}``.
+
+``\\dot{\\theta}_i = w_i``
+``\\dot{\\omega} = \\Omega_i - \\alpha\\omega + \\lambda\\sum_{j=1}^N A_{ij} sin(\\theta_j - \\theta_i)``
+
+"""
+function second_order_kuramoto(du, u, p::second_order_kuramoto_parameters, t)
+    du[1:p.systemsize] .= u[1 + p.systemsize:2*p.systemsize]
+    du[p.systemsize+1:end] .= p.drive .- p.damping .* u[1 + p.systemsize:2*p.systemsize] .- p.coupling .* (p.incidence * sin.(p.incidence' * u[1:p.systemsize]))
+    nothing
+end
+
 
 """
     non_local_kuramoto_ring_parameters <: DEParameters
@@ -179,7 +217,6 @@ end
     omega_0::Number
     phase_delay::Number
     coupling_function::Function
-
 end
 non_local_kuramoto_ring_parameters(N::Integer, omega_0::Number,phase_delay::Number, coupling_function::Function) = non_local_kuramoto_ring_parameters(N, (2pi)/N, omega_0, phase_delay, coupling_function)
 
