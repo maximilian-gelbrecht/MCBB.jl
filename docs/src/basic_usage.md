@@ -177,4 +177,13 @@ end
 ```
 works as the parameter type. See [`DEParameters`](@ref) and subsequent doc strings for a list of all pre-made functions and parameters.
 
+## Tips & Tricks
+
+The method relies on random sampling, if you want to share scripts or notebooks and reliably get the same results, you should use a constant seed for the RNG with
+```julia
+using Random
+Random.seed!(23124);
+```
+This is primarily needed because the ordering of the clusters can change for every run through the script.
+
 In the next section, we will show how these results can be further analyzed.
