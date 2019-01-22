@@ -172,7 +172,7 @@ The type has two different main constructors and several others that do automati
 
 Setup a BifAnaMCProblem with _randomized_ initial conditions (and parameters).
 
-* `p`: A Problem from DifferentialEquations, currently supported are `DiscreteProblem`, `ODEProblem`, `SDEProblem`, the base problem one is interested in.
+* `p`: A Problem from DifferentialEquations, currently supported are `DiscreteProblem`, `ODEProblem`, `SDEProblem`,`DDEProblem` the base problem one is interested in.
 * `ic_gens`: A function or an array of functions that generate the initial conditions for each trial. Function signature is `()->new_value::Number` or `(i_run)->new_value::Number`. If only one function is provided its used for all IC dims, if ``M<N_{dim}`` functions with ``N_{dim}=k\\cdot M`` are provided these functions are repeated ``k`` times (usefull e.g. for coupled chaotic oscillators).
 * `N_ic`: Number of trials to be computed, if parameter variation is varied by an array/range, `N_ic` is the number of initial conditions for each parameter value. Each parameter step then has the same `N_ic` idential initial conditions.
 * `pars`: parameter struct of the underlying system
@@ -443,7 +443,7 @@ setup_ic_par_mc_problem(prob::DiffEqBase.DEProblem, ic_gens::Function, N_ic::Int
 
 Returns the functions that returns new DifferentialEquations problems needed for `MonteCarloProblem`.
 
-* `prob`: A Problem from DifferentialEquations, currently supported are `DiscreteProblem`, `ODEProblem`, `SDEProblem`, the base problem one is interested in.
+* `prob`: A Problem from DifferentialEquations, currently supported are `DiscreteProblem`, `ODEProblem`, `SDEProblem`, `DDEProblem` the base problem one is interested in.
 * `ic_par`: (``N_{mc} \\times (N_{dim_{ic}} + N_{par})``)-Matrix containing initial conditions and parameter values for each run.
 * `N_dim_ic`: system dimension
 * `ic_gens`: Array of functions or arrays/ranges that contain/generate the ICs.
@@ -469,6 +469,14 @@ function define_new_problem(prob::SDEProblem, ic_par::AbstractArray, parameters:
     function new_problem(prob, i, repeat)
         _repeat_check(repeat, ic_par, ic_gens)
         SDEProblem(prob.f, prob.g, ic_par[i,1:N_dim_ic], prob.tspan,  var_par.new_par(parameters; _new_val_dict(var_par, ic_par, N_dim_ic, i)...))
+    end
+    new_problem
+end
+
+function define_new_problem(prob::DDEProblem, ic_par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::AbstractArray, var_par::ParameterVar)
+    function new_problem(prob, i, repeat)
+        _repeat_check(repeat, ic_par, ic_gens)
+        DDEProblem(prob.f, ic_par[i,1:N_dim_ic], prob.h, prob.tspan,  var_par.new_par(parameters; _new_val_dict(var_par, ic_par, N_dim_ic, i)...); constant_lags=prob.constant_lags, dependent_lags=prob.dependent_lags)
     end
     new_problem
 end
@@ -739,13 +747,13 @@ end
 """
      tsave_array(prob, N_t::Int, rel_transient_time::Float64=0.7)
 
-Given a tspan to be used in a ODEProblem, returns the array/iterator of time points to be saved (saveat argument of solve())
+Given a tspan to be used in a DEProblem, returns the array/iterator of time points to be saved (saveat argument of solve())
 
 * `prob`: DifferentialEquations problem
 * `N_t` : number of time points to be saved
 * `rel_transient_time`: Only after this time (relative to the total integration time) the solutions are evaluated
 """
-function tsave_array(prob::ODEProblem, N_t::Int, rel_transient_time::Float64=0.7)
+function tsave_array(prob::Union{ODEProblem,SDEProblem,DDEProblem}, N_t::Int, rel_transient_time::Float64=0.7)
     tspan = prob.tspan
     t_tot_saved = (tspan[2] - tspan[1]) * (1 - rel_transient_time)
     t_start = tspan[2] - t_tot_saved
