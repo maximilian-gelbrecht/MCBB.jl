@@ -62,8 +62,6 @@ The results are sorted by parameter value, [`show_results`](@ref) shows only res
 D_k = distance_matrix(kosol, parameter(ko_mcp), [1.,0.75,0.,0,1.]); # no weight on the order_parameter and kl div
 db_eps = 110 # we found that value by scanning manually
 db_res = dbscan(D_k,db_eps,4)
-cluster_meas = cluster_means(kosol,db_res);
-cluster_n = cluster_n_noise(db_res);
 cluster_members = cluster_membership(ko_mcp,db_res,0.2,0.05);
 ax = subplot(111)
 plot(cluster_members[1],cluster_members[2])
@@ -107,16 +105,18 @@ In this plot we already see the onset of the synchronization.
 
 We can restrict this analysis to single clusters as well.
 
-The method [`cluster_measures`](@ref) gets the measure for each cluster seperately and applies a sliding window. The routine returns the paramater values of the sliding window, a ``N_{cluster}\times N_{measures}\times N_{dim}\times N_{windows}`` array for measures that are evalauted for every dimension and a ``N_{cluster}\times N_{measures}\times N_{windows}`` for global measures.
+The method [`cluster_measures`](@ref) gets the measure for each cluster seperately and applies a sliding window. The routine returns the parameter values of the sliding window, a ``N_{cluster}\times N_{measures}\times N_{dim}\times N_{windows}`` array for measures that are evalauted for every dimension and a ``N_{cluster}\times N_{measures}\times N_{windows}`` for global measures. For windiws in which the cluster has no members a `NaN` is returned. This is (in constrast to `missing` or `nothing`) compatible with most plotting routines. We should however always define common x-Limits for the plots because of this.
 
 ```julia
 (p_win, cluster_measures_dim, cluster_measures_global) = cluster_measures(ko_mcp, kosol, db_res, 0.1, 0.01);
 ```
 
 ```julia
+xlim_values = [0, 5]
 plot(p_win,Array(cluster_measures_dim[1,1,:,:]'))
 title("Means Cluster 1")
 xlabel("Coupling K");
+xlim(xlim_values[1], xlim_values[2])
 ```
 
 ![Kuramoto Cluster 1 Means](img/output_12_0.png)
@@ -126,6 +126,7 @@ xlabel("Coupling K");
 plot(p_win,Array(cluster_measures_dim[2,1,:,:]'))
 title("Means Cluster 2")
 xlabel("Coupling K");
+xlim(xlim_values[1], xlim_values[2])
 ```
 
 ![Kuramoto Cluster 2 Means](img/output_13_0.png)
@@ -134,6 +135,7 @@ xlabel("Coupling K");
 plot(p_win,Array(cluster_measures_dim[3,1,:,:]'))
 title("Means Cluster 3")
 xlabel("Coupling K");
+xlim(xlim_values[1], xlim_values[2])
 ```
 ![Kuramoto Cluster 3 Means](img/output_14_0.png)
 

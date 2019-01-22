@@ -204,7 +204,7 @@ Fields of the struct:
 * `sol`: solution of `prob`
 * `clusters`: DBSCAN results
 * `min_par`, `max_par`: restrict the analysis to parameters within this value range
-* `nbins`: Number of bins of the histograms 
+* `nbins`: Number of bins of the histograms
 """
 struct ClusterICSpaces
     data::AbstractArray
@@ -398,7 +398,9 @@ cluster_membership(prob::myMCProblem, clusters::DbscanResult, window_size::Numbe
 """
     measure_on_parameter_sliding_window
 
-Does calculate measures (per cluster) on parameter sliding windows. This routine is called by `cluster_membership` and `cluster_measures` but can also be used for plotting measures on the parameter grid.
+Does calculate measures (per cluster) on parameter sliding windows. This routine is called by `cluster_membership` and `cluster_measures` but can also be used for plotting measures on the parameter grid manually.
+
+_ATTENTION_: If a cluster has no members within a window the value is set to `NaN`. This should simply omit these points from beeing plotted (while `missing` and `nothing` are currently not compatible with most plotting packages).
 
     measure_on_parameter_sliding_window(prob::myMCProblem, sol::myMCSol, i::Int, clusters::DbscanResult, window_size::Number, window_offset::Number)
 
@@ -468,7 +470,10 @@ function measure_on_parameter_sliding_window(prob::myMCProblem, sol::myMCSol, i:
             for i_dim=1:N_dim
                 if !(N_c_i[i_dim,i_cluster] == 0)
                     cluster_meas[i_cluster, i_dim, ic] /= N_c_i[i_dim, i_cluster]
+                else
+                    cluster_meas[i_cluster, i_dim, ic] = NaN
                 end
+
             end
         end
 
