@@ -13,6 +13,12 @@ The Julia script is similar to the examples shown in the other guides in this do
 * For usage on the HPC set `cluster=true`
 * For usage on your PC (to evaluate the results) set `cluster=false`
 
+The script needs to be called with an command line argument that specifies the amount of processes that should be initiated, e.g.
+```bash
+$ julia hpc_example.jl 4
+```
+for starting it with 4 processes. In the SLURM script this is done with the environment variable `SLURM_NTASKS`. 
+
 _DISCLAIMER_: In theory, not all of these `@everywhere`-commands should be needed, but somehow it was not working for me without them. The scripts below are tested on a HPC running SLURM for resource allocation.
 
 ```julia

@@ -12,6 +12,8 @@ kuramoto
 kuramoto_parameters
 kuramoto_network
 kuramoto_network_parameters
+second_order_kuramoto
+second_order_kuramoto_parameters
 second_order_kuramoto_chain
 second_order_kuramoto_chain_parameters
 non_local_kuramoto_ring
