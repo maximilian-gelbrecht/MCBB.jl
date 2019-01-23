@@ -603,7 +603,7 @@ function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, ic_ranges::Array{T,1}, var_pa
 
     N_ic_pars = tuple(N_ic_pars...) # need this as tuple for CartesianIndices
 
-    ic_par = zeros((N_mc, N_dim))
+    ic_par = zeros(eltype(ic_ranges[1]),(N_mc, N_dim))
     for (i_mc, i_ci) in enumerate(CartesianIndices(N_ic_pars))
          for i_dim=1:N_dim_ic
              ic_par[i_mc, i_dim] = ic_ranges[i_dim][i_ci[i_dim]]
@@ -625,7 +625,7 @@ function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, N_ic::Int, ic_gens::Array{<:F
         err("Number of initial cond. genators and Number of initial cond. doesn't fit together")
     end
     N_gen_steps = Int(N_dim_ic / N_gens)
-    ic_par = zeros((N_ic, N_dim))
+    ic_par = zeros(typeof(ic_gens[1](1)),(N_ic, N_dim))
     for i_ic=1:N_ic
         for i_gen_steps=1:N_gen_steps
             for i_gen=1:N_gens
@@ -651,7 +651,7 @@ function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, N_ic::Int, ic_gens::Array{T,1
         err("Number of initial cond. genators and Number of initial cond. doesn't fit together")
     end
     N_gen_steps = Int(N_dim_ic / N_gens)
-    ics = zeros((N_ic, N_dim_ic))
+    ics = zeros(typeof(ic_gens[1](1)),(N_ic, N_dim_ic))
     for i_ic=1:N_ic # loop over ICs
         for i_gen_steps=1:N_gen_steps  # loops over phase space dim
             for i_gen=1:N_gens
@@ -660,7 +660,7 @@ function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, N_ic::Int, ic_gens::Array{T,1
         end
     end
 
-    ic_par = zeros((N_mc, N_dim))
+    ic_par = zeros(typeof(ic_gens[1](1)),(N_mc, N_dim))
     for (i_mc, i_ci) in enumerate(CartesianIndices(N_ic_pars))
         ic_par[i_mc, 1:N_dim_ic] = ics[i_ci[1],:]
         for i_par=1:length(var_par)
