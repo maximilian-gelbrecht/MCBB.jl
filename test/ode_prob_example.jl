@@ -54,6 +54,7 @@ db_res = dbscan(D,db_eps,k)
 cluster_meas = cluster_means(ko_sol,db_res);
 cluster_n = cluster_n_noise(db_res);
 cluster_members = cluster_membership(ko_emcp,db_res,0.2,0.05);
-
+(p_win, cluster_measures_dim, cluster_measures_global) = cluster_measures(ko_emcp, ko_sol, db_res, 0.2, 0.05);
+cisc = ClusterICSpaces(ko_emcp, ko_sol, db_res)
 
 true

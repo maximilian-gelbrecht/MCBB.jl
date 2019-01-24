@@ -226,6 +226,7 @@ struct ClusterICSpaces
         N_dim = sol.N_dim
 
         icp = prob.ic_par
+        pars = parameter(prob)
         ca = clusters.assignments
 
         # collect the data for each cluster and dimension
@@ -235,7 +236,7 @@ struct ClusterICSpaces
 
         data = [[[] for i=1:N_dim+1] for i=1:N_cluster] # +1 for the parameter
         for i=1:sol.N_mc
-            if (icp[i,end] > min_par) & (icp[i,end] < max_par)
+            if (pars[i] > min_par) & (pars[i] < max_par)
                 i_cluster = ca[i] + 1  # plus 1 -> plus "noise cluster" / not clustered points
                 for i_dim=1:N_dim # ICs
                     push!(data[i_cluster][i_dim],icp[i,i_dim])

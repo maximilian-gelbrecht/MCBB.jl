@@ -226,28 +226,19 @@ BifAnaMCProblem(p::DiffEqBase.DEProblem, ic_ranges::Array{<:AbstractArray,1}, pa
 BifAnaMCProblem(p::DiffEqBase.DEProblem, ic_gens::Function, N_ic::Int, pars::DEParameters, par_range_tuple::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function},Tuple{Symbol,Union{AbstractArray,Function}}}, eval_ode_func::Function, tail_frac::Number) = BifAnaMCProblem(p, ic_gens, N_ic, pars, OneDimParameterVar(par_range_tuple...), eval_ode_func, tail_frac)
 BifAnaMCProblem(p::DiffEqBase.DEProblem, ic_gens::Union{Array{<:Function,1},Function}, N_ic::Int, pars::DEParameters, par_range_tuple::Union{Tuple{Symbol,Union{AbstractArray,Function} ,<:Function},Tuple{Symbol,Union{AbstractArray,Function}}}, eval_ode_func::Function) = BifAnaMCProblem(p,ic_gens,N_ic,pars,OneDimParameterVar(par_range_tuple...),eval_ode_func)
 
-
-# utility function that returns the parameter of a BifAnaMCProblem
 """
-    parameter(p::BifAnaMCProblem)
+    parameter(p::BifAnaMCProblem, i::Int=1; complex_returns_abs=true)
 
-Utility function that returns the parameters of each trial of of a problem. In case multiple parameters are varied simultaneously
-
-    parameter(p::BifAnaMCProblem, i::Int)
-
-returns the `i`-th parameter
+Utility function that returns the parameters of each trial of of a problem. In case multiple parameters are varied simultaneously it returns the `i`-th parameter. In case the initial conditions or parameters are complex valued the function returns the absolute value of the parameters if `complex_returns_abs==true` and the original complex number if `complex_returns_abs==false`.
 """
-function parameter(p::BifAnaMCProblem)
-    if length(p.par_var)==1
-        return p.ic_par[:,end]
+function parameter(p::BifAnaMCProblem, i::Int=1; complex_returns_abs=true)
+    if (eltype(p.ic_par)<:Complex) && complex_returns_abs 
+        return abs.(p.ic_par[:,end-length(p.par_var)+i])
     else
-        return p.ic_par[:,(end-length(p.par_var)+1):end]
+        return p.ic_par[:,end-length(p.par_var)+i]
     end
 end
 
-parameter(p::BifAnaMCProblem, i::Int) = p.ic_par[:,end-length(p.par_var)+i]
-
-# define structs for maps and custom solve based on dynamical systems library or discrete Problem
 """
     BifMCSol
 
