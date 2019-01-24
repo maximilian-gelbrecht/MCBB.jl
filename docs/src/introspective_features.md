@@ -43,7 +43,7 @@ function k_order_parameter(u::AbstractArray)
 end
 
 function eval_ode_run_kura(sol, i)
-    (N_dim, __) = size(sol)
+    N_dim = length(sol.prob.u0)
     state_filter = collect(1:N_dim)
     eval_funcs = [empirical_1D_KL_divergence_hist]
     global_eval_funcs = [k_order_parameter]

@@ -112,7 +112,7 @@ function k_order_parameter(u::AbstractArray)
 end
 
 function eval_ode_run_kura(sol, i)
-    (N_dim, __) = size(sol)
+    N_dim = length(sol.prob.u0)
     state_filter = collect(1:N_dim)
     eval_funcs = [] # mean and std are always computed
     global_eval_funcs = [k_order_parameter]
