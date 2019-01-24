@@ -278,6 +278,8 @@ end
     sort(sol::BifMCSol, prob::BifAnaMCProblem, i::Int=1)
 
 Returns a copy of the `sol` and `prob` sorted by the values of the `i`-th parameter.
+
+(In case the parameter is complex valued, it sorts by the absolute value of the parameter)
 """
 function sort(sol::BifMCSol, prob::BifAnaMCProblem, i::Int=1)
     sol_copy = deepcopy(sol)
@@ -291,10 +293,16 @@ end
     sort(sol::BifMCSol, prob::BifAnaMCProblem, i::Int=1)
 
 Sorts `sol` and `prob` inplace by the values of the `i`-th parameter.
+
+(In case the parameter is complex valued, it sorts by the absolute value of the parameter)
 """
 function sort!(sol::BifMCSol, prob::BifAnaMCProblem, i::Int=1)
     p = parameter(prob, i)
-    sortind = sortperm(p)
+    if eltype(p) <: Complex
+        sortind = sortperm(abs.(p))
+    else
+        sortind = sortperm(p)
+    end
     prob.ic_par[:,:] = prob.ic_par[sortind,:]
     sol.sol[:] = sol.sol[sortind]
 end
@@ -303,6 +311,8 @@ end
     sort(prob::BifAnaMCProblem, i::Int=1)
 
 Returns a copy of `prob` sorted by the values of the `i`-th paramater.
+
+(In case the parameter is complex valued, it sorts by the absolute value of the parameter)
 """
 function sort(prob::BifAnaMCProblem, i::Int=1)
     prob_copy = deepcopy(prob)
@@ -314,9 +324,16 @@ end
     sort(prob::BifAnaMCProblem, i::Int=1)
 
 Sorts `prob` inplace by the values of the`i`-th paramater.
+
+(In case the parameter is complex valued, it sorts by the absolute value of the parameter)
 """
 function sort!(prob::BifAnaMCProblem, i::Int=1)
-    sortind = sortperm(parameter(prob, i))
+    p = parameter(prob, i)
+    if eltype(p) <: Complex
+        sortind = sortperm(abs.(p))
+    else
+        sortind = sortperm(p)
+    end
     prob.ic_par[:,:] = prob.ic_par[sortind,:]
 end
 
