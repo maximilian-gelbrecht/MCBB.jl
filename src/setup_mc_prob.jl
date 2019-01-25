@@ -232,7 +232,7 @@ BifAnaMCProblem(p::DiffEqBase.DEProblem, ic_gens::Union{Array{<:Function,1},Func
 Utility function that returns the parameters of each trial of of a problem. In case multiple parameters are varied simultaneously it returns the `i`-th parameter. In case the initial conditions or parameters are complex valued the function returns the absolute value of the parameters if `complex_returns_abs==true` and the original complex number if `complex_returns_abs==false`.
 """
 function parameter(p::BifAnaMCProblem, i::Int=1; complex_returns_abs=true)
-    if (eltype(p.ic_par)<:Complex) && complex_returns_abs 
+    if (eltype(p.ic_par)<:Complex) && complex_returns_abs
         return abs.(p.ic_par[:,end-length(p.par_var)+i])
     else
         return p.ic_par[:,end-length(p.par_var)+i]
@@ -459,7 +459,7 @@ Returns the functions that returns new DifferentialEquations problems needed for
 """
 function define_new_problem(prob::ODEProblem, ic_par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::AbstractArray, var_par::ParameterVar)
     function new_problem(prob, i, repeat)
-        _repeat_check(repeat, ic_par, ic_gens)
+        _repeat_check(repeat, i, ic_par, ic_gens, N_dim_ic)
         ODEProblem(prob.f, ic_par[i,1:N_dim_ic], prob.tspan,  var_par.new_par(parameters; _new_val_dict(var_par, ic_par, N_dim_ic, i)...))
     end
     new_problem
@@ -467,7 +467,7 @@ end
 
 function define_new_problem(prob::DiscreteProblem, ic_par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::AbstractArray, var_par::ParameterVar)
     function new_problem(prob, i, repeat)
-        _repeat_check(repeat, ic_par, ic_gens)
+        _repeat_check(repeat, i, ic_par, ic_gens, N_dim_ic)
         DiscreteProblem(prob.f, ic_par[i,1:N_dim_ic], prob.tspan,  var_par.new_par(parameters; _new_val_dict(var_par, ic_par, N_dim_ic, i)...))
     end
     new_problem
@@ -475,7 +475,7 @@ end
 
 function define_new_problem(prob::SDEProblem, ic_par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::AbstractArray, var_par::ParameterVar)
     function new_problem(prob, i, repeat)
-        _repeat_check(repeat, ic_par, ic_gens)
+        _repeat_check(repeat, i, ic_par, ic_gens, N_dim_ic)
         SDEProblem(prob.f, prob.g, ic_par[i,1:N_dim_ic], prob.tspan,  var_par.new_par(parameters; _new_val_dict(var_par, ic_par, N_dim_ic, i)...))
     end
     new_problem
@@ -483,7 +483,7 @@ end
 
 function define_new_problem(prob::DDEProblem, ic_par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::AbstractArray, var_par::ParameterVar)
     function new_problem(prob, i, repeat)
-        _repeat_check(repeat, ic_par, ic_gens)
+        _repeat_check(repeat, i, ic_par, ic_gens, N_dim_ic)
         DDEProblem(prob.f, ic_par[i,1:N_dim_ic], prob.h, prob.tspan,  var_par.new_par(parameters; _new_val_dict(var_par, ic_par, N_dim_ic, i)...); constant_lags=prob.constant_lags, dependent_lags=prob.dependent_lags)
     end
     new_problem
@@ -537,7 +537,7 @@ Checks if the problem has to be repeated, if so, it generates new ICs.
 * `ic_par`: (``N_{mc} \\times (N_{dim_{ic}} + N_{par})``)-Matrix containing initial conditions and parameter values for each run.
 * `ic_gens`: Array of functions or arrays/ranges that contain/generate the ICs.
 """
-function _repeat_check(repeat, ic_par::AbstractArray, ic_gens::Array{<:Function,1})
+function _repeat_check(repeat, i::Int, ic_par::AbstractArray, ic_gens::Array{<:Function,1}, N_dim_ic::Int; verbose=true)
     if repeat > 1
         if repeat > 10
             println("------------------")
@@ -546,11 +546,17 @@ function _repeat_check(repeat, ic_par::AbstractArray, ic_gens::Array{<:Function,
             println("------------------")
             error("More than 10 Repeats of a Problem in the Monte Carlo Run, there might me something wrong here!")
         else
-            ic_par[i,1:N_dim_ic] = _new_ics(N_dim_ic,ic_gens)
+            if verbose
+                print("run ")
+                print(i)
+                print(" repeated with IC/P config: ")
+                println(ic_par[i,:])
+            end
+            ic_par[i,1:N_dim_ic] = _new_ics(i,N_dim_ic,ic_gens)
         end
     end
 end
-function _repeat_check(repeat, ic_par::AbstractArray, ic_gens::Array{T,1}) where T<:AbstractArray
+function _repeat_check(repeat, i::Int, ic_par::AbstractArray, ic_gens::Array{T,1}, N_dim_ic::Int) where T<:AbstractArray
     if repeat > 1
         error("Problem has to be repeated, but ICs are non-random, it would result in the same solution!")
     end
@@ -679,17 +685,18 @@ function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, N_ic::Int, ic_gens::Array{T,1
 end
 
 """
-    _new_ics(N_dim_ic::Int, ic_gens::Array{T,1}) where T<:Function
+    _new_ics(i::Int, N_dim_ic::Int, ic_gens::Array{T,1}) where T<:Function
 
 Helper functions, calculate new ICs in case the MonteCarlo trial needs to be repeated.
 """
-function _new_ics(N_dim_ic::Int, ic_gens::Array{T,1}) where T<:Function
+function _new_ics(i::Int, N_dim_ic::Int, ic_gens::Array{T,1}) where T<:Function
     N_gens = length(ic_gens)
     N_gen_steps = Int(N_dim_ic / N_gens)
     ics = zeros(N_dim_ic)
+
     for i_gen_steps=1:N_gen_steps
         for i_gen=1:N_gens
-            ics[N_gens*i_gen_steps - (N_gens - i_gen)] = ic_gens[i_gen]()
+            ics[N_gens*i_gen_steps - (N_gens - i_gen)] = ic_gens[i_gen](i)
         end
     end
     ics
