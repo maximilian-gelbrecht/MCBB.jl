@@ -295,7 +295,14 @@ function sort!(sol::BifMCSol, prob::BifAnaMCProblem, i::Int=1)
         sortind = sortperm(p)
     end
     prob.ic_par[:,:] = prob.ic_par[sortind,:]
-    sol.sol[:] = sol.sol[sortind]
+
+    # this sort of indexing with doesnt work on some versions, couldnt figure out why exactly, so I have to code the sorting by hand
+    # sol.sol[:] = sol.sol[sortind]
+
+    sol_copy = deepcopy(sol.sol)
+    for (i,i_perm) in enumerate(sortind)
+        sol.sol[i_perm] = sol_copy[i]
+    end 
 end
 
 """
