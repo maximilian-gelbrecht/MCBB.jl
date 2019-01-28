@@ -17,7 +17,7 @@ The script needs to be called with an command line argument that specifies the a
 ```bash
 $ julia hpc_example.jl 4
 ```
-for starting it with 4 processes. In the SLURM script this is done with the environment variable `SLURM_NTASKS`. 
+for starting it with 4 processes. In the SLURM script this is done with the environment variable `SLURM_NTASKS`.
 
 _DISCLAIMER_: In theory, not all of these `@everywhere`-commands should be needed, but somehow it was not working for me without them. The scripts below are tested on a HPC running SLURM for resource allocation.
 
@@ -111,3 +111,7 @@ julia /path/to/the/script/hpc_example.jl $SLURM_NTASKS
 ```
 
 The `module load ...` commands are for loading `julia` on the HPC that I use, there might be different kind of setups for your HPC.
+
+## Various Tips & Tricks
+
+* At least on some HPCs such a script can fail after any julia library updates when the packages are not precompiled yet. Just run the script again or force a precompilation from an interactive session. 
