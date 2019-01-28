@@ -714,7 +714,7 @@ Custom solve for the `BifAnaMCProblem`. Solves the `MonteCarloProblem`, but save
 * `flag_check_inf_nan`: Does a check if any of the results are `NaN` or `inf`
 * `custom_solve`:: Function/Nothing, custom solve function
 """
-function solve(prob::BifAnaMCProblem, alg=nothing, N_t=400::Int, parallel_type=:parfor; flag_check_inf_nan=true, custom_solve::Union{Function,Nothing}=nothing, kwargs...)
+function solve(prob::BifAnaMCProblem, alg=nothing, N_t=400::Int, parallel_type=:parfor; flag_check_inf_nan=true, custom_solve::Union{Function,Nothing}=nothing, sort_results=true, kwargs...)
     t_save = collect(tsave_array(prob.p.prob, N_t, prob.rel_transient_time))
 
     if custom_solve!=nothing
@@ -733,7 +733,9 @@ function solve(prob::BifAnaMCProblem, alg=nothing, N_t=400::Int, parallel_type=:
             @warn "Some elements of the solution are Inf or NaN, check the solution with check_inf_nan again!"
         end
     end
-    sort!(mysol, prob)
+    if sort_results
+        sort!(mysol, prob)
+    end
     mysol
 end
 solve_euler_inf(prob::BifAnaMCProblem, t_save::AbstractArray; dt=0.1) = solve(prob.p, alg=Euler(), dt=dt, num_monte=prob.N_mc, parallel_type=:parfor, dense=false, saveat=t_save, tstops=t_save, savestart=false, save_everystep=false)
