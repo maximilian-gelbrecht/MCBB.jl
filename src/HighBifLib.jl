@@ -37,11 +37,13 @@ export k_dist, cluster_measures, cluster_means, cluster_n_noise, cluster_members
 export custom_problem_new_parameters
 export normalize, get_measure
 export KNN_dist, KNN_dist_relative
+export compute_parameters
 export DEParameters
 export solve_euler_inf, tsave_array
 export measure_on_parameter_sliding_window
 export ParameterVar, ParameterVarArray, ParameterVarFunc, OneDimParameterVar, MultiDimParameterVar, MultiDimParameterVarFunc, MultiDimParameterVarArray
-
+export MCBBProblem, MCBBSol
+export CustomProblem, CustomSolution, CustomMonteCarloProblem, CustomMCBBSolution, CustomMCBBProblem
 # Contains example systems
 include("systems.jl")
 
@@ -55,5 +57,7 @@ include("eval_mc_prob.jl")
 include("eval_clustering.jl")
 
 include("bif_analysis.jl")
+
+include("custom_mc_prob.jl")
 
 end

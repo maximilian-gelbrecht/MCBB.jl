@@ -34,6 +34,12 @@ N_ics = 20
 ko_emcp = BifAnaMCProblem(rp, ic_ranges, N_ics, pars, (:K, k_range), eval_ode_run, tail_frac)
 ko_sol = solve(ko_emcp)
 
+# define a random array
+ic_array = ()->rand(ic_dist, N)
+k_range = ()->rand(kdist)
+ko_emcp = BifAnaMCProblem(rp, ic_ranges, N_ics, pars, (:K, k_range), eval_ode_run, tail_frac)
+ko_sol = solve(ko_emcp)
+
 
 # random + random
 ic_ranges = [()->rand(ic_dist)]
@@ -47,6 +53,8 @@ D = distance_matrix(ko_sol);
 D = distance_matrix(ko_sol, parameter(ko_emcp));
 k = 4
 fdist = k_dist(D,k);
+
+
 
 # analysis
 db_eps = 1

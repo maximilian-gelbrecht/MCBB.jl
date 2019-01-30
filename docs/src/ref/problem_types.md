@@ -2,8 +2,10 @@
 
 ```@docs
 myMCProblem
+MCBBProblem
 BifAnaMCProblem
 parameter(p::BifAnaMCProblem)
+MCBBSol
 BifMCSol
 sort(sol::BifMCSol, prob::BifAnaMCProblem, i::Int=1)
 sort!(sol::BifMCSol, prob::BifAnaMCProblem, i::Int=1)

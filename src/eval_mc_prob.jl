@@ -57,6 +57,7 @@ function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Abstract
     N_dim = length(sol.prob.u0)
     N_dim_measures = length(eval_funcs) + 2 # mean and var are always computed
     N_dim_global_measures = length(global_eval_funcs)
+
     if failure_handling==:None
         failure_handling=:None # do nothing
     elseif failure_handling==:Inf
@@ -109,7 +110,6 @@ function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Abstract
 
     dim_measures = [zeros(Float64, N_dim) for i=1:N_dim_measures]
     global_measures = zeros(Float64, N_dim_global_measures)
-
     # per dimension measures
     for i_dim in state_filter
         sol_i = sol[i_dim,2:end]
@@ -118,6 +118,7 @@ function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Abstract
         end
 
         (dim_measures[1][i_dim],dim_measures[2][i_dim]) = StatsBase.mean_and_std(sol_i; corrected=true)
+
         for i_meas=3:N_dim_measures
             dim_measures[3][i_dim] = eval_funcs[i_meas-2](sol_i, dim_measures[1][i_dim], dim_measures[2][i_dim])
         end

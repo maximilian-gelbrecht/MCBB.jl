@@ -72,7 +72,7 @@ end
 
 # more handy version with distance function already defined
 function distance_matrix(sol::myMCSol, par::AbstractArray, weights::AbstractArray=[1.,0.5,0.5,1.], relative_parameter::Bool=false)
-    if length(weights)!=(length(sol.sol.u[1])+1) # +1 because of the parameter
+    if length(weights)!=(sol.N_meas+1) # +1 because of the parameter
         error("Length of weights does not fit length of solution measurements")
     end
     distance_matrix(sol, par, (x,y,p1,p2) -> weighted_norm(x,y,p1,p2,weights), relative_parameter)

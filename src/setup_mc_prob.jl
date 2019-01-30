@@ -147,13 +147,20 @@ Given one of the problem types of this library its ParameterVar is returned.
 ParameterVar(prob::myMCProblem) = prob.par_var
 
 """
+    MCBBProblem <: myMCProblem
+
+Abstract type of [`DEMCBBProblem`](@ref) (using DifferentialEquations.jl as a backend) and [`CustomMCBBProblem`](@ref) (using customized `solve` and problem functions).
+"""
+abstract type MCBBProblem <: myMCProblem end
+
+"""
     BifAnaMCProblem
 
 Main type for the sample based bifurcation/stablity analysis based on `MonteCarloProblem` from DifferentialEquations. This struct holds information about the underlying differential equation and the parameters and initial conditions its supposed to be solved for. Many points from the initial conditions - parameter space are sampled. When solved the solutions is evaluated seperatly for each dimension and certain statistical measures like mean or standard deviation are saved.
 
 The struct has several different constructors following below.
 
-Note that its supertype is `myMCProblem`, but not any of the DifferentialEquations abstract problem types.
+Note that its supertypes are `MCBBProblem` and `myMCProblem`, but not any of the DifferentialEquations abstract problem types.
 
 The struct has the following fields:
 * `p`: `MonteCarloProblem` to be solved, part of DifferentialEquations
@@ -195,7 +202,7 @@ It is also possible to initialize the type directly with its fields with
 
     BifAnaMCProblem(p::MonteCarloProblem, N_mc::Int64, rel_transient_time::Float64, ic_par::AbstractArray, par_range_tuple::ParameterVar)
 """
-struct BifAnaMCProblem <: myMCProblem
+struct BifAnaMCProblem <: MCBBProblem
     p::MonteCarloProblem
     N_mc::Int64
     rel_transient_time::Float64
@@ -231,13 +238,20 @@ BifAnaMCProblem(p::DiffEqBase.DEProblem, ic_gens::Union{Array{<:Function,1},Func
 
 Utility function that returns the parameters of each trial of of a problem. In case multiple parameters are varied simultaneously it returns the `i`-th parameter. In case the initial conditions or parameters are complex valued the function returns the absolute value of the parameters if `complex_returns_abs==true` and the original complex number if `complex_returns_abs==false`.
 """
-function parameter(p::BifAnaMCProblem, i::Int=1; complex_returns_abs=true)
+function parameter(p::MCBBProblem, i::Int=1; complex_returns_abs=true)
     if (eltype(p.ic_par)<:Complex) && complex_returns_abs
         return abs.(p.ic_par[:,end-length(p.par_var)+i])
     else
         return p.ic_par[:,end-length(p.par_var)+i]
     end
 end
+
+"""
+    MCBBSol <: myMCSol
+
+Abstract type of [`DEMCBBSol`](@ref) (using DifferentialEquations.jl as a backend) and [`CustomMCBBSol`](@ref) (using customized `solve` and problem functions).
+"""
+abstract type MCBBSol <: myMCSol end
 
 """
     BifMCSol
@@ -255,7 +269,7 @@ Its fields are:
 
 Note, in case `N_dim==1` => `N_meas_global == 0` and `N_meas_dim == N_meas`
 """
-struct BifMCSol <: myMCSol
+struct BifMCSol <: MCBBSol
     sol::MonteCarloSolution
     N_mc::Int
     N_t::Int
@@ -302,7 +316,7 @@ function sort!(sol::BifMCSol, prob::BifAnaMCProblem, i::Int=1)
     sol_copy = deepcopy(sol.sol)
     for (i,i_perm) in enumerate(sortind)
         sol.sol[i_perm] = sol_copy[i]
-    end 
+    end
 end
 
 """
@@ -429,7 +443,7 @@ Methods that are usually called automaticly while constructing a `BifAnaMCProble
 * `parameters`: parameter struct of the underlying system
 * `var_par`:  `ParameterVar`, information about how the parameters are varied, see [`ParameterVar`](@ref).
 """
-function setup_ic_par_mc_problem(prob::DiffEqBase.DEProblem, ic_ranges::Array{T,1}, parameters::DEParameters, var_par::ParameterVar) where T <: AbstractArray
+function setup_ic_par_mc_problem(prob, ic_ranges::Array{T,1}, parameters::DEParameters, var_par::ParameterVar) where T <: AbstractArray
     N_dim_ic = length(prob.u0)
     if N_dim_ic != length(ic_ranges)
         error("Number of IC arrays/ranges doesnt match system dimension")
@@ -442,7 +456,7 @@ function setup_ic_par_mc_problem(prob::DiffEqBase.DEProblem, ic_ranges::Array{T,
     (ic_par_problem, ic_par, N_mc)
 end
 
-function setup_ic_par_mc_problem(prob::DiffEqBase.DEProblem, ic_gens::Array{<:Function,1}, N_ic::Int, parameters::DEParameters, var_par::ParameterVar)
+function setup_ic_par_mc_problem(prob, ic_gens::Array{<:Function,1}, N_ic::Int, parameters::DEParameters, var_par::ParameterVar)
     N_dim_ic = length(prob.u0)
     N_dim = N_dim_ic + length(var_par)
 
@@ -451,7 +465,7 @@ function setup_ic_par_mc_problem(prob::DiffEqBase.DEProblem, ic_gens::Array{<:Fu
     ic_par_problem = define_new_problem(prob, ic_par, parameters, N_dim_ic, ic_gens, var_par)
     (ic_par_problem, ic_par, N_mc)
 end
-setup_ic_par_mc_problem(prob::DiffEqBase.DEProblem, ic_gens::Function, N_ic::Int, parameters::DEParameters, var_par::ParameterVar) = setup_ic_par_mc_problem(prob, [ic_gens], N_ic, parameters, var_par)
+setup_ic_par_mc_problem(prob, ic_gens::Function, N_ic::Int, parameters::DEParameters, var_par::ParameterVar) = setup_ic_par_mc_problem(prob, [ic_gens], N_ic, parameters, var_par)
 
 """
     define_new_problem(prob, ic_par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::AbstractArray, var_par::ParameterVar)
@@ -646,15 +660,30 @@ function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, N_ic::Int, ic_gens::Array{<:F
         err("Number of initial cond. genators and Number of initial cond. doesn't fit together")
     end
     N_gen_steps = Int(N_dim_ic / N_gens)
-    ic_par = zeros(typeof(ic_gens[1](1)),(N_ic, N_dim))
-    for i_ic=1:N_ic
-        for i_gen_steps=1:N_gen_steps
-            for i_gen=1:N_gens
-                ic_par[i_ic, N_gens*i_gen_steps - (N_gens - i_gen)] = ic_gens[i_gen](i_ic)
+
+    # check if ic gens returns a single value or all ics at the same time as an array
+    if (typeof(ic_gens[1](1))<:AbstractArray) & (N_gens == 1)
+        ic_par = zeros(eltype(ic_gens[1](1)),(N_ic, N_dim))
+
+        for i_ic=1:N_ic
+            ic_par[i_ic, 1:N_dim_ic] = ic_gens[1](i_ic)
+            for i_par=1:length(var_par)
+                ic_par[i_ic,N_dim_ic+i_par] = var_par[i_par].new_val(i_ic)
             end
         end
-        for i_par=1:length(var_par)
-            ic_par[i_ic,N_dim_ic+i_par] = var_par[i_par].new_val(i_ic)
+    else
+        # ics per dim
+        ic_par = zeros(typeof(ic_gens[1](1)),(N_ic, N_dim))
+
+        for i_ic=1:N_ic
+            for i_gen_steps=1:N_gen_steps
+                for i_gen=1:N_gens
+                    ic_par[i_ic, N_gens*i_gen_steps - (N_gens - i_gen)] = ic_gens[i_gen](i_ic)
+                end
+            end
+            for i_par=1:length(var_par)
+                ic_par[i_ic,N_dim_ic+i_par] = var_par[i_par].new_val(i_ic)
+            end
         end
     end
     (ic_par, N_ic)
@@ -672,16 +701,27 @@ function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, N_ic::Int, ic_gens::Array{T,1
         err("Number of initial cond. genators and Number of initial cond. doesn't fit together")
     end
     N_gen_steps = Int(N_dim_ic / N_gens)
-    ics = zeros(typeof(ic_gens[1](1)),(N_ic, N_dim_ic))
-    for i_ic=1:N_ic # loop over ICs
-        for i_gen_steps=1:N_gen_steps  # loops over phase space dim
-            for i_gen=1:N_gens
-                ics[i_ic, N_gens*i_gen_steps - (N_gens - i_gen)] = ic_gens[i_gen](i_ic)
+
+    # check if ic gens returns a single value or all ics at the same time as an array
+    if (typeof(ic_gens[1](1))<:AbstractArray) & (N_gens == 1)
+        ics = zeros(eltype(ic_gens[1](1)),(N_ic, N_dim_ic))
+        for i_ic=1:N_ic
+            ics[i_ic, 1:N_dim_ic] = ic_gens[1](i_ic)
+        end
+        ic_par = zeros(eltype(ic_gens[1](1)),(N_mc, N_dim))
+    else
+        # ics per dim
+        ics = zeros(typeof(ic_gens[1](1)),(N_ic, N_dim_ic))
+        for i_ic=1:N_ic
+            for i_gen_steps=1:N_gen_steps
+                for i_gen=1:N_gens
+                    ics[i_ic, N_gens*i_gen_steps - (N_gens - i_gen)] = ic_gens[i_gen](i_ic)
+                end
             end
         end
+        ic_par = zeros(typeof(ic_gens[1](1)),(N_mc, N_dim))
     end
 
-    ic_par = zeros(typeof(ic_gens[1](1)),(N_mc, N_dim))
     for (i_mc, i_ci) in enumerate(CartesianIndices(N_ic_pars))
         ic_par[i_mc, 1:N_dim_ic] = ics[i_ci[1],:]
         for i_par=1:length(var_par)
@@ -699,11 +739,16 @@ Helper functions, calculate new ICs in case the MonteCarlo trial needs to be rep
 function _new_ics(i::Int, N_dim_ic::Int, ic_gens::Array{T,1}) where T<:Function
     N_gens = length(ic_gens)
     N_gen_steps = Int(N_dim_ic / N_gens)
-    ics = zeros(N_dim_ic)
 
-    for i_gen_steps=1:N_gen_steps
-        for i_gen=1:N_gens
-            ics[N_gens*i_gen_steps - (N_gens - i_gen)] = ic_gens[i_gen](i)
+    # check if ic gens return an array for all ics at one or just a single value
+    if (typeof(ic_gens[1](1))<:AbstractArray) & (N_gens == 1)
+        ics = ic_gens[1](i)
+    else
+        ics = zeros(typeof(ic_gens[1](i)), N_dim_ic)
+        for i_gen_steps=1:N_gen_steps
+            for i_gen=1:N_gens
+                ics[N_gens*i_gen_steps - (N_gens - i_gen)] = ic_gens[i_gen](i)
+            end
         end
     end
     ics
