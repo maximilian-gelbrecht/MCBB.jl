@@ -166,7 +166,8 @@ The struct has the following fields:
 * `p`: `MonteCarloProblem` to be solved, part of DifferentialEquations
 * `N_mc`: Number of (Monte Carlo) runs to be solved
 * `rel_transient_time`: Only after this time (relative to the total integration time) the solutions are evaluated
-* `ic_par`: (``N_{mc} \\times (N_{dim_{ic}} + N_{par})``)-Matrix containing initial conditions and parameter values for each run.
+* `ic`: (``N_{mc} \\times (N_{dim_{ic}} + N_{par})``)-Matrix containing initial conditions for each run.
+* `par`: (``N_{mc} \\times N_{par})-Matrix containitng parameter values for each run
 * `par_var`: `ParameterVar`, information about how the parameters are varied, see [`ParameterVar`](@ref)
 
 # Constructors
@@ -200,29 +201,30 @@ All arguments are identical to the other constructor except for:
 
 It is also possible to initialize the type directly with its fields with
 
-    BifAnaMCProblem(p::MonteCarloProblem, N_mc::Int64, rel_transient_time::Float64, ic_par::AbstractArray, par_range_tuple::ParameterVar)
+    BifAnaMCProblem(p::MonteCarloProblem, N_mc::Int64, rel_transient_time::Float64, ic::AbstractArray, par::AbstractArray, par_range_tuple::ParameterVar)
 """
 struct BifAnaMCProblem <: MCBBProblem
     p::MonteCarloProblem
     N_mc::Int64
     rel_transient_time::Float64
-    ic_par::AbstractArray
+    ic::AbstractArray
+    par::AbstractArray
     par_var::ParameterVar
 
     function BifAnaMCProblem(p::DiffEqBase.DEProblem, ic_gens::Array{<:Function,1}, N_ic::Int, pars::DEParameters, par_range_tuple::ParameterVar, eval_ode_func::Function, tail_frac::Number)
-        (ic_coupling_problem, ic_par, N_mc) = setup_ic_par_mc_problem(p, ic_gens, N_ic, pars, par_range_tuple)
+        (ic_coupling_problem, ic, par, N_mc) = setup_ic_par_mc_problem(p, ic_gens, N_ic, pars, par_range_tuple)
         mcp = MonteCarloProblem(p, prob_func=ic_coupling_problem, output_func=eval_ode_func)
-        new(mcp, N_mc, tail_frac, ic_par, par_range_tuple)
+        new(mcp, N_mc, tail_frac, ic, par, par_range_tuple)
     end
 
     function BifAnaMCProblem(p::DiffEqBase.DEProblem, ic_ranges::Array{<:AbstractArray,1}, pars::DEParameters, par_range_tuple::ParameterVar, eval_ode_func::Function, tail_frac::Number)
-        (ic_coupling_problem, ic_par, N_mc) = setup_ic_par_mc_problem(p, ic_ranges, pars, par_range_tuple)
+        (ic_coupling_problem, ic, par, N_mc) = setup_ic_par_mc_problem(p, ic_ranges, pars, par_range_tuple)
         mcp = MonteCarloProblem(p, prob_func=ic_coupling_problem, output_func=eval_ode_func)
-        new(mcp, N_mc, tail_frac, ic_par, par_range_tuple)
+        new(mcp, N_mc, tail_frac, ic, par, par_range_tuple)
     end
 
     # Direct Constructor
-    BifAnaMCProblem(p::MonteCarloProblem, N_mc::Int64, rel_transient_time::Float64, ic_par::AbstractArray, par_range_tuple::ParameterVar) = new(p, N_mc, rel_transient_time, ic_par, par_range_tuple)
+    BifAnaMCProblem(p::MonteCarloProblem, N_mc::Int64, rel_transient_time::Float64, ic::AbstractArray, par::AbstractArray, par_range_tuple::ParameterVar) = new(p, N_mc, rel_transient_time, ic, par, par_range_tuple)
 end
 BifAnaMCProblem(p::DiffEqBase.DEProblem, ic_gens::Function, N_ic::Int, pars::DEParameters, par_range_tuple::ParameterVar, eval_ode_func::Function, tail_frac::Number) = BifAnaMCProblem(p, [ic_gens], N_ic, pars, par_range_tuple, eval_ode_func, tail_frac)
 BifAnaMCProblem(p::DiffEqBase.DEProblem, ic_gens::Union{Array{<:Function,1},Function}, N_ic::Int, pars::DEParameters, par_range_tuple::ParameterVar, eval_ode_func::Function) = BifAnaMCProblem(p,ic_gens,N_ic,pars,par_range_tuple,eval_ode_func, 0.9)
@@ -238,11 +240,25 @@ BifAnaMCProblem(p::DiffEqBase.DEProblem, ic_gens::Union{Array{<:Function,1},Func
 
 Utility function that returns the parameters of each trial of of a problem. In case multiple parameters are varied simultaneously it returns the `i`-th parameter. In case the initial conditions or parameters are complex valued the function returns the absolute value of the parameters if `complex_returns_abs==true` and the original complex number if `complex_returns_abs==false`.
 """
-function parameter(p::MCBBProblem, i::Int=1; complex_returns_abs=true)
-    if (eltype(p.ic_par)<:Complex) && complex_returns_abs
-        return abs.(p.ic_par[:,end-length(p.par_var)+i])
+function parameter(p::MCBBProblem, i::Int; complex_returns_abs=true)
+    if (eltype(p.par)<:Complex) && complex_returns_abs
+        return abs.(p.par[:,i])
     else
-        return p.ic_par[:,end-length(p.par_var)+i]
+        return p.par[:,i]
+    end
+end
+
+function parameter(p::MCBBProblem; complex_returns_abs=true)
+    if length(p.par_var)>1
+        parvals = p.par
+    else
+        parvals = p.par[:,1]
+    end
+
+    if (eltype(p.par)<:Complex) && complex_returns_abs
+        return abs.(parvals)
+    else
+        return parvals
     end
 end
 
@@ -308,8 +324,8 @@ function sort!(sol::BifMCSol, prob::BifAnaMCProblem, i::Int=1)
     else
         sortind = sortperm(p)
     end
-    prob.ic_par[:,:] = prob.ic_par[sortind,:]
-
+    prob.ic[:,:] = prob.ic[sortind,:]
+    prob.par[:,:] = prob.par[sortind,:]
     # this sort of indexing with doesnt work on some versions, couldnt figure out why exactly, so I have to code the sorting by hand
     # sol.sol[:] = sol.sol[sortind]
 
@@ -346,7 +362,8 @@ function sort!(prob::BifAnaMCProblem, i::Int=1)
     else
         sortind = sortperm(p)
     end
-    prob.ic_par[:,:] = prob.ic_par[sortind,:]
+    prob.ic[:,:] = prob.ic[sortind,:]
+    prob.par[:,:] = prob.ic[sortind,:]
 end
 
 """
@@ -450,10 +467,10 @@ function setup_ic_par_mc_problem(prob, ic_ranges::Array{T,1}, parameters::DEPara
     end
     N_dim = N_dim_ic + length(var_par)
 
-    (ic_par, N_mc) = _ic_par_matrix(N_dim_ic, N_dim, ic_ranges, var_par)
+    (ic, par, N_mc) = _ic_par_matrix(N_dim_ic, N_dim, ic_ranges, var_par)
 
-    ic_par_problem = define_new_problem(prob, ic_par, parameters, N_dim_ic, ic_ranges, var_par)
-    (ic_par_problem, ic_par, N_mc)
+    ic_par_problem = define_new_problem(prob, ic, par, parameters, N_dim_ic, ic_ranges, var_par)
+    (ic_par_problem, ic, par, N_mc)
 end
 
 function setup_ic_par_mc_problem(prob, ic_gens::Array{<:Function,1}, N_ic::Int, parameters::DEParameters, var_par::ParameterVar)
@@ -461,75 +478,76 @@ function setup_ic_par_mc_problem(prob, ic_gens::Array{<:Function,1}, N_ic::Int, 
     N_dim = N_dim_ic + length(var_par)
 
     ic_gens = verify_func.(ic_gens)
-    (ic_par, N_mc) = _ic_par_matrix(N_dim_ic, N_dim, N_ic, ic_gens, var_par)
-    ic_par_problem = define_new_problem(prob, ic_par, parameters, N_dim_ic, ic_gens, var_par)
-    (ic_par_problem, ic_par, N_mc)
+    (ic, par, N_mc) = _ic_par_matrix(N_dim_ic, N_dim, N_ic, ic_gens, var_par)
+    ic_par_problem = define_new_problem(prob, ic, par, parameters, N_dim_ic, ic_gens, var_par)
+    (ic_par_problem, ic, par, N_mc)
 end
 setup_ic_par_mc_problem(prob, ic_gens::Function, N_ic::Int, parameters::DEParameters, var_par::ParameterVar) = setup_ic_par_mc_problem(prob, [ic_gens], N_ic, parameters, var_par)
 
 """
-    define_new_problem(prob, ic_par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::AbstractArray, var_par::ParameterVar)
+    define_new_problem(prob, ic::Abstract, par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::AbstractArray, var_par::ParameterVar)
 
 Returns the functions that returns new DifferentialEquations problems needed for `MonteCarloProblem`.
 
 * `prob`: A Problem from DifferentialEquations, currently supported are `DiscreteProblem`, `ODEProblem`, `SDEProblem`, `DDEProblem` the base problem one is interested in.
-* `ic_par`: (``N_{mc} \\times (N_{dim_{ic}} + N_{par})``)-Matrix containing initial conditions and parameter values for each run.
+* `ic`: (``N_{mc} \\times N_{dim_{ic}}``)-Matrix containing initial conditions for each run.
+* `par`: (``N_{mc} \\times N_{par}``)-Matrix containing parameter values for each run.
 * `N_dim_ic`: system dimension
 * `ic_gens`: Array of functions or arrays/ranges that contain/generate the ICs.
 * `var_par`:  `ParameterVar`, information about how the parameters are varied, see [`ParameterVar`](@ref).
 """
-function define_new_problem(prob::ODEProblem, ic_par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::AbstractArray, var_par::ParameterVar)
+function define_new_problem(prob::ODEProblem, ic::AbstractArray, par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::AbstractArray, var_par::ParameterVar)
     function new_problem(prob, i, repeat)
-        _repeat_check(repeat, i, ic_par, ic_gens, N_dim_ic)
-        ODEProblem(prob.f, ic_par[i,1:N_dim_ic], prob.tspan,  var_par.new_par(parameters; _new_val_dict(var_par, ic_par, N_dim_ic, i)...))
+        _repeat_check(repeat, i, ic, ic_gens, N_dim_ic)
+        ODEProblem(prob.f, ic[i,:], prob.tspan,  var_par.new_par(parameters; _new_val_dict(var_par, par, N_dim_ic, i)...))
     end
     new_problem
 end
 
-function define_new_problem(prob::DiscreteProblem, ic_par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::AbstractArray, var_par::ParameterVar)
+function define_new_problem(prob::DiscreteProblem, ic::AbstractArray, par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::AbstractArray, var_par::ParameterVar)
     function new_problem(prob, i, repeat)
-        _repeat_check(repeat, i, ic_par, ic_gens, N_dim_ic)
-        DiscreteProblem(prob.f, ic_par[i,1:N_dim_ic], prob.tspan,  var_par.new_par(parameters; _new_val_dict(var_par, ic_par, N_dim_ic, i)...))
+        _repeat_check(repeat, i, ic, ic_gens, N_dim_ic)
+        DiscreteProblem(prob.f, ic[i,:], prob.tspan,  var_par.new_par(parameters; _new_val_dict(var_par, par, N_dim_ic, i)...))
     end
     new_problem
 end
 
-function define_new_problem(prob::SDEProblem, ic_par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::AbstractArray, var_par::ParameterVar)
+function define_new_problem(prob::SDEProblem, ic::AbstractArray, par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::AbstractArray, var_par::ParameterVar)
     function new_problem(prob, i, repeat)
-        _repeat_check(repeat, i, ic_par, ic_gens, N_dim_ic)
-        SDEProblem(prob.f, prob.g, ic_par[i,1:N_dim_ic], prob.tspan,  var_par.new_par(parameters; _new_val_dict(var_par, ic_par, N_dim_ic, i)...))
+        _repeat_check(repeat, i, ic, ic_gens, N_dim_ic)
+        SDEProblem(prob.f, prob.g, ic[i,:], prob.tspan,  var_par.new_par(parameters; _new_val_dict(var_par, par, N_dim_ic, i)...))
     end
     new_problem
 end
 
-function define_new_problem(prob::DDEProblem, ic_par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::AbstractArray, var_par::ParameterVar)
+function define_new_problem(prob::DDEProblem, ic::AbstractArray, par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::AbstractArray, var_par::ParameterVar)
     function new_problem(prob, i, repeat)
-        _repeat_check(repeat, i, ic_par, ic_gens, N_dim_ic)
-        DDEProblem(prob.f, ic_par[i,1:N_dim_ic], prob.h, prob.tspan,  var_par.new_par(parameters; _new_val_dict(var_par, ic_par, N_dim_ic, i)...); constant_lags=prob.constant_lags, dependent_lags=prob.dependent_lags)
+        _repeat_check(repeat, i, ic, ic_gens, N_dim_ic)
+        DDEProblem(prob.f, ic[i,:], prob.h, prob.tspan,  var_par.new_par(parameters; _new_val_dict(var_par, par, N_dim_ic, i)...); constant_lags=prob.constant_lags, dependent_lags=prob.dependent_lags)
     end
     new_problem
 end
 
 """
-    _new_val_dict(var_par::ParameterVar, ic_par::AbstractArray, N_dim_ic::Int, i::Int)
+    _new_val_dict(var_par::ParameterVar, par::AbstractArray, N_dim_ic::Int, i::Int)
 
 Returns a dictionary with the names of the parameter fields to be varied and their for the new values for the `i`-th run. Used to get a new parameter instance with this dictionary as the keyword argument.
 
 * `var_par`:  `ParameterVar`, information about how the parameters are varied, see [`ParameterVar`](@ref).
-* `ic_par`: (``N_{mc} \\times (N_{dim_{ic}} + N_{par})``)-Matrix containing initial conditions and parameter values for each run.
+* `par`: (``N_{mc} \\times N_{par}``)-Matrix containing parameter values for each run.
 * `N_dim_ic`: system dimension
 * `i`: number of run/trial
 """
-function _new_val_dict(var_par::MultiDimParameterVar, ic_par::AbstractArray, N_dim_ic::Int, i::Int)
+function _new_val_dict(var_par::MultiDimParameterVar, par::AbstractArray, N_dim_ic::Int, i::Int)
     par_arr = []
     N_dim_par = length(var_par)
     for i_par=1:N_dim_par
-        push!(par_arr, (var_par[i_par].name, ic_par[i,N_dim_ic+i_par]))
+        push!(par_arr, (var_par[i_par].name, par[i,i_par]))
     end
     Dict(par_arr)
 end
-function _new_val_dict(var_par::OneDimParameterVar, ic_par::AbstractArray, N_dim_ic::Int, i::Int)
-    Dict(var_par.name => ic_par[i,N_dim_ic+1])
+function _new_val_dict(var_par::OneDimParameterVar, par::AbstractArray, N_dim_ic::Int, i::Int)
+    Dict(var_par.name => par[i,1])
 end
 
 """
@@ -550,34 +568,34 @@ end
 
 
 """
-    _repeat_check(repeat, ic_par::AbstractArray, ic_gens)
+    _repeat_check(repeat, ic::AbstractArray, ic_gens)
 
 Checks if the problem has to be repeated, if so, it generates new ICs.
 
 * `repeat`: Boolean, returns from `MonteCarloProblem`
-* `ic_par`: (``N_{mc} \\times (N_{dim_{ic}} + N_{par})``)-Matrix containing initial conditions and parameter values for each run.
+* `ic`: (``N_{mc} \\times N_{dim_{ic}}``)-Matrix containing initial conditions for each run.
 * `ic_gens`: Array of functions or arrays/ranges that contain/generate the ICs.
 """
-function _repeat_check(repeat, i::Int, ic_par::AbstractArray, ic_gens::Array{<:Function,1}, N_dim_ic::Int; verbose=true)
+function _repeat_check(repeat, i::Int, ic::AbstractArray, ic_gens::Array{<:Function,1}, N_dim_ic::Int; verbose=true)
     if repeat > 1
         if repeat > 10
             println("------------------")
-            println("Error with IC/Par:")
-            println(ic_par[i,:])
+            println("Error with IC:")
+            println(ic[i,:])
             println("------------------")
             error("More than 10 Repeats of a Problem in the Monte Carlo Run, there might me something wrong here!")
         else
             if verbose
                 print("run ")
                 print(i)
-                print(" repeated with IC/P config: ")
-                println(ic_par[i,:])
+                print(" repeated with IC config: ")
+                println(ic[i,:])
             end
-            ic_par[i,1:N_dim_ic] = _new_ics(i,N_dim_ic,ic_gens)
+            ic[i,:] = _new_ics(i,N_dim_ic,ic_gens)
         end
     end
 end
-function _repeat_check(repeat, i::Int, ic_par::AbstractArray, ic_gens::Array{T,1}, N_dim_ic::Int) where T<:AbstractArray
+function _repeat_check(repeat, i::Int, ic::AbstractArray, ic_gens::Array{T,1}, N_dim_ic::Int) where T<:AbstractArray
     if repeat > 1
         error("Problem has to be repeated, but ICs are non-random, it would result in the same solution!")
     end
@@ -586,7 +604,7 @@ end
 """
     _ic_par_matrix
 
-Methods that compute `ic_par`, (``N_{mc} \\times (N_{dim_{ic}} + N_{par})``)-Matrix containing initial conditions and parameter values for each run. Returns `(ic_par, N_mc)`.
+Methods that compute `ic` and `par`, (``N_{mc} \\times (N_{dim_{ic}} + N_{par})``)-Matrices containing initial conditions and parameter values for each run. Returns `(ic, par, N_mc)`.
 
 # Initial Conditions and Parameters from arrays/ranges
 
@@ -638,16 +656,17 @@ function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, ic_ranges::Array{T,1}, var_pa
 
     N_ic_pars = tuple(N_ic_pars...) # need this as tuple for CartesianIndices
 
-    ic_par = zeros(eltype(ic_ranges[1]),(N_mc, N_dim))
+    ic = zeros(eltype(ic_ranges[1]),(N_mc, N_dim_ic))
+    par = zeros(typeof(var_par[1].new_val(1)),(N_mc, length(var_par)))
     for (i_mc, i_ci) in enumerate(CartesianIndices(N_ic_pars))
          for i_dim=1:N_dim_ic
-             ic_par[i_mc, i_dim] = ic_ranges[i_dim][i_ci[i_dim]]
+             ic[i_mc, i_dim] = ic_ranges[i_dim][i_ci[i_dim]]
          end
          for i_par=1:length(var_par)
-             ic_par[i_mc, N_dim_ic+i_par] = var_par[i_par].new_val(i_ci[N_dim_ic+i_par])
+             par[i_mc, i_par] = var_par[i_par].new_val(i_ci[N_dim_ic+i_par])
          end
     end
-    (ic_par, N_mc)
+    (ic, par, N_mc)
 end
 
 # helper function for setup_ic_par_mc_problem()
@@ -663,30 +682,32 @@ function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, N_ic::Int, ic_gens::Array{<:F
 
     # check if ic gens returns a single value or all ics at the same time as an array
     if (typeof(ic_gens[1](1))<:AbstractArray) & (N_gens == 1)
-        ic_par = zeros(eltype(ic_gens[1](1)),(N_ic, N_dim))
+        ic = zeros(eltype(ic_gens[1](1)),(N_ic, N_dim_ic))
+        par = zeros(typeof(var_par[1].new_val(1)),(N_ic, length(var_par)))
 
         for i_ic=1:N_ic
-            ic_par[i_ic, 1:N_dim_ic] = ic_gens[1](i_ic)
+            ic[i_ic,:] = ic_gens[1](i_ic)
             for i_par=1:length(var_par)
-                ic_par[i_ic,N_dim_ic+i_par] = var_par[i_par].new_val(i_ic)
+                par[i_ic, i_par] = var_par[i_par].new_val(i_ic)
             end
         end
     else
         # ics per dim
-        ic_par = zeros(typeof(ic_gens[1](1)),(N_ic, N_dim))
+        ic = zeros(typeof(ic_gens[1](1)),(N_ic, N_dim_ic))
+        par = zeros(typeof(var_par[1].new_val(1)),(N_ic, length(var_par)))
 
         for i_ic=1:N_ic
             for i_gen_steps=1:N_gen_steps
                 for i_gen=1:N_gens
-                    ic_par[i_ic, N_gens*i_gen_steps - (N_gens - i_gen)] = ic_gens[i_gen](i_ic)
+                    ic[i_ic, N_gens*i_gen_steps - (N_gens - i_gen)] = ic_gens[i_gen](i_ic)
                 end
             end
             for i_par=1:length(var_par)
-                ic_par[i_ic,N_dim_ic+i_par] = var_par[i_par].new_val(i_ic)
+                par[i_ic, i_par] = var_par[i_par].new_val(i_ic)
             end
         end
     end
-    (ic_par, N_ic)
+    (ic, par, N_ic)
 end
 
 # helper function for setup_ic_par_mc_problem()
@@ -694,7 +715,10 @@ end
 # sets it up so that each parameter value has identical ICs
 _ic_par_matrix(N_dim_ic::Int, N_dim::Int, N_ic::Int, ic_gens::Array{<:Function,1},  var_par::ParameterVarArray) = _ic_par_matrix(N_dim_ic, N_dim, N_ic, ic_gens, MultiDimParameterVar(var_par))
 function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, N_ic::Int, ic_gens::Array{T,1},  var_par::MultiDimParameterVarArray) where T<:Function
-    N_ic_pars = (N_ic, var_par.N)
+    if length(var_par)>1
+        error("Random IC and Parameter with Ranges is so far only supported for N_par=1")
+    end
+    N_ic_pars = (N_ic, var_par[1].N)
     N_mc = prod(N_ic_pars)
     N_gens = length(ic_gens)
     if N_dim_ic % N_gens != 0
@@ -708,7 +732,8 @@ function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, N_ic::Int, ic_gens::Array{T,1
         for i_ic=1:N_ic
             ics[i_ic, 1:N_dim_ic] = ic_gens[1](i_ic)
         end
-        ic_par = zeros(eltype(ic_gens[1](1)),(N_mc, N_dim))
+        ic = zeros(eltype(ic_gens[1](1)),(N_mc, N_dim_ic))
+        par = zeros(typeof(var_par[1].new_val(1)),(N_mc, length(var_par)))
     else
         # ics per dim
         ics = zeros(typeof(ic_gens[1](1)),(N_ic, N_dim_ic))
@@ -719,16 +744,17 @@ function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, N_ic::Int, ic_gens::Array{T,1
                 end
             end
         end
-        ic_par = zeros(typeof(ic_gens[1](1)),(N_mc, N_dim))
+        ic = zeros(typeof(ic_gens[1](1)),(N_mc, N_dim_ic))
+        par = zeros(typeof(var_par[1].new_val(1)),(N_mc, length(var_par)))
     end
 
     for (i_mc, i_ci) in enumerate(CartesianIndices(N_ic_pars))
-        ic_par[i_mc, 1:N_dim_ic] = ics[i_ci[1],:]
+        ic[i_mc,:] = ics[i_ci[1],:]
         for i_par=1:length(var_par)
-            ic_par[i_mc, N_dim_ic+i_par] = var_par[i_par].new_val(i_ci[2])
+            par[i_mc, i_par] = var_par[i_par].new_val(i_ci[2])
         end
     end
-    (ic_par, N_mc)
+    (ic, par, N_mc)
 end
 
 """
@@ -841,6 +867,6 @@ end
 """
     Base.zero(a::Type{Char}) = '0'
 
-Helper function needed for initializing zero char arrays in case we work for example with SIR models. 
+Helper function needed for initializing zero char arrays in case we work for example with SIR models.
 """
 Base.zero(a::Type{Char}) = '0'

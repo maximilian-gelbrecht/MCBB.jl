@@ -183,34 +183,34 @@ function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:
     meas_1 = eval_ode_run(sol, i, state_filter, eval_funcs, global_eval_funcs; failure_handling=failure_handling, cyclic_setback=cyclic_setback)
 
     # we define a new MonteCarloProblem, so that we can reuse all the other old code. it has only three problems to solve, (p - eps, p, p+eps) for a relativly short integration time.
-    ic_par = zeros((3,N_dim+1))
-
+    ic = zeros((3,N_dim+1))
+    par = zeros((3,1))
     # new IC is end point of last solution
-    ic_par[1,1:N_dim] = sol[end]
-    ic_par[2,1:N_dim] = sol[end]
-    ic_par[3,1:N_dim] = sol[end]
+    ic[1,:] = sol[end]
+    ic[2,:] = sol[end]
+    ic[3,:] = sol[end]
 
     # need par_var tuple hear as well -> maybe do it as a field of the problem structure
-    ic_par[1,end] = getfield(probi.p, par_var.name) - eps
-    ic_par[2,end] = getfield(probi.p, par_var.name)
-    ic_par[3,end] = getfield(probi.p, par_var.name) + eps
-    if ic_par[1,end] < par_bounds[1]
-        ic_par[1,end] = par_bounds[1]
+    par[1,1] = getfield(probi.p, par_var.name) - eps
+    par[2,1] = getfield(probi.p, par_var.name)
+    par[3,1] = getfield(probi.p, par_var.name) + eps
+    if par[1,1] < par_bounds[1]
+        par[1,1] = par_bounds[1]
     end
-    if ic_par[3,end] > par_bounds[2]
-        ic_par[3,end] = par_bounds[2]
+    if par[3,1] > par_bounds[2]
+        par[3,1] = par_bounds[2]
     end
 
     new_tspan = (probi.tspan[1],probi.tspan[1]+0.25*(probi.tspan[2]-probi.tspan[1]))
     #new_tspan = probi.tspan
     function new_prob(baseprob, i, repeat)
-        n_prob = remake(baseprob, u0=ic_par[i,1:N_dim])
+        n_prob = remake(baseprob, u0=ic[i,:])
         n_prob = remake(n_prob, tspan=new_tspan)
-        custom_problem_new_parameters(n_prob, par_var.new_par(probi.p; Dict(par_var.name => ic_par[i,end])...))
+        custom_problem_new_parameters(n_prob, par_var.new_par(probi.p; Dict(par_var.name => par[i,1])...))
     end
 
     mcp = MonteCarloProblem(probi, prob_func=new_prob, output_func=(sol,i)->eval_ode_run(sol, i, state_filter, eval_funcs, global_eval_funcs; failure_handling=failure_handling, cyclic_setback=cyclic_setback, flag_past_measures=flag_past_measures))
-    bamcp = BifAnaMCProblem(mcp, 3, 0., ic_par, par_var) # 3 problems and no transient time
+    bamcp = BifAnaMCProblem(mcp, 3, 0., ic, par, par_var) # 3 problems and no transient time
     mcpsol = solve(bamcp, N_t=150, parallel_type=:none)
 
     if parameter_weighted

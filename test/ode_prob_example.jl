@@ -49,6 +49,8 @@ ko_emcp = BifAnaMCProblem(rp, ic_ranges, N_ics, pars, (:K, k_range), eval_ode_ru
 ko_sol = solve(ko_emcp)
 
 
+
+
 # random + random
 ic_ranges = [()->rand(ic_dist)]
 k_range = (i)->rand(kdist)

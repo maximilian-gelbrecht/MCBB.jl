@@ -118,7 +118,8 @@ The struct has the following fields:
 * `p`: `CustomMonteCarloProblem` to be solved, part of DifferentialEquations
 * `N_mc`: Number of (Monte Carlo) runs to be solved
 * `rel_transient_time`: Only after this time (relative to the total integration time) the solutions are evaluated
-* `ic_par`: (``N_{mc} \\times (N_{dim_{ic}} + N_{par})``)-Matrix containing initial conditions and parameter values for each run.
+* `ic`: (``N_{mc} \\times N_{dim_{ic}}``)-Matrix containing initial conditions for each run.
+* `par`: (``N_{mc} \\times N_{par}``)-Matrix containing parameter values for each run.
 * `par_var`: `ParameterVar`, information about how the parameters are varied, see [`ParameterVar`](@ref)
 
 # Constructors
@@ -130,23 +131,24 @@ struct CustomMCBBProblem <: MCBBProblem
     p::CustomMonteCarloProblem
     N_mc::Int64
     rel_transient_time::Float64
-    ic_par::AbstractArray
+    ic::AbstractArray
+    par::AbstractArray
     par_var::ParameterVar
 
     function CustomMCBBProblem(p::CustomProblem, ic_gens::Array{<:Function,1}, N_ic::Int, pars::DEParameters, par_range_tuple::ParameterVar, eval_ode_func::Function, tail_frac::Number)
-        (ic_coupling_problem, ic_par, N_mc) = setup_ic_par_mc_problem(p, ic_gens, N_ic, pars, par_range_tuple)
+        (ic_coupling_problem, ic, par, N_mc) = setup_ic_par_mc_problem(p, ic_gens, N_ic, pars, par_range_tuple)
         mcp = CustomMonteCarloProblem(p, ic_coupling_problem, eval_ode_func)
-        new(mcp, N_mc, tail_frac, ic_par, par_range_tuple)
+        new(mcp, N_mc, tail_frac, ic, par, par_range_tuple)
     end
 
     function CustomMCBBProblem(p::CustomProblem, ic_ranges::Array{<:AbstractArray,1}, pars::DEParameters, par_range_tuple::ParameterVar, eval_ode_func::Function, tail_frac::Number)
-        (ic_coupling_problem, ic_par, N_mc) = setup_ic_par_mc_problem(p, ic_ranges, pars, par_range_tuple)
+        (ic_coupling_problem, ic, par, N_mc) = setup_ic_par_mc_problem(p, ic_ranges, pars, par_range_tuple)
         mcp = CustomMonteCarloProblem(p, ic_coupling_problem, eval_ode_func)
-        new(mcp, N_mc, tail_frac, ic_par, par_range_tuple)
+        new(mcp, N_mc, tail_frac, ic, par, par_range_tuple)
     end
 
     # Direct Constructor
-    CustomMCBBProblem(p::MonteCarloProblem, N_mc::Int64, rel_transient_time::Float64, ic_par::AbstractArray, par_range_tuple::ParameterVar) = new(p, N_mc, rel_transient_time, ic_par, par_range_tuple)
+    CustomMCBBProblem(p::MonteCarloProblem, N_mc::Int64, rel_transient_time::Float64, ic::AbstractArray, par::AbstractArray, par_range_tuple::ParameterVar) = new(p, N_mc, rel_transient_time, ic, par, par_range_tuple)
 end
 CustomMCBBProblem(p::CustomProblem, ic_gens::Function, N_ic::Int, pars::DEParameters, par_range_tuple::ParameterVar, eval_ode_func::Function, tail_frac::Number) = CustomMCBBProblem(p, [ic_gens], N_ic, pars, par_range_tuple, eval_ode_func, tail_frac)
 CustomMCBBProblem(p::CustomProblem, ic_gens::Union{Array{<:Function,1},Function}, N_ic::Int, pars::DEParameters, par_range_tuple::ParameterVar, eval_ode_func::Function) = CustomMCBBProblem(p,ic_gens,N_ic,pars,par_range_tuple,eval_ode_func, 0.9)
@@ -163,10 +165,10 @@ CustomMCBBProblem(p::CustomProblem, ic_gens::Union{Array{<:Function,1},Function}
 Helper functions that refurns a function returning new functions needed for `CustomMonteCarloProblem`.
 
 """
-function define_new_problem(prob::CustomProblem, ic_par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::AbstractArray, var_par::ParameterVar)
+function define_new_problem(prob::CustomProblem, ic::AbstractArray, par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::AbstractArray, var_par::ParameterVar)
     function new_problem(prob, i, repeat)
-        _repeat_check(repeat, i, ic_par, ic_gens, N_dim_ic)
-        CustomProblem(prob.f, ic_par[i,1:N_dim_ic], prob.tspan, var_par.new_par(parameters; _new_val_dict(var_par, ic_par, N_dim_ic, i)...))
+        _repeat_check(repeat, i, ic, ic_gens, N_dim_ic)
+        CustomProblem(prob.f, ic[i,:], prob.tspan, var_par.new_par(parameters; _new_val_dict(var_par, par, N_dim_ic, i)...))
     end
 end
 

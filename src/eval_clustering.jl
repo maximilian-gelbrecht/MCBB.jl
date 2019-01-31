@@ -225,7 +225,7 @@ struct ClusterICSpaces
         N_cluster = length(clusters.seeds)+1 # plus 1 -> plus "noise cluster" / not clustered points
         N_dim = sol.N_dim
 
-        icp = prob.ic_par
+        icp = prob.ic
         pars = parameter(prob)
         ca = clusters.assignments
 
@@ -242,12 +242,12 @@ struct ClusterICSpaces
                     push!(data[i_cluster][i_dim],icp[i,i_dim])
                 end
 
-                i_mean, i_std = mean_and_std(icp[i,1:N_dim])
-                i_skew = skewness(icp[i,1:N_dim], i_mean)
+                i_mean, i_std = mean_and_std(icp[i,:])
+                i_skew = skewness(icp[i,:], i_mean)
                 push!(cross_dim_means[i_cluster], i_mean)
                 push!(cross_dim_stds[i_cluster], i_std)
                 push!(cross_dim_skews[i_cluster], i_skew)
-                push!(data[i_cluster][N_dim+1],icp[i,N_dim+1]) # parameter
+                push!(data[i_cluster][N_dim+1],pars[i,1]) # parameter
             end
         end
 
@@ -332,7 +332,7 @@ end
 
 ### OLD VERSION, WILL BE DELETED AT SOME POINT
 # counts how many solutions are part of the individual clusters for each parameter step
-# -  par needs to be 1d mapping each run to its parameter value, e.g. ic_par[:,end]
+# -  par needs to be 1d mapping each run to its parameter value, e.g. par[:,end]
 # this method uses a sliding window over the parameter axis.
 # should be used when parameters are randomly generated.
 # - normalize: normalize by number of parameters per window
