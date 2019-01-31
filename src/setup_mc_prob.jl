@@ -4,7 +4,7 @@
 using DifferentialEquations
 import DifferentialEquations.solve # this needs to be directly importet in order to extend it with our own solve() for our own problem struct
 using Parameters
-import Base.sort, Base.sort!
+import Base.sort, Base.sort!, Base.zero
 import LinearAlgebra.normalize
 
 """
@@ -315,7 +315,7 @@ function sort!(sol::BifMCSol, prob::BifAnaMCProblem, i::Int=1)
 
     sol_copy = deepcopy(sol.sol)
     for (i,i_perm) in enumerate(sortind)
-        sol.sol[i_perm] = sol_copy[i]
+        sol.sol[i] = sol_copy[i_perm]
     end
 end
 
@@ -837,3 +837,10 @@ function tsave_array(prob::DiscreteProblem, N_t::Int, rel_transient_time::Float6
     t_start = tspan[2] - t_tot_saved
     t_start:1:(tspan[2] - 1)
 end
+
+"""
+    Base.zero(a::Type{Char}) = '0'
+
+Helper function needed for initializing zero char arrays in case we work for example with SIR models. 
+"""
+Base.zero(a::Type{Char}) = '0'

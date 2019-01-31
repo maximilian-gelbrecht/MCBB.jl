@@ -46,7 +46,7 @@ tail_frac = 0.8;
 ```
 and can use the pre-made `eval_ode_run` for analyzing the solutions of each Differential Equation (see [`eval_ode_run`](@ref) for more information). This `eval_ode_run` will track the mean, std and Kullback-Leibler divergence of the solutions. Thus we can finally setup the [`BifAnaMCProblem`](@ref) with
 ```julia
-mc_prob = BifAnaMCProblem(dp, ic_ranges, N_ic, pars, (:r,r), eval_func, tail_frac);
+mc_prob = BifAnaMCProblem(dp, ic_ranges, N_ic, pars, (:r,r), eval_ode_run, tail_frac);
 ```
 and solve it
 ```julia
@@ -54,7 +54,7 @@ log_sol = solve(log_emcp);
 ```
 Subsequently, we calculate the distance matrix and cluster the results
 ```julia
-D_log = distance_matrix(log_sol, mc_prob, [1,0.75,0.5,0.,1.]);
+D_log = distance_matrix(log_sol, mc_prob, [1,0.75,0.5,1.]);
 
 ```
 In order to determine the ``\epsilon`` parameter of DBSCAN we suggest one of three possibilities:
@@ -114,7 +114,7 @@ end
 function eval_ode_run_kura(sol, i)
     N_dim = length(sol.prob.u0)
     state_filter = collect(1:N_dim)
-    eval_funcs = [] # mean and std are always computed
+    eval_funcs = [mean, std]
     global_eval_funcs = [k_order_parameter]
     eval_ode_run(sol, i, state_filter, eval_funcs, global_eval_funcs, cyclic_setback=true)
 end
@@ -128,7 +128,7 @@ kosol = solve(ko_mcp)
 and solve and analyze it. In this case we set the weight of the order parameter to zero as we only want to have it as a comparison for our results.
 
 ```julia
-D_k = distance_matrix(kosol, parameter(ko_mcp), [1.,0.75,0.,0,1.]); # no weight on the order_parameter and kl div
+D_k = distance_matrix(kosol, parameter(ko_mcp), [1.,0.75,0,1.]); # no weight on the order_parameter and kl div
 db_eps = 110 # we found that value by scanning manually
 db_res = dbscan(D_k,db_eps,4)
 cluster_members = cluster_membership(ko_mcp,db_res,0.2,0.05);
@@ -163,7 +163,7 @@ function roessler!(dx,x,p::roessler_pars,t)
   dx[3] = p.b + (x[1] - p.c)*x[3]
 end
 ```
-For more information also see the documentation of DifferentialEquations.jl
+For more information also see the documentation of DifferentialEquations.jl. In case one wants to work with systems that can't be solved with DifferentialEquations.jl, one has to use [`CustomMCBBProblem`](@ref). 
 
 ### Parameters
 

@@ -9,30 +9,47 @@ import Distributions, StatsBase
 """
     eval_ode_run
 
-Evaluation functions for the `MonteCarloProblem`. Given a set of measures the solution `sol` is evaluated seperatly per dimension. An additional set of global measures take in the complete solution and return a single number. Handing over the functions to `BifAnaMCProblem` (or `MonteCarloProblem`) the expected signature is `(sol, i::Int) -> (results, repeat::Bool)`. Here, there several more general versions that can be adjusted to the experiment.
+Evaluation functions for the `MonteCarloProblem`. Given a set of measures the solution `sol` is evaluated seperatly per dimension. An additional set of global measures take in the complete solution and return a single number. Handing over the function to `BifAnaMCProblem` (and thus also to `MonteCarloProblem`) the expected signature is `(sol, i::Int) -> (results, repeat::Bool)`. Here, there are several more general versions that can be adjusted to the experiment.
 
     eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:Function,1}, global_eval_funcs::AbstractArray; failure_handling::Symbol=:None, cyclic_setback::Bool=false, replace_inf=nothing)
 
 * `sol`: solution of one of the MonteCarloProblem runs, should have only timesteps with constant time intervals between them
 * `i`: Int, number of iteration/run
 * `state_filter`: Array with indicies of all dimensions (of the solutions) that should be evaluated
-* `eval_funcs`: Array of functions that should be applied to every dimension of the solution (except for mean and std which are always computed). Signature: (1-Dim Array w/ Samples ::AbstractArray, Mean::Number, Std::Number) -> Measure
+* `eval_funcs`: Array of functions that should be applied to every dimension of the solution. Signature: `(sol::AbstractArray) -> measure` or `(sol::AbstractArray, previous_results::AbstractArray) -> measure` depending on the value of `flag_past_measures`.
 * `global_eval_funcs`: Array of functions that should be applied to the complete N-dimensional solution, signature (N-Dim Array w/ Samples ::AbstractArray, Mean::Number, Std::Number) -> Measure
 * `failure_handling`: How failure of integration is handled. Should be `:None` (do no checks), `:Inf` (If `retcode==:DtLessThanMin: return Inf`) or `:Repeat` (If no succes, repeat the trial (only works with random initial conditions))
 * `cyclic_setback`: Bool, if true ``N*2\\pi`` is substracted from the solution so that the first element of the solution that is analysed is within ``[-\\pi, \\pi]``. Usefull e.g. for phase oscillators.
 * `replace_inf`: Number or Nothing, if a number replaces all Infs in the solution with this number. Can be usefull if one still wants to distinguish between different solutions containing Infs, +Inf is replaced by the Number, -Inf by (-1)*Number.
+* `flag_past_measures::Bool`: If true als function within `eval_funcs` also receive the previous results (of the other measures for the same dimension) as an extra arguments. Thus all functions need to have a signature `(sol::AbstractArray, previous_results::AbstractArray) -> measure`. If false the functions only receive the solution vector, thus the function should have the signature `(sol::AbstractArray) -> measure`
 
-In order to derive a valid evaluation function from this for the `MonteCarloProblem` one can define a function similar to this:
+# Example function
+
+In order to derive a valid evaluation function from this for the `MCBBProblem` one can define a function similar to this:
 
     function my_eval_ode_run(sol, i)
         N_dim = length(sol.prob.u0)
         state_filter = collect(1:N_dim)
-        eval_funcs = [empirical_1D_KL_divergence_hist]
+        eval_funcs = [mean, std]
         global_eval_funcs = []
         eval_ode_run(sol, i, state_filter, eval_funcs, global_eval_funcs)
     end
 
-Latter function is also already available as a default `eval_ode_run` in this library:
+# Utilizing previous results
+
+If one wants to utilze the previous results (and don't compute measures twice), one has to use the `flag_past_measures=true` option. An example could read:
+
+    function my_eval_ode_run(sol, i)
+        N_dim = length(sol.prob.u0)
+        state_filter = collect(1:N_dim)
+        meanval(u::AbstractArray, past_measures::AbstractArray) = StatsBase.mean(u)
+        standarddev(u::AbstractArray, past_measures::AbstractArray) = StatsBase.std(u; mean=dim_measures[1], corrected=false)
+        eval_funcs = [meanval, standarddev, empirical_1D_KL_divergence_hist]
+        global_eval_funcs = []
+        eval_ode_run(sol, i, state_filter, eval_funcs, global_eval_funcs; flag_past_measures=true)
+    end
+
+Latter function is also already available as a default `eval_ode_run` in this library. The order of the functions is important. In this example `meanval` will always get an empty array as the second argument, `standarddev` will get an array with the result from `meanval` as the only value and ` empirical_1D_KL_divergence_hist` will get an additional array with the results from `meanval` and `standarddev`.
 
     eval_ode_run(sol, i)
 
@@ -40,7 +57,7 @@ Default `eval_ode_run`, identical to the code above.
 
 # Continue Integration / Response Analysis
 
-     eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:Function,1}, global_eval_funcs::AbstractArray, failure_handling::Symbol, cyclic_setback::Bool, par_var::OneDimParameterVar, eps::Float64, par_bounds::AbstractArray, distance_func, parameter_weighted::Bool=true, relative_parameter_flag::Bool=false, N_t::Int=200, alg=nothing, debug::Bool=false; kwargs...)
+     eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:Function,1}, global_eval_funcs::AbstractArray, failure_handling::Symbol, cyclic_setback::Bool, flag_past_measures::Bool, par_var::OneDimParameterVar, eps::Float64, par_bounds::AbstractArray, distance_func, parameter_weighted::Bool=true, relative_parameter_flag::Bool=false, N_t::Int=200, alg=nothing, debug::Bool=false; kwargs...)
 
 Evaluation function that continues each integration and computes the same measures for `par+eps` and `par-eps`. Returns the results of the usual `eval_ode_run` (all measures) and additionally the response of the distance function to the paramater increase/decrease.
 
@@ -53,9 +70,14 @@ Evaluation function that continues each integration and computes the same measur
 * `alg`: Algorithm for `solve()`
 * `debug`: If true, also returns the DifferentialEquations problem solved for the continuation.
 """
-function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::AbstractArray, global_eval_funcs::AbstractArray; failure_handling::Symbol=:None, cyclic_setback::Bool=false, replace_inf=nothing)
+function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::AbstractArray, global_eval_funcs::AbstractArray; failure_handling::Symbol=:None, cyclic_setback::Bool=false, replace_inf=nothing, flag_past_measures=false)
     N_dim = length(sol.prob.u0)
-    N_dim_measures = length(eval_funcs) + 2 # mean and var are always computed
+    N_dim_measures = length(eval_funcs)  # mean and var are always computed
+
+    if N_dim_measures < 1
+        error("No per dimension measures")
+    end
+
     N_dim_global_measures = length(global_eval_funcs)
 
     if failure_handling==:None
@@ -117,10 +139,19 @@ function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Abstract
             _cyclic_setback!(sol_i)
         end
 
-        (dim_measures[1][i_dim],dim_measures[2][i_dim]) = StatsBase.mean_and_std(sol_i; corrected=true)
-
-        for i_meas=3:N_dim_measures
-            dim_measures[3][i_dim] = eval_funcs[i_meas-2](sol_i, dim_measures[1][i_dim], dim_measures[2][i_dim])
+        if flag_past_measures
+            for i_meas=1:N_dim_measures
+                # collect previous measures
+                past_measures = zeros(i_meas-1)
+                for j_meas=1:(i_meas-1)
+                    past_measures[j_meas] = dim_measures[j_meas][i_dim]
+                end
+                dim_measures[i_meas][i_dim] = eval_funcs[i_meas](sol_i, past_measures)
+            end
+        else
+            for i_meas=1:N_dim_measures
+                dim_measures[i_meas][i_dim] = eval_funcs[i_meas](sol_i)
+            end
         end
     end
 
@@ -135,14 +166,16 @@ end
 function eval_ode_run(sol, i)
     N_dim = length(sol.prob.u0)
     state_filter = collect(1:N_dim)
-    eval_funcs = [empirical_1D_KL_divergence_hist]
+    meanval(u::AbstractArray, past_measures::AbstractArray) = StatsBase.mean(u)
+    standarddev(u::AbstractArray, past_measures::AbstractArray) = StatsBase.std(u; mean=past_measures[1], corrected=true)
+    eval_funcs = [meanval, standarddev, empirical_1D_KL_divergence_hist]
     global_eval_funcs = []
-    eval_ode_run(sol, i, state_filter, eval_funcs, global_eval_funcs)
+    eval_ode_run(sol, i, state_filter, eval_funcs, global_eval_funcs; flag_past_measures=true)
 end
 
 # evaluation function that also includes a response analysis with a contiuation of the integration
 # it records the differnce in Distance of the measures chosen thus each time recording a pair = 1(dp,dD)
-function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:Function,1}, global_eval_funcs::AbstractArray, failure_handling::Symbol, cyclic_setback::Bool, par_var::OneDimParameterVar, eps::Float64, par_bounds::AbstractArray, distance_func, parameter_weighted::Bool=true, relative_parameter_flag::Bool=false, N_t::Int=200, alg=nothing, debug::Bool=false; kwargs...)
+function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:Function,1}, global_eval_funcs::AbstractArray, failure_handling::Symbol, cyclic_setback::Bool, flag_past_measures::Bool, par_var::OneDimParameterVar, eps::Float64, par_bounds::AbstractArray, distance_func, parameter_weighted::Bool=true, relative_parameter_flag::Bool=false, N_t::Int=200, alg=nothing, debug::Bool=false; kwargs...)
 
     N_dim = length(sol.prob.u0)
     probi = sol.prob
@@ -176,7 +209,7 @@ function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:
         custom_problem_new_parameters(n_prob, par_var.new_par(probi.p; Dict(par_var.name => ic_par[i,end])...))
     end
 
-    mcp = MonteCarloProblem(probi, prob_func=new_prob, output_func=(sol,i)->eval_ode_run(sol, i, state_filter, eval_funcs, global_eval_funcs; failure_handling=failure_handling, cyclic_setback=cyclic_setback))
+    mcp = MonteCarloProblem(probi, prob_func=new_prob, output_func=(sol,i)->eval_ode_run(sol, i, state_filter, eval_funcs, global_eval_funcs; failure_handling=failure_handling, cyclic_setback=cyclic_setback, flag_past_measures=flag_past_measures))
     bamcp = BifAnaMCProblem(mcp, 3, 0., ic_par, par_var) # 3 problems and no transient time
     mcpsol = solve(bamcp, N_t=150, parallel_type=:none)
 
@@ -247,8 +280,10 @@ One measure that can be used with `eval_ode_run`. Computes the empirical Kullbac
 * `n_stds`: Interval that the histogram covers in numbers of stds (it covers  mean +/- n_stds*std)
 * `sig_tol`: At times, all KL div methods run into difficulties when `sig` gets really small, for `sig<sig_tol` 0 is returned as a result because in the limit of `sig` -> 0 the reference distribution is a delta distribution and the data is constant thus also a delta distribution. hence the distributions are identical and the KL div should be zero.
 """
-function empirical_1D_KL_divergence_hist(u::AbstractArray, mu::Number, sig::Number, hist_bins::Int=31, n_stds::Number=3, sig_tol=1e-4::Number)
+function empirical_1D_KL_divergence_hist(u::AbstractArray, mu_sig::AbstractArray, hist_bins::Int=31, n_stds::Number=3, sig_tol=1e-4::Number)
 
+   mu = mu_sig[1]
+   sig = mu_sig[2]
    if sig < sig_tol # very small sigmas lead to numerical problems.
        return 0. # In the limit sig -> 0, the reference distribution is a delta distribution and the data is constant thus also a delta distribution. hence the distributions are identical and the KL div should be zero.
    end
