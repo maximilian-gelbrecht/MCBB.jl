@@ -5,7 +5,7 @@ Here, we demonstrate the capabilities of setting up systems with multiple parame
 
 ```julia
 using Pkg
-using HighBifLib
+using MCBB
 
 using LightGraphs
 using Clustering

@@ -1,7 +1,7 @@
 #!/usr/bin/env julia
 
 #Start Test Script
-using HighBifLib
+using MCBB
 using Test
 
 # Run tests

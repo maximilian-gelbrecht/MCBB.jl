@@ -1,4 +1,4 @@
-module HighBifLib
+module MCBB
 
 """
     myMCProblem

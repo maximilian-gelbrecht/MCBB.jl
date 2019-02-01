@@ -5,7 +5,7 @@ In the following we will show how the library works on two example, a logistic m
 First, we import the library and all other packages that we need to set up the systems.
 
 ```julia
-using HighBifLib
+using MCBB
 using LightGraphs
 using Clustering
 using DifferentialEquations

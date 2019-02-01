@@ -1,6 +1,6 @@
-using Documenter, HighBifLib, DifferentialEquations, Clustering
+using Documenter, MCBB, DifferentialEquations, Clustering
 
-makedocs(sitename="HighBifLib", modules=[HighBifLib], doctest=true,
+makedocs(sitename="MCBB", modules=[MCBB], doctest=true,
 pages = [
     "Home" => "index.md",
     "Manual" => Any[

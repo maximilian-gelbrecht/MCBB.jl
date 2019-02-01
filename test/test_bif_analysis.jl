@@ -1,6 +1,6 @@
 # test the ContinuationProblem
 
-using HighBifLib
+using MCBB
 using DifferentialEquations
 using Distributions
 using LightGraphs

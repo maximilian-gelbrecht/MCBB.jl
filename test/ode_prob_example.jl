@@ -1,5 +1,5 @@
 # simple Kuramoto example
-using HighBifLib
+using MCBB
 using DifferentialEquations
 using Distributions
 using LightGraphs

@@ -37,7 +37,7 @@ end
 using JLD2, FileIO, Clustering, StatsBase, Parameters
 @everywhere using DifferentialEquations
 @everywhere using Distributions
-@everywhere using HighBifLib
+@everywhere using MCBB
 
 @everywhere N = 40
 @everywhere K = 0.5
@@ -90,10 +90,10 @@ end
 #!/bin/bash
 
 #SBATCH --qos=short
-#SBATCH --job-name=highbiflib-test
+#SBATCH --job-name=MCBB-test
 #SBATCH --account=YOURACCOUNT
-#SBATCH --output=highbiflib-test-%j-%N.out
-#SBATCH --error=highbiflib-test-%j-%N.err
+#SBATCH --output=MCBB-test-%j-%N.out
+#SBATCH --error=MCBB-test-%j-%N.err
 #SBATCH --nodes=4
 #SBATCH --ntasks-per-node=8
 #SBATCH --workdir=YOUR/WORK/DIR

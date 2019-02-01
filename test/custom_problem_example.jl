@@ -1,5 +1,5 @@
 # A logistic map but not with DifferentialEquations.jl as a backend
-using HighBifLib
+using MCBB
 using DifferentialEquations
 using Distributions
 using LightGraphs

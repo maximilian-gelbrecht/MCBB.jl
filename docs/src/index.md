@@ -1,7 +1,7 @@
 ```@meta
-CurrentModule = HighBifLib
+CurrentModule = MCBB
 DocTestSetup  = quote
-    using HighBifLib
+    using MCBB
 end
 ```
 # Idea

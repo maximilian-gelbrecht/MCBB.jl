@@ -1,4 +1,4 @@
-HighBifLib, Julia Libary for Sample Based Bifurcation and Stability Analysis
+MCBB, Julia Libary for Sample Based Bifurcation and Stability Analysis
 Copyright (C) 2019 Maximilian Gelbrecht
 
 This program is free software; you can redistribute it and/or

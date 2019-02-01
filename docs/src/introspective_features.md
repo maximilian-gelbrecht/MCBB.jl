@@ -6,7 +6,7 @@ This page showcases introspective features of the libary.
 The example are First Order Kuramoto Oscillators with ``\mathcal{N}(0.5,0.2)`` distributed eigenfrequencies on a Erdos Renyi random network. Subsequently the coupling is increased as the free parameter. The basic setup is identical to the previous section.
 
 ```julia
-using HighBifLib
+using MCBB
 using LightGraphs
 using Clustering
 using DifferentialEquations
