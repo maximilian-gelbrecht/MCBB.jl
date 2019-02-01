@@ -46,7 +46,7 @@ function eval_ode_run_kura(sol, i)
 end
 
 tail_frac = 0.9 #
-ko_mcp = BifAnaMCProblem(rp, ic_ranges, N_ics, pars, par_var, eval_ode_run_kura, tail_frac)
+ko_mcp = DEMCBBProblem(rp, ic_ranges, N_ics, pars, par_var, eval_ode_run_kura, tail_frac)
 kosol = solve(ko_mcp)
 
 D_k = distance_matrix(kosol, ko_mcp, [1,0.75,0.,1.,1.]); # no weight on the order_parameter and kl div

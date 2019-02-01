@@ -10,7 +10,7 @@ import LinearAlgebra.normalize
 """
     ParameterVar
 
-Parameter Variation types, these structs holds information about the parameters and how they should be varied. For many cases this struct is automaticlly initialized when calling `BifAnaMCProblem` with appropiate Tuples. It assumes that the paremeters are itself structs most commonly with a field that has to be varied.
+Parameter Variation types, these structs holds information about the parameters and how they should be varied. For many cases this struct is automaticlly initialized when calling `DEMCBBProblem` with appropiate Tuples. It assumes that the paremeters are itself structs most commonly with a field that has to be varied.
 
 # Type Hierachy
 * `OneDimParameterVar, MultiDimParameterVar <: ParameterVar`
@@ -97,7 +97,7 @@ The struct has the fields:
 * `Function`: function that returns a new parameter struct given keyword arguments of _all_ parameters that should be varied. signature: `(old_par; Dict(name_1=>new_val_1, name_2=>new_val_2, ...)) = new_par`
 * `N`: Number of parameters that are varied.
 
-Internally there are two different types, `MultiDimParameterVarFunc` and `MultiDimParameterVarArray`. The only difference is what type of ParameterVar they store. The different types are needed for dispatching on them in the routines that setup `BifAnaMCProblem`
+Internally there are two different types, `MultiDimParameterVarFunc` and `MultiDimParameterVarArray`. The only difference is what type of ParameterVar they store. The different types are needed for dispatching on them in the routines that setup `DEMCBBProblem`
 
 # Initialization
 * `MultiDimParameterVar(data::Array{ParameterVarFunc,1}, func::Function)`
@@ -154,9 +154,9 @@ Abstract type of [`DEMCBBProblem`](@ref) (using DifferentialEquations.jl as a ba
 abstract type MCBBProblem <: myMCProblem end
 
 """
-    BifAnaMCProblem
+    DEMCBBProblem
 
-Main type for the sample based bifurcation/stablity analysis based on `MonteCarloProblem` from DifferentialEquations. This struct holds information about the underlying differential equation and the parameters and initial conditions its supposed to be solved for. Many points from the initial conditions - parameter space are sampled. When solved the solutions is evaluated seperatly for each dimension and certain statistical measures like mean or standard deviation are saved.
+Differential Equations Monte Carlo Basin Bifurcation Problem: Main type for the sample based bifurcation/stablity analysis based on `MonteCarloProblem` from DifferentialEquations. This struct holds information about the underlying differential equation and the parameters and initial conditions its supposed to be solved for. Many points from the initial conditions - parameter space are sampled. When solved the solutions is evaluated seperatly for each dimension and certain statistical measures like mean or standard deviation are saved.
 
 The struct has several different constructors following below.
 
@@ -176,9 +176,9 @@ The type has two different main constructors and several others that do automati
 
 ## Randomized Initial conditions
 
-    BifAnaMCProblem(p::DiffEqBase.DEProblem, ic_gens::Array{<:Function,1}, N_ic::Int, pars::DEParameters, par_range_tuple::ParameterVar, eval_ode_func::Function, tail_frac::Number)
+    DEMCBBProblem(p::DiffEqBase.DEProblem, ic_gens::Array{<:Function,1}, N_ic::Int, pars::DEParameters, par_range_tuple::ParameterVar, eval_ode_func::Function, tail_frac::Number)
 
-Setup a BifAnaMCProblem with _randomized_ initial conditions (and parameters).
+Setup a DEMCBBProblem with _randomized_ initial conditions (and parameters).
 
 * `p`: A Problem from DifferentialEquations, currently supported are `DiscreteProblem`, `ODEProblem`, `SDEProblem`,`DDEProblem` the base problem one is interested in.
 * `ic_gens`: A function or an array of functions that generate the initial conditions for each trial. Function signature is `()->new_value::Number` or `(i_run)->new_value::Number`. If only one function is provided its used for all IC dims, if ``M<N_{dim}`` functions with ``N_{dim}=k\\cdot M`` are provided these functions are repeated ``k`` times (usefull e.g. for coupled chaotic oscillators).
@@ -190,9 +190,9 @@ Setup a BifAnaMCProblem with _randomized_ initial conditions (and parameters).
 
 ## Non-randomized initial conditions
 
-    BifAnaMCProblem(p::DiffEqBase.DEProblem, ic_ranges::Array{<:AbstractArray,1}, pars::DEParameters, par_range_tuple::ParameterVar, eval_ode_func::Function, tail_frac::Number)
+    DEMCBBProblem(p::DiffEqBase.DEProblem, ic_ranges::Array{<:AbstractArray,1}, pars::DEParameters, par_range_tuple::ParameterVar, eval_ode_func::Function, tail_frac::Number)
 
-Setup a BifAnaMCProblem with initial conditions (and parameters) from predefined arrays or ranges.
+Setup a DEMCBBProblem with initial conditions (and parameters) from predefined arrays or ranges.
 All arguments are identical to the other constructor except for:
 * `ic_ranges`: A range/array or array of ranges/arrays with initial conditions for each trial. If only one range/array is provided its used for all IC dims.
 * Note that there is _no_ `N_ic` argument in constrast to the other constructor
@@ -201,9 +201,9 @@ All arguments are identical to the other constructor except for:
 
 It is also possible to initialize the type directly with its fields with
 
-    BifAnaMCProblem(p::MonteCarloProblem, N_mc::Int64, rel_transient_time::Float64, ic::AbstractArray, par::AbstractArray, par_range_tuple::ParameterVar)
+    DEMCBBProblem(p::MonteCarloProblem, N_mc::Int64, rel_transient_time::Float64, ic::AbstractArray, par::AbstractArray, par_range_tuple::ParameterVar)
 """
-struct BifAnaMCProblem <: MCBBProblem
+struct DEMCBBProblem <: MCBBProblem
     p::MonteCarloProblem
     N_mc::Int64
     rel_transient_time::Float64
@@ -211,32 +211,32 @@ struct BifAnaMCProblem <: MCBBProblem
     par::AbstractArray
     par_var::ParameterVar
 
-    function BifAnaMCProblem(p::DiffEqBase.DEProblem, ic_gens::Array{<:Function,1}, N_ic::Int, pars::DEParameters, par_range_tuple::ParameterVar, eval_ode_func::Function, tail_frac::Number)
+    function DEMCBBProblem(p::DiffEqBase.DEProblem, ic_gens::Array{<:Function,1}, N_ic::Int, pars::DEParameters, par_range_tuple::ParameterVar, eval_ode_func::Function, tail_frac::Number)
         (ic_coupling_problem, ic, par, N_mc) = setup_ic_par_mc_problem(p, ic_gens, N_ic, pars, par_range_tuple)
         mcp = MonteCarloProblem(p, prob_func=ic_coupling_problem, output_func=eval_ode_func)
         new(mcp, N_mc, tail_frac, ic, par, par_range_tuple)
     end
 
-    function BifAnaMCProblem(p::DiffEqBase.DEProblem, ic_ranges::Array{<:AbstractArray,1}, pars::DEParameters, par_range_tuple::ParameterVar, eval_ode_func::Function, tail_frac::Number)
+    function DEMCBBProblem(p::DiffEqBase.DEProblem, ic_ranges::Array{<:AbstractArray,1}, pars::DEParameters, par_range_tuple::ParameterVar, eval_ode_func::Function, tail_frac::Number)
         (ic_coupling_problem, ic, par, N_mc) = setup_ic_par_mc_problem(p, ic_ranges, pars, par_range_tuple)
         mcp = MonteCarloProblem(p, prob_func=ic_coupling_problem, output_func=eval_ode_func)
         new(mcp, N_mc, tail_frac, ic, par, par_range_tuple)
     end
 
     # Direct Constructor
-    BifAnaMCProblem(p::MonteCarloProblem, N_mc::Int64, rel_transient_time::Float64, ic::AbstractArray, par::AbstractArray, par_range_tuple::ParameterVar) = new(p, N_mc, rel_transient_time, ic, par, par_range_tuple)
+    DEMCBBProblem(p::MonteCarloProblem, N_mc::Int64, rel_transient_time::Float64, ic::AbstractArray, par::AbstractArray, par_range_tuple::ParameterVar) = new(p, N_mc, rel_transient_time, ic, par, par_range_tuple)
 end
-BifAnaMCProblem(p::DiffEqBase.DEProblem, ic_gens::Function, N_ic::Int, pars::DEParameters, par_range_tuple::ParameterVar, eval_ode_func::Function, tail_frac::Number) = BifAnaMCProblem(p, [ic_gens], N_ic, pars, par_range_tuple, eval_ode_func, tail_frac)
-BifAnaMCProblem(p::DiffEqBase.DEProblem, ic_gens::Union{Array{<:Function,1},Function}, N_ic::Int, pars::DEParameters, par_range_tuple::ParameterVar, eval_ode_func::Function) = BifAnaMCProblem(p,ic_gens,N_ic,pars,par_range_tuple,eval_ode_func, 0.9)
+DEMCBBProblem(p::DiffEqBase.DEProblem, ic_gens::Function, N_ic::Int, pars::DEParameters, par_range_tuple::ParameterVar, eval_ode_func::Function, tail_frac::Number) = DEMCBBProblem(p, [ic_gens], N_ic, pars, par_range_tuple, eval_ode_func, tail_frac)
+DEMCBBProblem(p::DiffEqBase.DEProblem, ic_gens::Union{Array{<:Function,1},Function}, N_ic::Int, pars::DEParameters, par_range_tuple::ParameterVar, eval_ode_func::Function) = DEMCBBProblem(p,ic_gens,N_ic,pars,par_range_tuple,eval_ode_func, 0.9)
 
 # automaticlly convert appropiate tuples to ParameterVar
-BifAnaMCProblem(p::DiffEqBase.DEProblem, ic_gens::Array{<:Function,1}, N_ic::Int, pars::DEParameters, par_range_tuple::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function},Tuple{Symbol,Union{AbstractArray,Function}}}, eval_ode_func::Function, tail_frac::Number) = BifAnaMCProblem(p,ic_gens, N_ic, pars, OneDimParameterVar(par_range_tuple...), eval_ode_func, tail_frac)
-BifAnaMCProblem(p::DiffEqBase.DEProblem, ic_ranges::Array{<:AbstractArray,1}, pars::DEParameters, par_range_tuple::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function},Tuple{Symbol,Union{AbstractArray,Function}}}, eval_ode_func::Function, tail_frac::Number) = BifAnaMCProblem(p, ic_ranges, pars, OneDimParameterVar(par_range_tuple...), eval_ode_func, tail_frac)
-BifAnaMCProblem(p::DiffEqBase.DEProblem, ic_gens::Function, N_ic::Int, pars::DEParameters, par_range_tuple::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function},Tuple{Symbol,Union{AbstractArray,Function}}}, eval_ode_func::Function, tail_frac::Number) = BifAnaMCProblem(p, ic_gens, N_ic, pars, OneDimParameterVar(par_range_tuple...), eval_ode_func, tail_frac)
-BifAnaMCProblem(p::DiffEqBase.DEProblem, ic_gens::Union{Array{<:Function,1},Function}, N_ic::Int, pars::DEParameters, par_range_tuple::Union{Tuple{Symbol,Union{AbstractArray,Function} ,<:Function},Tuple{Symbol,Union{AbstractArray,Function}}}, eval_ode_func::Function) = BifAnaMCProblem(p,ic_gens,N_ic,pars,OneDimParameterVar(par_range_tuple...),eval_ode_func)
+DEMCBBProblem(p::DiffEqBase.DEProblem, ic_gens::Array{<:Function,1}, N_ic::Int, pars::DEParameters, par_range_tuple::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function},Tuple{Symbol,Union{AbstractArray,Function}}}, eval_ode_func::Function, tail_frac::Number) = DEMCBBProblem(p,ic_gens, N_ic, pars, OneDimParameterVar(par_range_tuple...), eval_ode_func, tail_frac)
+DEMCBBProblem(p::DiffEqBase.DEProblem, ic_ranges::Array{<:AbstractArray,1}, pars::DEParameters, par_range_tuple::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function},Tuple{Symbol,Union{AbstractArray,Function}}}, eval_ode_func::Function, tail_frac::Number) = DEMCBBProblem(p, ic_ranges, pars, OneDimParameterVar(par_range_tuple...), eval_ode_func, tail_frac)
+DEMCBBProblem(p::DiffEqBase.DEProblem, ic_gens::Function, N_ic::Int, pars::DEParameters, par_range_tuple::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function},Tuple{Symbol,Union{AbstractArray,Function}}}, eval_ode_func::Function, tail_frac::Number) = DEMCBBProblem(p, ic_gens, N_ic, pars, OneDimParameterVar(par_range_tuple...), eval_ode_func, tail_frac)
+DEMCBBProblem(p::DiffEqBase.DEProblem, ic_gens::Union{Array{<:Function,1},Function}, N_ic::Int, pars::DEParameters, par_range_tuple::Union{Tuple{Symbol,Union{AbstractArray,Function} ,<:Function},Tuple{Symbol,Union{AbstractArray,Function}}}, eval_ode_func::Function) = DEMCBBProblem(p,ic_gens,N_ic,pars,OneDimParameterVar(par_range_tuple...),eval_ode_func)
 
 """
-    parameter(p::BifAnaMCProblem, i::Int=1; complex_returns_abs=true)
+    parameter(p::DEMCBBProblem, i::Int=1; complex_returns_abs=true)
 
 Utility function that returns the parameters of each trial of of a problem. In case multiple parameters are varied simultaneously it returns the `i`-th parameter. In case the initial conditions or parameters are complex valued the function returns the absolute value of the parameters if `complex_returns_abs==true` and the original complex number if `complex_returns_abs==false`.
 """
@@ -270,9 +270,9 @@ Abstract type of [`DEMCBBSol`](@ref) (using DifferentialEquations.jl as a backen
 abstract type MCBBSol <: myMCSol end
 
 """
-    BifMCSol
+    DEMCBBSol
 
-Type that stores the solutions of a BifAnaMCProblem. Is returned by the corresponding `solve` routine.
+Type that stores the solutions of a DEMCBBProblem. Is returned by the corresponding `solve` routine.
 
 Its fields are:
 * `sol`: MonteCarloSolution (see DifferentialEquations)
@@ -285,7 +285,7 @@ Its fields are:
 
 Note, in case `N_dim==1` => `N_meas_global == 0` and `N_meas_dim == N_meas`
 """
-struct BifMCSol <: MCBBSol
+struct DEMCBBSol <: MCBBSol
     sol::MonteCarloSolution
     N_mc::Int
     N_t::Int
@@ -296,13 +296,13 @@ struct BifMCSol <: MCBBSol
 end
 
 """
-    sort(sol::BifMCSol, prob::BifAnaMCProblem, i::Int=1)
+    sort(sol::DEMCBBSol, prob::DEMCBBProblem, i::Int=1)
 
 Returns a copy of the `sol` and `prob` sorted by the values of the `i`-th parameter.
 
 (In case the parameter is complex valued, it sorts by the absolute value of the parameter)
 """
-function sort(sol::BifMCSol, prob::BifAnaMCProblem, i::Int=1)
+function sort(sol::MCBBSol, prob::MCBBProblem, i::Int=1)
     sol_copy = deepcopy(sol)
     prob_copy = deepcopy(prob)
     sort!(sol_copy, prob, i)
@@ -311,13 +311,13 @@ function sort(sol::BifMCSol, prob::BifAnaMCProblem, i::Int=1)
 end
 
 """
-    sort(sol::BifMCSol, prob::BifAnaMCProblem, i::Int=1)
+    sort(sol::DEMCBBSol, prob::DEMCBBProblem, i::Int=1)
 
 Sorts `sol` and `prob` inplace by the values of the `i`-th parameter.
 
 (In case the parameter is complex valued, it sorts by the absolute value of the parameter)
 """
-function sort!(sol::BifMCSol, prob::BifAnaMCProblem, i::Int=1)
+function sort!(sol::MCBBSol, prob::MCBBProblem, i::Int=1)
     p = parameter(prob, i)
     if eltype(p) <: Complex
         sortind = sortperm(abs.(p))
@@ -336,26 +336,26 @@ function sort!(sol::BifMCSol, prob::BifAnaMCProblem, i::Int=1)
 end
 
 """
-    sort(prob::BifAnaMCProblem, i::Int=1)
+    sort(prob::DEMCBBProblem, i::Int=1)
 
 Returns a copy of `prob` sorted by the values of the `i`-th paramater.
 
 (In case the parameter is complex valued, it sorts by the absolute value of the parameter)
 """
-function sort(prob::BifAnaMCProblem, i::Int=1)
+function sort(prob::MCBBProblem, i::Int=1)
     prob_copy = deepcopy(prob)
     sort!(prob_copy, i)
     prob_copy
 end
 
 """
-    sort(prob::BifAnaMCProblem, i::Int=1)
+    sort(prob::DEMCBBProblem, i::Int=1)
 
 Sorts `prob` inplace by the values of the`i`-th paramater.
 
 (In case the parameter is complex valued, it sorts by the absolute value of the parameter)
 """
-function sort!(prob::BifAnaMCProblem, i::Int=1)
+function sort!(prob::MCBBProblem, i::Int=1)
     p = parameter(prob, i)
     if eltype(p) <: Complex
         sortind = sortperm(abs.(p))
@@ -367,12 +367,12 @@ function sort!(prob::BifAnaMCProblem, i::Int=1)
 end
 
 """
-    show_results(sol::BifMCSol, prob::BifAnaMCProblem, min_par::Number, max_par::Number, i::Int=1, sorted::Bool=false)
+    show_results(sol::DEMCBBSol, prob::DEMCBBProblem, min_par::Number, max_par::Number, i::Int=1, sorted::Bool=false)
 
 Returns the solutions for which the `i`-th parameter exhibits values between `min_par` and `max_par`.
 If `sorted==true` it assumes that `sol` and `prob` are already sorted by this parameter.
 """
-function show_results(sol::BifMCSol, prob::BifAnaMCProblem, min_par::Number, max_par::Number, i::Int=1, sorted::Bool=false)
+function show_results(sol::DEMCBBSol, prob::DEMCBBProblem, min_par::Number, max_par::Number, i::Int=1, sorted::Bool=false)
     if sorted==false
         (ssol, sprob) = sort(sol, prob, i)
     else
@@ -385,11 +385,11 @@ function show_results(sol::BifMCSol, prob::BifAnaMCProblem, min_par::Number, max
 end
 
 """
-    get_measure(sol::BifMCSol, k::Int)
+    get_measure(sol::MCBBSol, k::Int)
 
 Return the results for the `k`-th measure as an array.
 """
-function get_measure(sol::BifMCSol, k::Int)
+function get_measure(sol::MCBBSol, k::Int)
     if k <=  sol.N_meas_dim
         arr = zeros((sol.N_mc,sol.N_dim))
         for i=1:sol.N_mc
@@ -405,15 +405,15 @@ function get_measure(sol::BifMCSol, k::Int)
 end
 
 """
-    normalize(sol::BifMCSol, k::AbstractArray)
+    normalize(sol::DEMCBBSol, k::AbstractArray)
 
 Returns a copy of `sol` with the solutions normalized to be in range [0,1]. It is possible to only select that some of the measures are normalized by providing an array with the indices of the measures that should be normalized, e.g. `[1,2]` for measure 1 and measure 2 to be normalized.
 
-    normalize(sol::BifMCSol)
+    normalize(sol::DEMCBBSol)
 
 If no extra array is provided, all measures are normalized.
 """
-function normalize(sol::BifMCSol, k::AbstractArray)
+function normalize(sol::DEMCBBSol, k::AbstractArray)
     N_meas = length(k)
     max_meas = zeros(sol.N_meas)
     min_meas = zeros(sol.N_meas)
@@ -432,14 +432,14 @@ function normalize(sol::BifMCSol, k::AbstractArray)
         end
     end
 
-    sol_new = BifMCSol(new_mc_sol, sol.N_mc, sol.N_t, sol.N_dim, sol.N_meas, sol.N_meas_dim, sol.N_meas_global)
+    sol_new = DEMCBBSol(new_mc_sol, sol.N_mc, sol.N_t, sol.N_dim, sol.N_meas, sol.N_meas_dim, sol.N_meas_global)
 end
-normalize(sol::BifMCSol) = normalize(sol, 1:sol.N_meas)
+normalize(sol::DEMCBBSol) = normalize(sol, 1:sol.N_meas)
 
 """
     setup_ic_par_mc_problem
 
-Methods that are usually called automaticly while constructing a `BifAnaMCProblem`. These methods setup the initial conditions - parameter matrix and the problem function for the `MonteCarloProblem`.
+Methods that are usually called automaticly while constructing a `DEMCBBProblem`. These methods setup the initial conditions - parameter matrix and the problem function for the `MonteCarloProblem`.
 
 
 # Initial Condtions set with Arrays or Ranges
@@ -781,9 +781,9 @@ function _new_ics(i::Int, N_dim_ic::Int, ic_gens::Array{T,1}) where T<:Function
 end
 
 """
-    solve(prob::BifAnaMCProblem, alg=nothing, N_t=400::Int, parallel_type=:parfor; flag_check_inf_nan=true, custom_solve::Union{Function,Nothing}=nothing, kwargs...)
+    solve(prob::DEMCBBProblem, alg=nothing, N_t=400::Int, parallel_type=:parfor; flag_check_inf_nan=true, custom_solve::Union{Function,Nothing}=nothing, kwargs...)
 
-Custom solve for the `BifAnaMCProblem`. Solves the `MonteCarloProblem`, but saves and evaluates only after transient at a constant step size, the results are sorted by parameter value.
+Custom solve for the `DEMCBBProblem`. Solves the `MonteCarloProblem`, but saves and evaluates only after transient at a constant step size, the results are sorted by parameter value.
 
 * `prob`: `MonteCarloProblem` of type defined in this library
 * `alg`: Algorithm to use, same as for `solve()` from DifferentialEquations.jl
@@ -792,7 +792,7 @@ Custom solve for the `BifAnaMCProblem`. Solves the `MonteCarloProblem`, but save
 * `flag_check_inf_nan`: Does a check if any of the results are `NaN` or `inf`
 * `custom_solve`:: Function/Nothing, custom solve function
 """
-function solve(prob::BifAnaMCProblem, alg=nothing, N_t=400::Int, parallel_type=:parfor; flag_check_inf_nan=true, custom_solve::Union{Function,Nothing}=nothing, sort_results=true, kwargs...)
+function solve(prob::DEMCBBProblem, alg=nothing, N_t=400::Int, parallel_type=:parfor; flag_check_inf_nan=true, custom_solve::Union{Function,Nothing}=nothing, sort_results=true, kwargs...)
     t_save = collect(tsave_array(prob.p.prob, N_t, prob.rel_transient_time))
 
     if custom_solve!=nothing
@@ -803,7 +803,7 @@ function solve(prob::BifAnaMCProblem, alg=nothing, N_t=400::Int, parallel_type=:
         sol = solve(prob.p, num_monte=prob.N_mc, dense=false, save_everystep=false, saveat=t_save, savestart=false, parallel_type=parallel_type; kwargs...)
     end
 
-    mysol = BifMCSol(sol, prob.N_mc, N_t, length(prob.p.prob.u0), get_measure_dimensions(sol)...)
+    mysol = DEMCBBSol(sol, prob.N_mc, N_t, length(prob.p.prob.u0), get_measure_dimensions(sol)...)
 
     if flag_check_inf_nan
         inf_nan = check_inf_nan(mysol)
@@ -816,7 +816,7 @@ function solve(prob::BifAnaMCProblem, alg=nothing, N_t=400::Int, parallel_type=:
     end
     mysol
 end
-solve_euler_inf(prob::BifAnaMCProblem, t_save::AbstractArray; dt=0.1) = solve(prob.p, alg=Euler(), dt=dt, num_monte=prob.N_mc, parallel_type=:parfor, dense=false, saveat=t_save, tstops=t_save, savestart=false, save_everystep=false)
+solve_euler_inf(prob::DEMCBBProblem, t_save::AbstractArray; dt=0.1) = solve(prob.p, alg=Euler(), dt=dt, num_monte=prob.N_mc, parallel_type=:parfor, dense=false, saveat=t_save, tstops=t_save, savestart=false, save_everystep=false)
 
 """
     get_measure_dimensions(sol)

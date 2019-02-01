@@ -6,6 +6,7 @@ import DifferentialEquations.solve # this needs to be directly importet in order
     CustomProblem
 
 Structure that emulates some of the fields/behaviour of `DEProblem` subtypes from `DifferentialEquations`.
+The results are supposed to be a (N_dim x N_t)-array.
 
 Fields:
 * `f`: Problem function, signature: `(u0, p, tspan) -> results`
@@ -88,20 +89,19 @@ function solve(prob::CustomMonteCarloProblem; num_monte::Int=100, rel_transient_
 
     sol = []
     repeat = false
-
     for istep=1:num_monte
 
         sol_i = solve(prob.prob_func(prob.prob, istep, repeat))
-        N_t = length(sol_i)
+        (___, N_t) = size(sol_i)
+
         transient_time = Int(round(rel_transient_time * N_t))
 
-        sol_i = CustomSolution(sol_i[transient_time:end], sol_i.prob)
+        sol_i = CustomSolution(sol_i[:,transient_time:end], sol_i.prob)
         res_i = prob.eval_func(sol_i, istep)
 
         if res_i[2]
             error("Problem signals 'repeat', but 'repeat' is not yet supported!")
         end
-
         push!(sol, res_i[1])
     end
     return sol
@@ -112,7 +112,7 @@ end
 
 Structure similar to `DEMCBBProblem` but for problems that can not be solved with `DifferentialEquations` as a backend.
 
-Note that its supertypes are `MCBBProblem` and `myMCProblem`, but not any of the DifferentialEquations abstract problem types.
+Note that its supertypes are `MCBBProblem` and `myMCProblem`, but not any of the DifferentialEquations abstract problem types. Many functions that work on `DEMCBBProblem` work on `CustomMCBBProblem` as well as they are defined for `MCBBProblem`.
 
 The struct has the following fields:
 * `p`: `CustomMonteCarloProblem` to be solved, part of DifferentialEquations
@@ -181,7 +181,9 @@ function solve(prob::CustomMCBBProblem)
     sol = solve(prob.p, num_monte=prob.N_mc, rel_transient_time=prob.rel_transient_time)
     N_t = length(sol[1])
     N_dim = length(prob.p.prob.u0)
-    CustomMCBBSolution(sol, prob.N_mc, N_t, N_dim, get_measure_dimensions(sol)...)
+    csol = CustomMCBBSolution(sol, prob.N_mc, N_t, N_dim, get_measure_dimensions(sol)...)
+    sort!(csol, prob)
+    return csol
 end
 
 """

@@ -2,7 +2,7 @@
 
 The heavy-lifting in terms of parallelization is done by `MonteCarloProblem`/`solve` from DifferentialEquations, however we have to make most parts of the setup known to all processes with `@everywhere` and have a submit script.
 
-Below, you will find an example of a script running a Kuramoto network and saving the results. Typically, (due to memory constraints) I would recommend to only solve the [`BifAnaMCProblem`](@ref) on the HPC, then save the solutions and do the remaining calculations (distance matrix and clustering) on your own PC.
+Below, you will find an example of a script running a Kuramoto network and saving the results. Typically, (due to memory constraints) I would recommend to only solve the [`DEMCBBProblem`](@ref) on the HPC, then save the solutions and do the remaining calculations (distance matrix and clustering) on your own PC.
 
 For saving and loading data, I used `JLD2`. It needs all functions and variables in scope while loading objects that were used during the computation of the object. That's why I work with only one script that is used on both the remote and local, depending on whether the variable `cluster` is `true` or `false`.
 
@@ -67,7 +67,7 @@ using JLD2, FileIO, Clustering, StatsBase, Parameters
 end
 
 if cluster
-    ko_mcp = BifAnaMCProblem(rp, ic_ranges, N_ics, pars, (:K, K_range), eval_ode_run_kuramoto, tail_frac)
+    ko_mcp = DEMCBBProblem(rp, ic_ranges, N_ics, pars, (:K, K_range), eval_ode_run_kuramoto, tail_frac)
     kosol = solve(ko_mcp)
     @save "kuramoto_sol.jld2" kosol ko_mcp
 else

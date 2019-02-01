@@ -44,9 +44,9 @@ We are only interested in solutions after 80% of the integration time
 ```julia
 tail_frac = 0.8;
 ```
-and can use the pre-made `eval_ode_run` for analyzing the solutions of each Differential Equation (see [`eval_ode_run`](@ref) for more information). This `eval_ode_run` will track the mean, std and Kullback-Leibler divergence of the solutions. Thus we can finally setup the [`BifAnaMCProblem`](@ref) with
+and can use the pre-made `eval_ode_run` for analyzing the solutions of each Differential Equation (see [`eval_ode_run`](@ref) for more information). This `eval_ode_run` will track the mean, std and Kullback-Leibler divergence of the solutions. Thus we can finally setup the [`DEMCBBProblem`](@ref) with
 ```julia
-mc_prob = BifAnaMCProblem(dp, ic_ranges, N_ic, pars, (:r,r), eval_ode_run, tail_frac);
+mc_prob = DEMCBBProblem(dp, ic_ranges, N_ic, pars, (:r,r), eval_ode_run, tail_frac);
 ```
 and solve it
 ```julia
@@ -77,7 +77,7 @@ plot(cluster_members[1],cluster_members[2],legend=false)
 ```
 ![Logistic Map Membership Diagram](img/logmap_member.png)
 
-For more details, see [`BifAnaMCProblem`](@ref) and the other references linked in this section.
+For more details, see [`DEMCBBProblem`](@ref) and the other references linked in this section.
 
 ## Kuramoto Network
 
@@ -119,10 +119,10 @@ function eval_ode_run_kura(sol, i)
     eval_ode_run(sol, i, state_filter, eval_funcs, global_eval_funcs, cyclic_setback=true)
 end
 ```
-We set up the `BifAnaMCProblem` again with
+We set up the `DEMCBBProblem` again with
 ```julia
 tail_frac = 0.9  
-ko_mcp = BifAnaMCProblem(rp, ic_ranges, N_ics, pars, (:K, K_range), eval_ode_run_kura, tail_frac)
+ko_mcp = DEMCBBProblem(rp, ic_ranges, N_ics, pars, (:K, K_range), eval_ode_run_kura, tail_frac)
 kosol = solve(ko_mcp)
 ```
 and solve and analyze it. In this case we set the weight of the order parameter to zero as we only want to have it as a comparison for our results.

@@ -51,12 +51,12 @@ function eval_ode_run_kura(sol, i)
 end
 
 tail_frac = 0.9 #
-ko_mcp = BifAnaMCProblem(rp, ic_ranges, N_ics, pars, (:K, K_range), eval_ode_run_kura, tail_frac)
+ko_mcp = DEMCBBProblem(rp, ic_ranges, N_ics, pars, (:K, K_range), eval_ode_run_kura, tail_frac)
 kosol = solve(ko_mcp)
 ```
 The results are sorted by parameter value, [`show_results`](@ref) shows only results within the given parameter range.
 
-[`normalize(sol:BifMCSol)`](@ref) normalized the results so that all measures are within the range $[0,1]$.
+[`normalize(sol:DEMCBBSol)`](@ref) normalized the results so that all measures are within the range $[0,1]$.
 
 ```julia
 D_k = distance_matrix(kosol, parameter(ko_mcp), [1.,0.75,0.,0,1.]); # no weight on the order_parameter and kl div

@@ -3,18 +3,18 @@
 ```@docs
 myMCProblem
 MCBBProblem
-BifAnaMCProblem
-parameter(p::BifAnaMCProblem)
+DEMCBBProblem
+parameter(p::MCBBProblem, i::Int; complex_returns_abs=true)
 MCBBSol
-BifMCSol
-sort(sol::BifMCSol, prob::BifAnaMCProblem, i::Int=1)
-sort!(sol::BifMCSol, prob::BifAnaMCProblem, i::Int=1)
-sort(prob::BifAnaMCProblem, i::Int=1)
-sort!(prob::BifAnaMCProblem, i::Int=1)
+DEMCBBSol
+sort(sol::MCBBSol, prob::MCBBProblem, i::Int=1)
+sort!(sol::MCBBSol, prob::MCBBProblem, i::Int=1)
+sort(prob::MCBBProblem, i::Int=1)
+sort!(prob::MCBBProblem, i::Int=1)
 show_results
 get_measure
-normalize(sol::BifMCSol, k::AbstractArray)
-solve(prob::BifAnaMCProblem, alg=nothing, N_t=400::Int, parallel_type=:parfor; flag_check_inf_nan=true, custom_solve::Union{Function,Nothing}=nothing, kwargs...)
+normalize(sol::DEMCBBSol, k::AbstractArray)
+solve(prob::DEMCBBProblem, alg=nothing, N_t=400::Int, parallel_type=:parfor; flag_check_inf_nan=true, custom_solve::Union{Function,Nothing}=nothing, kwargs...)
 ```
 
 ## (Semi) Internal functions

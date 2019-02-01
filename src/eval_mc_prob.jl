@@ -9,7 +9,7 @@ import Distributions, StatsBase
 """
     eval_ode_run
 
-Evaluation functions for the `MonteCarloProblem`. Given a set of measures the solution `sol` is evaluated seperatly per dimension. An additional set of global measures take in the complete solution and return a single number. Handing over the function to `BifAnaMCProblem` (and thus also to `MonteCarloProblem`) the expected signature is `(sol, i::Int) -> (results, repeat::Bool)`. Here, there are several more general versions that can be adjusted to the experiment.
+Evaluation functions for the `MonteCarloProblem`. Given a set of measures the solution `sol` is evaluated seperatly per dimension. An additional set of global measures take in the complete solution and return a single number. Handing over the function to `DEMCBBProblem` (and thus also to `MonteCarloProblem`) the expected signature is `(sol, i::Int) -> (results, repeat::Bool)`. Here, there are several more general versions that can be adjusted to the experiment.
 
     eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:Function,1}, global_eval_funcs::AbstractArray; failure_handling::Symbol=:None, cyclic_setback::Bool=false, replace_inf=nothing)
 
@@ -210,7 +210,7 @@ function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:
     end
 
     mcp = MonteCarloProblem(probi, prob_func=new_prob, output_func=(sol,i)->eval_ode_run(sol, i, state_filter, eval_funcs, global_eval_funcs; failure_handling=failure_handling, cyclic_setback=cyclic_setback, flag_past_measures=flag_past_measures))
-    bamcp = BifAnaMCProblem(mcp, 3, 0., ic, par, par_var) # 3 problems and no transient time
+    bamcp = DEMCBBProblem(mcp, 3, 0., ic, par, par_var) # 3 problems and no transient time
     mcpsol = solve(bamcp, N_t=150, parallel_type=:none)
 
     if parameter_weighted

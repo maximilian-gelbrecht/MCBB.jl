@@ -31,7 +31,7 @@ function my_eval_ode_run(sol, i)
     eval_ode_run(sol, i, state_filter, eval_funcs, global_eval_funcs)
 end
 
-ko_emcp = BifAnaMCProblem(rp, ic_ranges, pars, (:K, k_range), eval_ode_run, tail_frac)
+ko_emcp = DEMCBBProblem(rp, ic_ranges, pars, (:K, k_range), eval_ode_run, tail_frac)
 ko_sol = solve(ko_emcp)
 
 # random + range
@@ -39,13 +39,13 @@ ic_ranges = ()->rand(ic_dist)
 k_range = 1.:0.5:3.
 N_ics = 20
 
-ko_emcp = BifAnaMCProblem(rp, ic_ranges, N_ics, pars, (:K, k_range), my_eval_ode_run, tail_frac)
+ko_emcp = DEMCBBProblem(rp, ic_ranges, N_ics, pars, (:K, k_range), my_eval_ode_run, tail_frac)
 ko_sol = solve(ko_emcp)
 
 # define a random array
 ic_array = ()->rand(ic_dist, N)
 k_range = ()->rand(kdist)
-ko_emcp = BifAnaMCProblem(rp, ic_ranges, N_ics, pars, (:K, k_range), eval_ode_run, tail_frac)
+ko_emcp = DEMCBBProblem(rp, ic_ranges, N_ics, pars, (:K, k_range), eval_ode_run, tail_frac)
 ko_sol = solve(ko_emcp)
 
 
@@ -55,7 +55,7 @@ ko_sol = solve(ko_emcp)
 ic_ranges = [()->rand(ic_dist)]
 k_range = (i)->rand(kdist)
 
-ko_emcp = BifAnaMCProblem(rp, ic_ranges, N_ics, pars, (:K, k_range), eval_ode_run, tail_frac)
+ko_emcp = DEMCBBProblem(rp, ic_ranges, N_ics, pars, (:K, k_range), eval_ode_run, tail_frac)
 ko_sol = solve(ko_emcp)
 
 D = distance_matrix(ko_sol);

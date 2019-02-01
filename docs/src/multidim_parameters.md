@@ -56,7 +56,7 @@ function eval_ode_run_kura(sol, i)
 end
 
 tail_frac = 0.9 #
-ko_mcp = BifAnaMCProblem(rp, ic_ranges, N_ics, pars, par_var, eval_ode_run_kura, tail_frac)
+ko_mcp = DEMCBBProblem(rp, ic_ranges, N_ics, pars, par_var, eval_ode_run_kura, tail_frac)
 kosol = solve(ko_mcp)
 ```
 For multi-parameter setups we need to initialize a instance of [`MultiDimParameterVar`](@ref) manually and define a suitable function that returns new parameter instances, in this case `new_kura_par`. For evaluating the results
