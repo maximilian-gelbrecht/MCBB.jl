@@ -25,6 +25,7 @@ icdist = Uniform(0.1,0.99);
 r = ()->rand(rdist);
 ic_ranges = ()->rand(icdist);
 ```
+There are also other ways to setup the initial conditions. You can define a function that returns an array for all system dimensions for multidimensional systems or provide arrays with the values directly. See [`DEMCBBProblem`](@ref) for more infos.  
 Then, we set up how many initial conditons / parameter points we want to generate and solve
 ```julia
 N_ic = 5000;
@@ -163,7 +164,7 @@ function roessler!(dx,x,p::roessler_pars,t)
   dx[3] = p.b + (x[1] - p.c)*x[3]
 end
 ```
-For more information also see the documentation of DifferentialEquations.jl. In case one wants to work with systems that can't be solved with DifferentialEquations.jl, one has to use [`CustomMCBBProblem`](@ref). 
+For more information also see the documentation of DifferentialEquations.jl. In case one wants to work with systems that can't be solved with DifferentialEquations.jl, one has to use [`CustomMCBBProblem`](@ref).
 
 ### Parameters
 
