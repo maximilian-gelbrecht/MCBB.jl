@@ -5,7 +5,7 @@ using Distributions, Clustering, StatsBase
 #using PairwiseListMatrices
 
 """
-     distance_matrix(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray; relative_parameter::Bool=false)
+     distance_matrix(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray; relative_parameter::Bool=false, histograms::Bool=false)
 
 Calculate the distance matrix between all individual solutions.
 
@@ -14,11 +14,9 @@ Calculate the distance matrix between all individual solutions.
 * `distance_func`: The actual calculating the distance between the measures/parameters of each solution with each other. Signature should be `(measure_1::Union{Array,Number}, measure_2::Union{Array,Number}) -> distance::Number. Example and default is `(x,y)->sum(abs.(x .- y))`.
 * `weights`: Instead of the actual measure `weights[i_measure]*measure` is handed over to `distance_func`. Thus `weights` need to be ``N_{meas}+N_{par}`` long array.
 * `relative_parameter`: If true, the paramater values during distance calcuation is rescaled to [0,1]
-
-Note, there are also deprecated, other versions of distance_matrix in the code.
+* `histograms::Bool`: If true, the distance calculation is based on [`distance_matrix_histogram`](@ref) with the default histogram distance [`wasserstein_histogram_distance`](@ref).
 """
-function distance_matrix(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray; relative_parameter::Bool=false)
-    mat_elements = zeros((sol.N_mc, sol.N_mc))
+function distance_matrix(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray; relative_parameter::Bool=false, histograms::Bool=false)
 
     pars = parameter(prob)
     N_pars = length(ParameterVar(prob))
@@ -34,95 +32,121 @@ function distance_matrix(sol::myMCSol, prob::myMCProblem, distance_func::Functio
         end
     end
 
+    if histograms
+        return distance_matrix_histogram(sol, par_c, distance_func, weights)
+    else
+        mat_elements = zeros((sol.N_mc, sol.N_mc))
+
+        for i=1:sol.N_mc
+            for j=i+1:sol.N_mc
+                for i_meas=1:sol.N_meas
+                    mat_elements[i,j] += distance_func(weights[i_meas]*sol.sol[i][i_meas], weights[i_meas]*sol.sol[j][i_meas])
+                end
+                for i_par=1:N_pars
+                    mat_elements[i,j] += distance_func(weights[sol.N_meas+i_par]*par_c[i,i_par], weights[sol.N_meas+i_par]*par_c[j,i_par])
+                end
+            end
+        end
+        mat_elements += transpose(mat_elements)
+    end
+end
+distance_matrix(sol::myMCSol, prob::myMCProblem, weights::AbstractArray; relative_parameter::Bool=false, histograms::Bool=false) = distance_matrix(sol, prob, (x,y)->sum(abs.(x .- y)), weights, relative_parameter=relative_parameter, histograms=histograms)
+
+"""
+    distance_matrix_histogram(sol::myMCSol, pars::AbstractArray, distance_func::Function, weights::AbstractArray, histogram_distance::Function)
+
+This function is called by `distance_matrix` if it is called with the `histograms` flag `true`.
+
+Computes for each run in the solution `sol` for each measure a histogram of the measures of all system dimensions. The binning of the histograms is computed with Freedman-Draconis rule and the same across all runs for each measure.
+
+The distance matrix is then computed given a suitable histogram distance function `histogram_distance` between these histograms.
+
+This is intended to be used in order to avoid symmetric configurations in larger systems to be distinguished from each other. Example: Given a system with 10 identical oscillators. Given this distance calculation a state where oscillator 1-5 are synchronized and 6-10 are not syncronized would be in the same cluster as a state where oscillator 6-10 are synchronized and 1-6 are not synchronized. If you don't want this kind of behaviour, use the regular `distance_matrix` function.
+
+Inputs:
+* `sol::myMCSol`: solution
+* `par::AbstractArray`: parameter array (can also be called with a [`myMCProblem`](@ref) from which the parameters will be automatically taken)
+* `distance_func`: The actual calculating the distance between the measures/parameters of each solution with each other. Signature should be `(measure_1::Union{Array,Number}, measure_2::Union{Array,Number}) -> distance::Number. Example and default is `(x,y)->sum(abs.(x .- y))`.
+* `weights`: Instead of the actual measure `weights[i_measure]*measure` is handed over to `distance_func`. Thus `weights` need to be ``N_{meas}+N_{par}`` long array.
+* `histogram_distance`: The distance function between two histograms. Default is [`wasserstein_histogram_distance`](@ref).
+"""
+function distance_matrix_histogram(sol::myMCSol, pars::AbstractArray, distance_func::Function, weights::AbstractArray, histogram_distance::Function)
+
+    mat_elements = zeros((sol.N_mc, sol.N_mc))
+    if ndims(pars) == 2
+        (__, N_pars) = size(pars)
+    elseif ndims(pars) == 1
+        N_pars = 1
+    else
+        error("parameter array has more than two dimensions.")
+    end
+    if length(weights)!=(sol.N_meas+N_pars)
+        error("Amount of weights not the same as Measures + Parameters")
+    end
+
+    # setup histogram edges for all histograms first, to be better comparible, they should be the same across all runs/trials
+    hist_edges = []
+    for i_meas=1:sol.N_meas_dim
+        data_i = get_measure(sol, i_meas)
+        flat_array = collect(Iterators.flatten(get_measure(sol,1)))
+
+        # we use double the freedman-draconis rule because we are calculationg the IQR
+        # and max/min from _all_ values
+        bin_width = (4. *iqr(flat_array))/(sol.N_mc^(1/3.))
+        minval = minimum(flat_array)
+        maxval = maximum(flat_array)
+
+        push!(hist_edges,(minval-bin_width/2.):bin_width:(maxval+bin_width/2.))
+    end
     for i=1:sol.N_mc
         for j=i+1:sol.N_mc
-            for i_meas=1:sol.N_meas
+            for i_meas=1:sol.N_meas_dim
+                mat_elements[i,j] += weights[i_meas]*histogram_distance(normalize(fit(Histogram, sol.sol[i][i_meas], hist_edges[i_meas], closed=:left)), normalize(fit(Histogram, sol.sol[j][i_meas], hist_edges[i_meas], closed=:left)))
+            end
+            for i_meas=sol.N_meas_dim+1:sol.N_meas # global measures
                 mat_elements[i,j] += distance_func(weights[i_meas]*sol.sol[i][i_meas], weights[i_meas]*sol.sol[j][i_meas])
             end
             for i_par=1:N_pars
-                mat_elements[i,j] += distance_func(weights[sol.N_meas+i_par]*par_c[i,i_par], weights[sol.N_meas+i_par]*par_c[j,i_par])
+                mat_elements[i,j] += distance_func(weights[sol.N_meas+i_par]*pars[i,i_par], weights[sol.N_meas+i_par]*pars[j,i_par])
             end
         end
     end
     mat_elements += transpose(mat_elements)
 end
-distance_matrix(sol::myMCSol, prob::myMCProblem, weights::AbstractArray; relative_parameter::Bool=false) = distance_matrix(sol, prob, (x,y)->sum(abs.(x .- y)), weights)
+distance_matrix_histogram(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray, histogram_distance::Function) = distance_matrix_histogram(sol, parameter(prob), distance_func, weights, histogram_distance)
+distance_matrix_histogram(sol::myMCSol, par::AbstractArray, distance_func::Function, weights::AbstractArray) = distance_matrix_histogram(sol, par, distance_func, weights, wasserstein_histogram_distance)
+distance_matrix_histogram(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray) = distance_matrix_histogram(sol, parameter(prob), distance_func, weights, wasserstein_histogram_distance)
 
+"""
+    wasserstein_histogram_distance(hist_1::Histogram, hist_2::Histogram)
 
-function distance_matrix(sol::myMCSol, par::AbstractArray, distance_func::Function, relative_parameter::Bool=false)
-    mat_elements = zeros((sol.N_mc,sol.N_mc))
-    if relative_parameter
-        min_par = minimum(par)
-        max_par = maximum(par)
-        #par_range = max_par - min_par
-        par_rel = (par .- min_par)./max_par
-        par_c = par_rel
-    else
-        par_c = copy(par) # do we really need the copy here? I don't know
-    end
+One possible histogram distance for `distance_matrix_histogram` (also the default one). It calculates the 1-Wasserstein / Earth Movers Distance between the two histograms by first computing the ECDF and then computing the discrete integral
 
-    for i=1:sol.N_mc
-        for j=i+1:sol.N_mc
-            mat_elements[i,j] = distance_func(sol.sol[i], sol.sol[j], par_c[i], par_c[j])
+``\\int_{-\\Inf}^{+Inf}|ECDF(hist\\_1) - ECDF(hist\\_2)| dx = \\sum_i | ECDF(hist\\_1)_i - ECDF(hist\\_2)_i | \\cdot bin_width``.
 
-        end
-    end
-    mat_elements += transpose(mat_elements)
+Returns a single (real) number.
+
+Adopted from [`https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.wasserstein_distance.html`](@ref)
+"""
+function wasserstein_histogram_distance(hist_1::Histogram, hist_2::Histogram)
+    # calculate ecdf from hist
+    ecdf_1 = ecdf_hist(hist_1)
+    ecdf_2 = ecdf_hist(hist_2)
+    deltas = Float64(hist_1.edges[1].step)
+    # as the binning is same for both histograms, we can caluclate the distance simply by the discrete integral over the difference like this:
+    return sum(abs.(ecdf_1 .- ecdf_2) .* deltas)
 end
 
-# more handy version with distance function already defined
-function distance_matrix(sol::myMCSol, par::AbstractArray, weights::AbstractArray=[1.,0.5,0.5,1.], relative_parameter::Bool=false)
-    if length(weights)!=(sol.N_meas+1) # +1 because of the parameter
-        error("Length of weights does not fit length of solution measurements")
-    end
-    distance_matrix(sol, par, (x,y,p1,p2) -> weighted_norm(x,y,p1,p2,weights), relative_parameter)
+"""
+    ecdf_hist(hist::Histogram)
+
+Returns the ECDF of a histogram (normalized) as an Array.
+"""
+function ecdf_hist(hist::Histogram)
+    ecdfcum = cumsum(hist.weights)
+    return ecdfcum ./ ecdfcum[end]
 end
 
-function distance_matrix(sol::myMCSol, distance_func::Function)
-    #N_entries = (sol.N_mc * (sol.N_mc - 1)) / 2
-    #mat_elements = zeros(N_entries)
-    mat_elements = zeros((sol.N_mc,sol.N_mc))
-    # add parameter to solutions
-    """
-    # PairwiseListMatrix is not supported for 1.0 yet
-    i_tot = 0
-    for i=1:sol.N_mc
-        for j=i+1:sol.N_mc
-            i_tot += 1
-            mat_elements[i_tot] = distance_func(sol.sol[i],sol.sol[j])
-        end
-    end
-    PairwiseListMatrix(mat_elements)
-    """
-    for i=1:sol.N_mc
-        for j=i+1:sol.N_mc
-            mat_elements[i,j] = distance_func(sol.sol[i],sol.sol[j])
-        end
-    end
-    mat_elements += transpose(mat_elements)
-end
-distance_matrix(sol::myMCSol) = distance_matrix(sol, weighted_norm)
-
-
-# calculated the weighted norm between two trajectories, so one entry of the distance matrix
-# x, y :: Tuples or Arrays containing all measures of the trajectories (e.g. means, vars per spatial dimension)
-#
-function weighted_norm(x, y, norm_function::Function, weights::AbstractArray=[1., 0.5, 0.5])
-    N_dim_meas::Int64 = length(x)
-    out::Float64 = 0.
-    for i_dim=1:N_dim_meas
-        out += weights[i_dim]*norm_function(x[i_dim],y[i_dim])
-    end
-    out
-end
-# use l1-norm by default
-weighted_norm(x, y, weights::AbstractArray=[1., 0.5, 0.5, 0.25]) = weighted_norm(x,y,(x,y) -> sum(abs.(x .- y)), weights)
-
-# weighted norm that also weights in the parameter values
-function weighted_norm(x, y, par1::Number, par2::Number, norm_function::Function, weights::AbstractArray=[1, 0.5, 0.5, 0.25, 1])
-    weighted_norm(x,y, norm_function, weights[1:(end-1)]) + weights[end]*norm_function(par1,par2)
-end
-weighted_norm(x,y,par1::Number,par2::Number, weights::AbstractArray=[1., 0.5, 0.5, 0.25, 1.]) = weighted_norm(x,y,par1,par2,(x,y) -> sum(abs.(x .- y)), weights)
 
 """
     cluster_means(sol::myMCSol, clusters::DbscanResult)

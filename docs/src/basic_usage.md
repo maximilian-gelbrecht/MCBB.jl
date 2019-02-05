@@ -129,7 +129,7 @@ kosol = solve(ko_mcp)
 and solve and analyze it. In this case we set the weight of the order parameter to zero as we only want to have it as a comparison for our results.
 
 ```julia
-D_k = distance_matrix(kosol, parameter(ko_mcp), [1.,0.75,0,1.]); # no weight on the order_parameter and kl div
+D_k = distance_matrix(kosol, ko_mcp, [1.,0.75,0,1.]); # no weight on the order_parameter and kl div
 db_eps = 110 # we found that value by scanning manually
 db_res = dbscan(D_k,db_eps,4)
 cluster_members = cluster_membership(ko_mcp,db_res,0.2,0.05);

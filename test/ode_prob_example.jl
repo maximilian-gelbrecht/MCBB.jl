@@ -58,9 +58,9 @@ k_range = (i)->rand(kdist)
 ko_emcp = DEMCBBProblem(rp, ic_ranges, N_ics, pars, (:K, k_range), eval_ode_run, tail_frac)
 ko_sol = solve(ko_emcp)
 
-D = distance_matrix(ko_sol);
+D = distance_matrix(ko_sol, ko_emcp, [1.,0.5,0.5,1], histograms=true);
 
-D = distance_matrix(ko_sol, parameter(ko_emcp));
+D = distance_matrix(ko_sol, ko_emcp, [1.,0.5,0.5,1.]);
 k = 4
 fdist = k_dist(D,k);
 

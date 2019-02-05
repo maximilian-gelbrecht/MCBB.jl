@@ -50,8 +50,8 @@ end
 function eval_ode_run_kura(sol, i)
     (N_dim, __) = size(sol)
     state_filter = collect(1:N_dim)
-    eval_funcs = []
-    global_eval_funcs = [k_order_parameter]
+    eval_funcs = [mean, std]
+    global_eval_funcs = []
     eval_ode_run(sol, i, state_filter, eval_funcs, global_eval_funcs, cyclic_setback=true)
 end
 
@@ -62,7 +62,7 @@ kosol = solve(ko_mcp)
 For multi-parameter setups we need to initialize a instance of [`MultiDimParameterVar`](@ref) manually and define a suitable function that returns new parameter instances, in this case `new_kura_par`. For evaluating the results
 
 ```julia
-D_k = distance_matrix(kosol, ko_mcp, [1,0.75,0.,1.,1.]); # no weight on the order_parameter and kl div
+D_k = distance_matrix(kosol, ko_mcp, [1,0.5,1.,1.]); # no weight on the order_parameter and kl div
 ```
 
 ```julia

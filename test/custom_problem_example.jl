@@ -34,7 +34,7 @@ log_sol = solve(log_emcp)
 # analysis
 #D = distance_matrix(log_sol);
 
-D = @time distance_matrix(log_sol, parameter(log_emcp), [1,0.75,0.5,1]);
+D = @time distance_matrix(log_sol, log_emcp, [1,0.75,0.5,1]);
 
 fdist = k_dist(D,4);
 

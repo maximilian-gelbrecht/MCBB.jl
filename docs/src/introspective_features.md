@@ -59,7 +59,7 @@ The results are sorted by parameter value, [`show_results`](@ref) shows only res
 [`normalize(sol:DEMCBBSol)`](@ref) normalized the results so that all measures are within the range $[0,1]$.
 
 ```julia
-D_k = distance_matrix(kosol, parameter(ko_mcp), [1.,0.75,0.,0,1.]); # no weight on the order_parameter and kl div
+D_k = distance_matrix(kosol, ko_mcp, [1.,0.75,0.,0,1.]); # no weight on the order_parameter and kl div
 db_eps = 110 # we found that value by scanning manually
 db_res = dbscan(D_k,db_eps,4)
 cluster_members = cluster_membership(ko_mcp,db_res,0.2,0.05);

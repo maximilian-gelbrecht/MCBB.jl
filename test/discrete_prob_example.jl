@@ -34,9 +34,7 @@ log_emcp = DEMCBBProblem(dp, ic_ranges, N_ic, pars, (:r, r), eval_ode_run, tail_
 log_sol = solve(log_emcp)
 
 # analysis
-D = distance_matrix(log_sol);
-
-D = distance_matrix(log_sol, parameter(log_emcp));
+D = distance_matrix(log_sol, log_emcp, [1.,0.5,0.5,1.]);
 
 fdist = k_dist(D,4);
 

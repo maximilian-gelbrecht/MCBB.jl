@@ -44,6 +44,9 @@ export measure_on_parameter_sliding_window
 export ParameterVar, ParameterVarArray, ParameterVarFunc, OneDimParameterVar, MultiDimParameterVar, MultiDimParameterVarFunc, MultiDimParameterVarArray
 export MCBBProblem, MCBBSol
 export CustomProblem, CustomSolution, CustomMonteCarloProblem, CustomMCBBSolution, CustomMCBBProblem
+
+export distance_matrix_histogram, wasserstein_histogram_distance, ecdf_hist
+
 # Contains example systems
 include("systems.jl")
 
