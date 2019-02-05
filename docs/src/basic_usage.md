@@ -37,7 +37,7 @@ par_var = (:r,r);
 ```
 The tuple `par_var` contains the name of the parameter field to be changed as a symbol and the function how it should be changed. This tuple will be automatically converted to a [`ParameterVar`](@ref) which also could have been constructed directly. This can be needed for more complicated setups.
 
-Next, we set up the base DifferentialEquations problem. As mentioned, the logistic map is already one of the pre-made systems, thus
+Next, we set up the base DifferentialEquations problem (if you are interested in problems that can't be solved with DifferentialEquations, see [`CustomMCBBProblem`](@ref)). As mentioned, the logistic map is already one of the pre-made systems, thus
 ```julia
 dp = DiscreteProblem(logistic, [ic_ranges()], (0.,5000.), pars);
 ```

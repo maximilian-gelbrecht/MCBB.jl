@@ -499,7 +499,7 @@ Returns the functions that returns new DifferentialEquations problems needed for
 function define_new_problem(prob::ODEProblem, ic::AbstractArray, par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::AbstractArray, var_par::ParameterVar)
     function new_problem(prob, i, repeat)
         _repeat_check(repeat, i, ic, ic_gens, N_dim_ic)
-        ODEProblem(prob.f, ic[i,:], prob.tspan,  var_par.new_par(parameters; _new_val_dict(var_par, par, N_dim_ic, i)...))
+        ODEProblem(prob.f, ic[i,:], prob.tspan,  var_par.new_par(parameters; _new_val_dict(var_par, par, N_dim_ic, i)...), callback=prob.callback)
     end
     new_problem
 end
@@ -507,7 +507,7 @@ end
 function define_new_problem(prob::DiscreteProblem, ic::AbstractArray, par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::AbstractArray, var_par::ParameterVar)
     function new_problem(prob, i, repeat)
         _repeat_check(repeat, i, ic, ic_gens, N_dim_ic)
-        DiscreteProblem(prob.f, ic[i,:], prob.tspan,  var_par.new_par(parameters; _new_val_dict(var_par, par, N_dim_ic, i)...))
+        DiscreteProblem(prob.f, ic[i,:], prob.tspan,  var_par.new_par(parameters; _new_val_dict(var_par, par, N_dim_ic, i)...), callback=prob.callback)
     end
     new_problem
 end
@@ -515,7 +515,7 @@ end
 function define_new_problem(prob::SDEProblem, ic::AbstractArray, par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::AbstractArray, var_par::ParameterVar)
     function new_problem(prob, i, repeat)
         _repeat_check(repeat, i, ic, ic_gens, N_dim_ic)
-        SDEProblem(prob.f, prob.g, ic[i,:], prob.tspan,  var_par.new_par(parameters; _new_val_dict(var_par, par, N_dim_ic, i)...))
+        SDEProblem(prob.f, prob.g, ic[i,:], prob.tspan,  var_par.new_par(parameters; _new_val_dict(var_par, par, N_dim_ic, i)...), callback=prob.callback)
     end
     new_problem
 end
@@ -523,7 +523,7 @@ end
 function define_new_problem(prob::DDEProblem, ic::AbstractArray, par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::AbstractArray, var_par::ParameterVar)
     function new_problem(prob, i, repeat)
         _repeat_check(repeat, i, ic, ic_gens, N_dim_ic)
-        DDEProblem(prob.f, ic[i,:], prob.h, prob.tspan,  var_par.new_par(parameters; _new_val_dict(var_par, par, N_dim_ic, i)...); constant_lags=prob.constant_lags, dependent_lags=prob.dependent_lags)
+        DDEProblem(prob.f, ic[i,:], prob.h, prob.tspan,  var_par.new_par(parameters; _new_val_dict(var_par, par, N_dim_ic, i)...); constant_lags=prob.constant_lags, dependent_lags=prob.dependent_lags, callback=prob.callback)
     end
     new_problem
 end
