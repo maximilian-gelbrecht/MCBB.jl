@@ -122,7 +122,7 @@ distance_matrix_histogram(sol::myMCSol, prob::myMCProblem, distance_func::Functi
 
 One possible histogram distance for `distance_matrix_histogram` (also the default one). It calculates the 1-Wasserstein / Earth Movers Distance between the two histograms by first computing the ECDF and then computing the discrete integral
 
-``\\int_{-\\Inf}^{+Inf}|ECDF(hist\\_1) - ECDF(hist\\_2)| dx = \\sum_i | ECDF(hist\\_1)_i - ECDF(hist\\_2)_i | \\cdot bin_width``.
+``\\int_{-\\inf}^{+inf}|ECDF(hist\\_1) - ECDF(hist\\_2)| dx = \\sum_i | ECDF(hist\\_1)_i - ECDF(hist\\_2)_i | \\cdot bin\\_width``.
 
 Returns a single (real) number.
 
