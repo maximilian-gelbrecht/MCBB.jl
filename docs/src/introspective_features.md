@@ -148,6 +148,23 @@ print(cluster_ms[3,1,:])
 ```
     Means of the 3rd cluster: [29.4609, 29.4524, 29.4574, 29.4589, 29.4585, 29.4609, 29.4593, 29.4607, 31.5164, 29.4558, 27.5155, 29.4559, 29.4578, 29.4578, 29.4576, 29.4582, 31.7665, 29.4609, 29.4653, 29.595]
 
+With the method [`get_trajectory`](@ref) we can get the full trajectory of an example trial within a certain cluster. This can help us get a further impression of the nature of the trajectories inside the cluster.
+
+```julia
+IM = imshow(Matrix(get_trajectory(ko_mcp,kosol, db_res,0,only_sol=true)), aspect=4)
+ylabel("Oscillator i")
+xlabel("Time")
+cb = colorbar(IM, orientation="horizontal")
+cb[:ax][:set_xlabel]("Colorbar: Im(z)", rotation=0)
+```
+
+For the zeroth/Noise cluster we see an unordered system
+
+![Kuramoto Unordered Example](img/kura_unordered.png)
+
+and for the second cluster we see a synchronized system (except for one oscillator that is disconnected in this particular random network)
+
+![Kuramoto Ordered Example](img/kura_ordered.png)
 
 [`ClusterICSpaces`](@ref) enables us to analyse which initial conditions lead to the different clusters.
 The ``struct`` is constructed with [`ClusterICSpaces`](@ref). Additional parameter bounds can be provided to rescrict the analysis to the specified parameter range. It returns the [`ClusterICSpaces`](@ref)-struct with the fields:

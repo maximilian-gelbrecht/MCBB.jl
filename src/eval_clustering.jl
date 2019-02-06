@@ -61,7 +61,7 @@ Computes for each run in the solution `sol` for each measure a histogram of the 
 
 The distance matrix is then computed given a suitable histogram distance function `histogram_distance` between these histograms.
 
-This is intended to be used in order to avoid symmetric configurations in larger systems to be distinguished from each other. Example: Given a system with 10 identical oscillators. Given this distance calculation a state where oscillator 1-5 are synchronized and 6-10 are not syncronized would be in the same cluster as a state where oscillator 6-10 are synchronized and 1-6 are not synchronized. If you don't want this kind of behaviour, use the regular `distance_matrix` function.
+This is intended to be used in order to avoid symmetric configurations in larger systems to be distinguished from each other. Example: Given a system with 10 identical oscillators. Given this distance calculation a state where oscillator 1-5 are synchronized and 6-10 are not syncronized would be in the same cluster as a state where oscillator 6-10 are synchronized and 1-5 are not synchronized. If you don't want this kind of behaviour, use the regular `distance_matrix` function.
 
 Inputs:
 * `sol::myMCSol`: solution
@@ -535,6 +535,33 @@ function _sliding_window_parameter(prob::myMCProblem, window_size::AbstractArray
         end
     end
     (N_windows, windows_mins)
+end
+
+"""
+    get_trajectory(prob::MCBBProblem, sol::MCBBSol, clusters::DbscanResult, i::Int; only_sol::Bool=true)
+
+Solves and returns a trajectory that is classified in cluster `i`. Randomly selects one IC/Parameter configuration, so that mulitple executions of this routine will yield different results! If `only_sol==true` it returns only the solution, otherwise it returns a tuple `(solution, problem, i_run)` where `i_run` is the number of the trial in `prob` and `sol`.
+
+# Example
+
+Plot with e.g
+
+    using PyPlot
+    IM = imshow(Matrix(get_trajectory(prob,sol,db_res,1), aspect=2)
+    ylabel("System Dimension i")
+    xlabel("Time t")
+    cb = colorbar(IM, orientation="horizontal")
+    cb[:ax][:set_xlabel]("Colorbar: Im(z)", rotation=0)
+"""
+function get_trajectory(prob::MCBBProblem, sol::MCBBSol, clusters::DbscanResult, i::Int; only_sol::Bool=true)
+    i_sol = rand(findall(clusters.assignments .== i))
+    prob_i = prob.p.prob_func(prob.p.prob, i_sol, false)
+    sol_i = sol.solve_command(prob_i)
+    if only_sol
+        return sol_i
+    else
+        return (sol_i, prob_i, i_sol)
+    end
 end
 
 """

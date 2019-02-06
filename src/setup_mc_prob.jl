@@ -282,6 +282,7 @@ Its fields are:
 * `N_meas`: number of measures used, ``N_{meas} = N_{meas_{dim}} + N_{meas_{global}}
 * `N_meas_dim`: number of measures that are evalauted for every dimension seperatly
 * `N_meas_global`: number of measures that are evalauted globally
+* `solve_command`: A function that solves one individual run/trial with the same settings as where used to
 
 Note, in case `N_dim==1` => `N_meas_global == 0` and `N_meas_dim == N_meas`
 """
@@ -293,6 +294,7 @@ struct DEMCBBSol <: MCBBSol
     N_meas::Int
     N_meas_dim::Int
     N_meas_global::Int
+    solve_command::Function
 end
 
 """
@@ -797,13 +799,18 @@ function solve(prob::DEMCBBProblem, alg=nothing, N_t=400::Int, parallel_type=:pa
 
     if custom_solve!=nothing
         sol = custom_solve(prob, t_save)
+        solve_i_command = nothing
     elseif alg!=nothing
         sol = solve(prob.p, alg=alg, num_monte=prob.N_mc, dense=false, save_everystep=false, saveat=t_save, savestart=false, parallel_type=parallel_type; kwargs...)
+        solve_i_command = (prob_i) -> solve(prob_i, alg=alg, dense=false, save_everystep=false, saveat_t_save, savestart=false; kwargs...)
     else
         sol = solve(prob.p, num_monte=prob.N_mc, dense=false, save_everystep=false, saveat=t_save, savestart=false, parallel_type=parallel_type; kwargs...)
+        solve_i_command = (prob_i) -> solve(prob_i, dense=false, save_everystep=false, saveat=t_save, savestart=false; kwargs...)
     end
 
-    mysol = DEMCBBSol(sol, prob.N_mc, N_t, length(prob.p.prob.u0), get_measure_dimensions(sol)...)
+
+
+    mysol = DEMCBBSol(sol, prob.N_mc, N_t, length(prob.p.prob.u0), get_measure_dimensions(sol)..., solve_i_command)
 
     if flag_check_inf_nan
         inf_nan = check_inf_nan(mysol)

@@ -181,7 +181,7 @@ function solve(prob::CustomMCBBProblem)
     sol = solve(prob.p, num_monte=prob.N_mc, rel_transient_time=prob.rel_transient_time)
     N_t = length(sol[1])
     N_dim = length(prob.p.prob.u0)
-    csol = CustomMCBBSolution(sol, prob.N_mc, N_t, N_dim, get_measure_dimensions(sol)...)
+    csol = CustomMCBBSolution(sol, prob.N_mc, N_t, N_dim, get_measure_dimensions(sol)..., (prob_i) -> solve(prob_iget))
     sort!(csol, prob)
     return csol
 end
@@ -199,6 +199,7 @@ Its fields are:
 * `N_meas`: number of measures used, ``N_{meas} = N_{meas_{dim}} + N_{meas_{global}}
 * `N_meas_dim`: number of measures that are evalauted for every dimension seperatly
 * `N_meas_global`: number of measures that are evalauted globally
+* `solve_command`: A function that solves one individual run/trial with the same settings as where used to, for the `CustomProblem` type this is trivial (its the field `f`) but this field is here so that `CustomMCBBSolution` is compatible with `DEMCBBSol`
 
 Note, in case `N_dim==1` => `N_meas_global == 0` and `N_meas_dim == N_meas`
 """
@@ -210,4 +211,5 @@ struct CustomMCBBSolution <: MCBBSol
     N_meas::Int
     N_meas_dim::Int
     N_meas_global::Int
+    solve_command::Function
 end
