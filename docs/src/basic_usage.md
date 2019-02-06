@@ -140,7 +140,7 @@ ax[:spines]["right"][:set_visible](false);
 ```
 ![Kuramoto Membership Diagram](img/kuramoto_member.png)
 
-In this plot we see the onset of synchronization cleary as three distinctive clusters.
+In this plot we see the onset of synchronization clearly as three distinctive clusters.
 We can compare this to the order parameter that we calculated:
 ```julia
 plot(parameter(ko_mcp),get_measure(kosol,4))

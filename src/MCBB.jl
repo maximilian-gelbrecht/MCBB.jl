@@ -46,7 +46,7 @@ export MCBBProblem, MCBBSol
 export CustomProblem, CustomSolution, CustomMonteCarloProblem, CustomMCBBSolution, CustomMCBBProblem
 
 export distance_matrix_histogram, wasserstein_histogram_distance, ecdf_hist
-
+export stuart_landau_sathiyadevi_pars, stuart_landau_sathiyadevi!
 # Contains example systems
 include("systems.jl")
 
