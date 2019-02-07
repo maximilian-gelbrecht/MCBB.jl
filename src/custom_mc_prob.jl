@@ -62,6 +62,7 @@ Base.firstindex(sol::CustomSolution) = 1
 Base.lastindex(sol::CustomSolution) = length(sol.sol)
 Base.lastindex(sol::CustomSolution, i::Int) = lastindex(sol.sol, i)
 Base.size(sol::CustomSolution) = size(sol.sol)
+Base.Matrix(sol::CustomSolution) = sol.sol
 
 """
     CustomMonteCarloProblem
@@ -181,7 +182,7 @@ function solve(prob::CustomMCBBProblem)
     sol = solve(prob.p, num_monte=prob.N_mc, rel_transient_time=prob.rel_transient_time)
     N_t = length(sol[1])
     N_dim = length(prob.p.prob.u0)
-    csol = CustomMCBBSolution(sol, prob.N_mc, N_t, N_dim, get_measure_dimensions(sol)..., (prob_i) -> solve(prob_iget))
+    csol = CustomMCBBSolution(sol, prob.N_mc, N_t, N_dim, get_measure_dimensions(sol)..., (prob_i) -> solve(prob_i))
     sort!(csol, prob)
     return csol
 end
