@@ -1,4 +1,5 @@
 # This file contains functions concerning the setup of a custom problem type for systems that can't be solved with DifferentialEquations.jl as a backend
+using Distributed
 using DifferentialEquations
 import DifferentialEquations.solve # this needs to be directly importet in order to extend it with our own solve() for our own problem struct
 
@@ -88,11 +89,10 @@ TO-DO: parallelization!!!!
 """
 function solve(prob::CustomMonteCarloProblem; num_monte::Int=100, rel_transient_time::Real=0.5)
 
-    sol = []
-    repeat = false
-    for istep=1:num_monte
+    #sol = []
+    sol = @sync @distributed (vcat) for istep=1:num_monte
 
-        sol_i = solve(prob.prob_func(prob.prob, istep, repeat))
+        sol_i = solve(prob.prob_func(prob.prob, istep, false))
         (___, N_t) = size(sol_i)
 
         transient_time = Int(round(rel_transient_time * N_t))
@@ -103,8 +103,10 @@ function solve(prob::CustomMonteCarloProblem; num_monte::Int=100, rel_transient_
         if res_i[2]
             error("Problem signals 'repeat', but 'repeat' is not yet supported!")
         end
-        push!(sol, res_i[1])
+        #push!(sol, res_i[1])
+        res_i[1]
     end
+
     return sol
 end
 
