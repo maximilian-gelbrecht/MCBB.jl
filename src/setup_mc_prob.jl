@@ -434,7 +434,7 @@ function normalize(sol::DEMCBBSol, k::AbstractArray)
         end
     end
 
-    sol_new = DEMCBBSol(new_mc_sol, sol.N_mc, sol.N_t, sol.N_dim, sol.N_meas, sol.N_meas_dim, sol.N_meas_global)
+    sol_new = DEMCBBSol(new_mc_sol, sol.N_mc, sol.N_t, sol.N_dim, sol.N_meas, sol.N_meas_dim, sol.N_meas_global, sol.solve_command)
 end
 normalize(sol::DEMCBBSol) = normalize(sol, 1:sol.N_meas)
 
