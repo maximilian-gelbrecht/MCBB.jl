@@ -1,6 +1,8 @@
 # This file contains functions concerning the setup of a custom problem type for systems that can't be solved with DifferentialEquations.jl as a backend
 using Distributed
 using DifferentialEquations
+import LinearAlgebra.normalize
+
 import DifferentialEquations.solve # this needs to be directly importet in order to extend it with our own solve() for our own problem struct
 
 """
@@ -216,3 +218,35 @@ struct CustomMCBBSolution <: MCBBSol
     N_meas_global::Int
     solve_command::Function
 end
+
+"""
+    normalize(sol::CustomMCBBSol, k::AbstractArray)
+
+Returns a copy of `sol` with the solutions normalized to be in range [0,1]. It is possible to only select that some of the measures are normalized by providing an array with the indices of the measures that should be normalized, e.g. `[1,2]` for measure 1 and measure 2 to be normalized.
+
+    normalize(sol::DEMCBBSol)
+
+If no extra array is provided, all measures are normalized.
+"""
+function normalize(sol::CustomMCBBSol, k::AbstractArray)
+    N_meas = length(k)
+    max_meas = zeros(sol.N_meas)
+    min_meas = zeros(sol.N_meas)
+    meas_ranges = zeros(sol.N_meas)
+    for i in k
+        meas_tmp = get_measure(sol, i)
+        max_meas[i] = maximum(meas_tmp)
+        min_meas[i] = minimum(meas_tmp)
+    end
+    meas_ranges = max_meas .- min_meas
+
+    new_mc_sol = deepcopy(sol.sol)
+    for i_meas in k
+        for i_mc=1:sol.N_mc
+            new_mc_sol.u[i_mc][i_meas][:] = (sol.sol.u[i_mc][i_meas][:] .- min_meas[i_meas]) ./ meas_ranges[i_meas]
+        end
+    end
+
+    sol_new = DEMCBBSol(new_mc_sol, sol.N_mc, sol.N_t, sol.N_dim, sol.N_meas, sol.N_meas_dim, sol.N_meas_global, sol.solve_command)
+end
+normalize(sol::DEMCBBSol) = normalize(sol, 1:sol.N_meas)
