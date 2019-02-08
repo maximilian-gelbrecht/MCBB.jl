@@ -228,7 +228,7 @@ Returns a copy of `sol` with the solutions normalized to be in range [0,1]. It i
 
 If no extra array is provided, all measures are normalized.
 """
-function normalize(sol::CustomMCBBSol, k::AbstractArray)
+function normalize(sol::CustomMCBBSolution, k::AbstractArray)
     N_meas = length(k)
     max_meas = zeros(sol.N_meas)
     min_meas = zeros(sol.N_meas)
@@ -247,6 +247,6 @@ function normalize(sol::CustomMCBBSol, k::AbstractArray)
         end
     end
 
-    sol_new = DEMCBBSol(new_mc_sol, sol.N_mc, sol.N_t, sol.N_dim, sol.N_meas, sol.N_meas_dim, sol.N_meas_global, sol.solve_command)
+    sol_new = CustomMCBBSolution(new_mc_sol, sol.N_mc, sol.N_t, sol.N_dim, sol.N_meas, sol.N_meas_dim, sol.N_meas_global, sol.solve_command)
 end
-normalize(sol::DEMCBBSol) = normalize(sol, 1:sol.N_meas)
+normalize(sol::CustomMCBBSolution) = normalize(sol, 1:sol.N_meas)
