@@ -88,7 +88,7 @@ function distance_matrix_histogram(sol::myMCSol, pars::AbstractArray, distance_f
     hist_edges = []
     for i_meas=1:sol.N_meas_dim
         data_i = get_measure(sol, i_meas)
-        flat_array = collect(Iterators.flatten(get_measure(sol,1)))
+        flat_array = collect(Iterators.flatten(data_i))
 
         # we use double the freedman-draconis rule because we are calculationg the IQR
         # and max/min from _all_ values
@@ -204,6 +204,47 @@ function cluster_measures(prob::myMCProblem, sol::myMCSol, clusters::DbscanResul
         cluster_measures_global[:,i_meas - N_meas_dim,[Colon() for i=1:N_par]...] =  c_temp[:,1,[Colon() for i=1:N_par]...]
     end
     (p_windows, cluster_measures, cluster_measures_global)
+end
+
+"""
+NOT YET FINISHED
+"""
+function cluster_measures_sliding_histograms(prob::myMCProblem, sol::myMCSol, clusters::DbscanResult, i::Int, window_size::Number, window_offset::Number)
+
+
+    N_cluster = length(clusters.seeds) + 1  # plus 1 -> plus "noise cluster" / not clustered points
+    ca = clusters.assignments
+    N = length(ca)
+    N_par = length(ParameterVar(prob))
+
+    N_windows, windows_mins = _sliding_window_parameter(prob, window_size, window_offset)
+
+    measure = get_measure(sol, i)
+    # histograms common binning with freedman-draconiss
+
+    flat_array = collect(Iterators.flatten(measure))
+    # we use double the freedman-draconis rule because we are calculationg the IQR
+    # and max/min from _all_ values
+    bin_width = (4. *iqr(flat_array))/(sol.N_mc^(1/3.))
+    minval = minimum(flat_array)
+    maxval = maximum(flat_array)
+
+    hist_edges = (minval-bin_width/2.):bin_width:(maxval+bin_width/2.)
+
+    for (ip,ic) in zip(Iterators.product(windows_mins...),CartesianIndices(zeros(Int,N_windows...)))
+
+        par_ind = ones(Bool, prob.N_mc)
+        for i_par in 1:N_par
+            par_ind = par_ind .& ((parameter(prob,i_par) .> ip[i_par]) .& (parameter(prob,i_par) .< (ip[i_par] + window_size[i_par])))
+        end
+
+        window_ca = ca[par_ind]
+        par_ind_numbers = findall(par_ind)
+    end
+
+    # cluster_meas
+
+
 end
 
 """
