@@ -265,7 +265,7 @@ end
 """
     MCBBSol <: myMCSol
 
-Abstract type of [`DEMCBBSol`](@ref) (using DifferentialEquations.jl as a backend) and [`CustomMCBBSol`](@ref) (using customized `solve` and problem functions).
+Abstract type of [`DEMCBBSol`](@ref) (using DifferentialEquations.jl as a backend) and [`CustomMCBBSolution`](@ref) (using customized `solve` and problem functions).
 """
 abstract type MCBBSol <: myMCSol end
 

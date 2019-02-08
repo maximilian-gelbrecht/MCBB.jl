@@ -58,6 +58,8 @@ The results are sorted by parameter value, [`show_results`](@ref) shows only res
 
 [`normalize(sol:DEMCBBSol)`](@ref) normalized the results so that all measures are within the range $[0,1]$.
 
+## Cluster Membership
+
 ```julia
 D_k = distance_matrix(kosol, ko_mcp, [1.,0.75,0.,0,1.]); # no weight on the order_parameter and kl div
 db_eps = 110 # we found that value by scanning manually
@@ -70,6 +72,8 @@ ax[:spines]["right"][:set_visible](false);
 ```
 
 ![Kuramato Membership Diagram](img/output_4_0.png)
+
+## Plot Measures
 
 * plot one of the measures dependend on the parameter with [`get_measure`](@ref) gets the $k$-th measure. In this case the order is [mean, std, kl-div, order parameter]
 * get the parameter array with `parameter(prob::BifMCProblem)`
@@ -102,6 +106,8 @@ ylabel("Mean");
 ![Kuramoto Mean](img/output_8_0.png)
 
 In this plot we already see the onset of the synchronization.
+
+## Cluster Measures
 
 We can restrict this analysis to single clusters as well.
 
@@ -148,6 +154,8 @@ print(cluster_ms[3,1,:])
 ```
     Means of the 3rd cluster: [29.4609, 29.4524, 29.4574, 29.4589, 29.4585, 29.4609, 29.4593, 29.4607, 31.5164, 29.4558, 27.5155, 29.4559, 29.4578, 29.4578, 29.4576, 29.4582, 31.7665, 29.4609, 29.4653, 29.595]
 
+## Single Trajectories
+
 With the method [`get_trajectory`](@ref) we can get the full trajectory of an example trial within a certain cluster. This can help us get a further impression of the nature of the trajectories inside the cluster.
 
 ```julia
@@ -165,6 +173,23 @@ For the zeroth/Noise cluster we see an unordered system
 and for the second cluster we see a synchronized system (except for one oscillator that is disconnected in this particular random network)
 
 ![Kuramoto Ordered Example](img/kura_ordered.png)
+
+## Cluster Measure Histograms
+
+It is also possible to show how the histograms of a measure on a sliding window. [`cluster_measures_sliding_histograms`](@ref) does just that. It returns for each cluster and for each window a histogram of a measure of your choice.
+
+```julia
+(hist_vals, wins, hist_bins) = cluster_measures_sliding_histograms(ko_mcp, kosol, db_res, 1, 0.25, 0.125)
+PCP = pcolor(wins[1], hist_bins, collect(hist_vals[1,:,:]'))
+```
+
+![Kuramoto Cluster 1](img/kura_hists_cluster1.png)
+
+For the synchronized state the means are in a narrow band and outside of these band they are no values, while for the unordered cluster the means have a broad distribution.
+
+![Kuramoto Cluster 2](img/kura_hists_cluster2.png)
+
+## Cluster Initial Conditions 
 
 [`ClusterICSpaces`](@ref) enables us to analyse which initial conditions lead to the different clusters.
 The ``struct`` is constructed with [`ClusterICSpaces`](@ref). Additional parameter bounds can be provided to rescrict the analysis to the specified parameter range. It returns the [`ClusterICSpaces`](@ref)-struct with the fields:

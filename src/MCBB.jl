@@ -45,6 +45,7 @@ export ParameterVar, ParameterVarArray, ParameterVarFunc, OneDimParameterVar, Mu
 export MCBBProblem, MCBBSol
 export CustomProblem, CustomSolution, CustomMonteCarloProblem, CustomMCBBSolution, CustomMCBBProblem
 export get_trajectory
+export cluster_measures_sliding_histograms
 export distance_matrix_histogram, wasserstein_histogram_distance, ecdf_hist
 export stuart_landau_sathiyadevi_pars, stuart_landau_sathiyadevi!
 # Contains example systems

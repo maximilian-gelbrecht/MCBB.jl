@@ -1,7 +1,6 @@
 using DifferentialEquations
 using Parameters
 import DifferentialEquations.solve
-import DifferentialEquations.problem_new_parameters
 
 """
     ContinuationProblem <: myMCProblem

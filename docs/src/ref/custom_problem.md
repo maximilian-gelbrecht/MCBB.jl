@@ -9,4 +9,5 @@ CustomMonteCarloProblem
 solve(prob::CustomMCBBProblem)
 CustomMCBBProblem
 CustomMCBBSolution
+normalize(sol::CustomMCBBSolution, k::AbstractArray)
 ```

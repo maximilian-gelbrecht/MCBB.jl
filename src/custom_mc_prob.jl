@@ -220,7 +220,7 @@ struct CustomMCBBSolution <: MCBBSol
 end
 
 """
-    normalize(sol::CustomMCBBSol, k::AbstractArray)
+    normalize(sol::CustomMCBBSolution, k::AbstractArray)
 
 Returns a copy of `sol` with the solutions normalized to be in range [0,1]. It is possible to only select that some of the measures are normalized by providing an array with the indices of the measures that should be normalized, e.g. `[1,2]` for measure 1 and measure 2 to be normalized.
 

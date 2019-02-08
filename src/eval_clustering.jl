@@ -207,10 +207,33 @@ function cluster_measures(prob::myMCProblem, sol::myMCSol, clusters::DbscanResul
 end
 
 """
-NOT YET FINISHED
-"""
-function cluster_measures_sliding_histograms(prob::myMCProblem, sol::myMCSol, clusters::DbscanResult, i::Int, window_size::Number, window_offset::Number)
+    cluster_measures_sliding_histograms(prob::myMCProblem, sol::myMCSol, clusters::DbscanResult, i_meas::Int, window_size::Number, window_offset::Number; k_bin::Number=1)
 
+Calculates for each window in the sliding window array a histogram of all results of meausure `i_meas` of all runs seperatly for each cluster.
+
+Input:
+* `prob::myMCProblem`: problem
+* `sol::myMCSol`: solution object
+* `clusters::DbscanResult`: cluster results
+* `i_meas::Int`: index of the measure to be analyzed
+* `window_size::AbstractArray`: size of the window, number or Array with length according to the number of parameters
+* `window_offset::AbstractArray`: size of the window, number or Array with length according to the number of parameters
+* `k_bin::Number`: Bin Count Modifier. `k_bin`-times the Freedman Draconis rule is used for binning the data. Default: 1
+
+Returns tuple with:
+* `hist_vals`: N_cluster, N_windows..., N_bins - sized array with the value of the histograms for each window
+* `window_mins`: left corner of the sliding windows, "x-axis-labels" of the plot
+* `hist_bins`: center of the bins, "y-axis-label" of the plot
+
+# Example Plot
+
+    using PyPlot
+    (vals, wins, edges) = cluster_measures_sliding_histograms(prob, sol, cluster_res, 1, 0.05, 0.05)
+    PCP = pcolor(wins[1], hist_bins, collect(vals[1,:,:]'))
+    cb = colorbar(PCP)
+
+"""
+function cluster_measures_sliding_histograms(prob::myMCProblem, sol::myMCSol, clusters::DbscanResult, i_meas::Int, window_size::AbstractArray, window_offset::AbstractArray; k_bin::Number=1)
 
     N_cluster = length(clusters.seeds) + 1  # plus 1 -> plus "noise cluster" / not clustered points
     ca = clusters.assignments
@@ -219,19 +242,29 @@ function cluster_measures_sliding_histograms(prob::myMCProblem, sol::myMCSol, cl
 
     N_windows, windows_mins = _sliding_window_parameter(prob, window_size, window_offset)
 
-    measure = get_measure(sol, i)
-    # histograms common binning with freedman-draconiss
+    measure = get_measure(sol, i_meas)
 
+    # histograms common binning with freedman-draconis
     flat_array = collect(Iterators.flatten(measure))
     # we use double the freedman-draconis rule because we are calculationg the IQR
     # and max/min from _all_ values
-    bin_width = (4. *iqr(flat_array))/(sol.N_mc^(1/3.))
+    bin_width = (2. *k_bin *iqr(flat_array))/(sol.N_mc^(1/3.))
     minval = minimum(flat_array)
     maxval = maximum(flat_array)
-
     hist_edges = (minval-bin_width/2.):bin_width:(maxval+bin_width/2.)
+    N_bins = length(hist_edges) - 1
 
-    for (ip,ic) in zip(Iterators.product(windows_mins...),CartesianIndices(zeros(Int,N_windows...)))
+    # these are the values
+    hist_vals = zeros(N_cluster, N_windows..., N_bins)
+
+    # cluster masks
+    cluster_masks = zeros(Bool, (N_cluster, N))
+    for i_cluster=0:(N_cluster - 1)
+        cluster_masks[i_cluster+1,:] .= (ca .== i_cluster)
+    end
+
+
+    for (ip,ic) in zip(Iterators.product(windows_mins...), CartesianIndices(zeros(Int,N_windows...)))
 
         par_ind = ones(Bool, prob.N_mc)
         for i_par in 1:N_par
@@ -240,12 +273,22 @@ function cluster_measures_sliding_histograms(prob::myMCProblem, sol::myMCSol, cl
 
         window_ca = ca[par_ind]
         par_ind_numbers = findall(par_ind)
+        # fit histogram for each window slice
+
+        for i_cluster=1:N_cluster
+            cluster_ind = (par_ind .& cluster_masks[i_cluster,:])
+            cluster_data = collect(Iterators.flatten(measure[cluster_ind, :]))
+            if length(cluster_data)==0
+                hist_vals[i_cluster, ic,  :] .= NaN
+            else
+                hist_i = normalize(fit(Histogram, cluster_data, hist_edges, closed=:left))
+                hist_vals[i_cluster, ic, :] = hist_i.weights
+            end
+        end
     end
-
-    # cluster_meas
-
-
+    (hist_vals, windows_mins, collect(hist_edges))
 end
+cluster_measures_sliding_histograms(prob::myMCProblem, sol::myMCSol, clusters::DbscanResult, i_meas::Int, window_size::Number, window_offset::Number; k_bin::Number=1) = cluster_measures_sliding_histograms(prob, sol, clusters, i_meas, [window_size], [window_offset], k_bin=k_bin)
 
 """
     ClusterICSpaces
