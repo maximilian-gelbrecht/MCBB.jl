@@ -243,7 +243,7 @@ function normalize(sol::CustomMCBBSolution, k::AbstractArray)
     new_mc_sol = deepcopy(sol.sol)
     for i_meas in k
         for i_mc=1:sol.N_mc
-            new_mc_sol.u[i_mc][i_meas][:] = (sol.sol.u[i_mc][i_meas][:] .- min_meas[i_meas]) ./ meas_ranges[i_meas]
+            new_mc_sol[i_mc][i_meas][:] = (sol.sol[i_mc][i_meas][:] .- min_meas[i_meas]) ./ meas_ranges[i_meas]
         end
     end
 
