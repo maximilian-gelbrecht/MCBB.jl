@@ -631,7 +631,7 @@ Solves and returns a trajectory that is classified in cluster `i`. Randomly sele
 Plot with e.g
 
     using PyPlot
-    IM = imshow(Matrix(get_trajectory(prob,sol,db_res,1), aspect=2)
+    IM = imshow(Matrix(get_trajectory(prob,sol,db_res,1)), aspect=2)
     ylabel("System Dimension i")
     xlabel("Time t")
     cb = colorbar(IM, orientation="horizontal")
