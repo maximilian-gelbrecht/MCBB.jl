@@ -98,11 +98,21 @@ function distance_matrix_histogram(sol::myMCSol, pars::AbstractArray, distance_f
 
         push!(hist_edges,(minval-bin_width/2.):bin_width:(maxval+bin_width/2.))
     end
-    for i=1:sol.N_mc
-        for j=i+1:sol.N_mc
-            for i_meas=1:sol.N_meas_dim
-                mat_elements[i,j] += weights[i_meas]*histogram_distance(normalize(fit(Histogram, sol.sol[i][i_meas], hist_edges[i_meas], closed=:left)), normalize(fit(Histogram, sol.sol[j][i_meas], hist_edges[i_meas], closed=:left)))
+    # do the measure loop first. this is more code, but less memory consuming as we will pre calculate the histograms
+    for i_meas=1:sol.N_meas_dim
+        weights = zeros((sol.N_mc, length(hist_edges[i_meas])-1))
+        for i=1:sol.N_mc
+            weights[i,:] = fit(Histogram, sol.sol[i][i_meas], hist_edges[i_meas], closed=:left).weights
+        end
+
+        for i=1:sol.N_mc
+            for j=i+1:sol.N_mc
+                mat_elements[i,j] += weights[i_meas]*histogram_distance(weights[i,:], weights[j,:], hist_edges[i_meas])
             end
+        end
+    end
+    for i=1:sol.N_mc
+        for j=1:sol.N_mc
             for i_meas=sol.N_meas_dim+1:sol.N_meas # global measures
                 mat_elements[i,j] += distance_func(weights[i_meas]*sol.sol[i][i_meas], weights[i_meas]*sol.sol[j][i_meas])
             end
@@ -118,23 +128,23 @@ distance_matrix_histogram(sol::myMCSol, par::AbstractArray, distance_func::Funct
 distance_matrix_histogram(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray) = distance_matrix_histogram(sol, parameter(prob), distance_func, weights, wasserstein_histogram_distance)
 
 """
-    wasserstein_histogram_distance(hist_1::Histogram, hist_2::Histogram)
+    wasserstein_histogram_distance(hist_1::AbstractArray{T}, hist_2::AbstractArray{T}, hist_edges::AbstractArray{T})
 
 One possible histogram distance for `distance_matrix_histogram` (also the default one). It calculates the 1-Wasserstein / Earth Movers Distance between the two histograms by first computing the ECDF and then computing the discrete integral
 
 ``\\int_{-\\inf}^{+inf}|ECDF(hist\\_1) - ECDF(hist\\_2)| dx = \\sum_i | ECDF(hist\\_1)_i - ECDF(hist\\_2)_i | \\cdot bin\\_width``.
 
-Returns a single (real) number.
+Returns a single (real) number. The input is the weight vector/list of a histogram
 
 Adopted from [`https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.wasserstein_distance.html`](@ref)
 """
-function wasserstein_histogram_distance(hist_1::Histogram, hist_2::Histogram)
+function wasserstein_histogram_distance(hist_1::AbstractArray{T}, hist_2::AbstractArray{T}, hist_edges::AbstractArray{T}) where {T}
     # calculate ecdf from hist
     ecdf_1 = ecdf_hist(hist_1)
     ecdf_2 = ecdf_hist(hist_2)
-    deltas = Float64(hist_1.edges[1].step)
+    delta = hist_edges[2] - hist_edges[1]
     # as the binning is same for both histograms, we can caluclate the distance simply by the discrete integral over the difference like this:
-    return sum(abs.(ecdf_1 .- ecdf_2) .* deltas)
+    return sum(abs.(ecdf_1 .- ecdf_2))*delta
 end
 
 """
@@ -142,8 +152,8 @@ end
 
 Returns the ECDF of a histogram (normalized) as an Array.
 """
-function ecdf_hist(hist::Histogram)
-    ecdfcum = cumsum(hist.weights)
+function ecdf_hist(hist::AbstractArray)
+    ecdfcum = cumsum(hist)
     return ecdfcum ./ ecdfcum[end]
 end
 
