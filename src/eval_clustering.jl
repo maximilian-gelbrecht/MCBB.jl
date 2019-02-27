@@ -104,7 +104,7 @@ function distance_matrix_histogram(sol::myMCSol, pars::AbstractArray, distance_f
     # do the measure loop first. this is more code, but less memory consuming as we will pre calculate the histograms
 
     for i_meas=1:sol.N_meas_dim
-        hist_weights = @time _compute_hist_weights(i_meas, sol, hist_edges, ecdf)
+        hist_weights = _compute_hist_weights(i_meas, sol, hist_edges, ecdf)
         for i=1:sol.N_mc
             for j=i+1:sol.N_mc
                 mat_elements[i,j] += weights[i_meas]*histogram_distance(hist_weights[i,:], hist_weights[j,:], bin_widths[i_meas])
