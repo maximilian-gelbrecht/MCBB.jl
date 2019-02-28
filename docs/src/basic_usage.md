@@ -151,6 +151,13 @@ ylabel("Order Parameter R");
 
 As we see the cluster membership diagram really shows the onset of the synchronization.
 
+## Distance Matrix/Metric
+
+The clustering is based on a suitable distance matrix. This calculation is performed with ['distance_matrix'](@ref). Naturally they are many ways how to define a distance matrix between the solutions. They are two main different variants in the library so far
+
+* Directly compute the difference between the individual values of the measures with a suitable norm. This is the default option (with an L1-norm used)
+* For each measure first compute a histogram or empirical CDF for each run and compare these with each other. For this purpose the keyword `histograms=true` needs to be set. This is recommended when investigating systems with many (more or less) identical subparts such as oscillator networks and the specific position/number of a single oscillator is not important. The default measure to compare the histograms is the 1-Wasserstein distance. 
+
 ## How-to define your own systems.
 
 ### System Functions
