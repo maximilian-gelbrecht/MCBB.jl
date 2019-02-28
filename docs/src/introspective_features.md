@@ -66,7 +66,8 @@ db_eps = 110 # we found that value by scanning manually
 db_res = dbscan(D_k,db_eps,4)
 cluster_members = cluster_membership(ko_mcp,db_res,0.2,0.05);
 ax = subplot(111)
-plot(cluster_members[1],cluster_members[2])
+lp = plot(cluster_members[1],cluster_members[2])
+legend(lp, ("Noise Cluster", "Cluster 1", "Cluster 2"))
 ax[:spines]["top"][:set_visible](false)
 ax[:spines]["right"][:set_visible](false);
 ```
@@ -189,7 +190,7 @@ For the synchronized state the means are in a narrow band and outside of these b
 
 ![Kuramoto Cluster 2](img/kura_hists_cluster2.png)
 
-## Cluster Initial Conditions 
+## Cluster Initial Conditions
 
 [`ClusterICSpaces`](@ref) enables us to analyse which initial conditions lead to the different clusters.
 The ``struct`` is constructed with [`ClusterICSpaces`](@ref). Additional parameter bounds can be provided to rescrict the analysis to the specified parameter range. It returns the [`ClusterICSpaces`](@ref)-struct with the fields:
