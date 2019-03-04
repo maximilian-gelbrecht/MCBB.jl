@@ -152,12 +152,25 @@ ylabel("Order Parameter R");
 
 As we see the cluster membership diagram really shows the onset of the synchronization.
 
+## Solution Object
+
+The solution object stores all the measures and some other information. [`Introspective Features`](@ref) in this manual goes into some more detail about it, but it is important to note that every of the measures are ordered in the following way:
+    * first: all per dimension measures in the same order as in the `eval_funcs` array (default: 1: mean, 2: SD, 3: KL-Div)
+    * then: all global measures
+    * optional: for routines that also incorporate the parameters, they are last in order.
+This order plays a role for all routines that work with one of the measures.
+
 ## Distance Matrix/Metric
 
-The clustering is based on a suitable distance matrix. This calculation is performed with ['distance_matrix'](@ref). Naturally they are many ways how to define a distance matrix between the solutions. They are two main different variants in the library so far
+The distance matrix calculation is one of these cases. When we assign the weights in the call to distance matrix, we have to adhere to this ordering. For the example above `[1.,0.75,0.,1.]` thus means: weight 1. on mean, 0.75 on SD, 0. on KL-Div and 1. on the parameter.
+The clustering is based on the distance matrix. Its calculation is performed with ['distance_matrix'](@ref). Naturally they are many ways how to define a distance matrix between the solutions. They are two main different variants in the library so far
 
 * Directly compute the difference between the individual values of the measures with a suitable norm. This is the default option (with an L1-norm used)
 * For each measure first compute a histogram or empirical CDF for each run and compare these with each other. For this purpose the keyword `histograms=true` needs to be set. This is recommended when investigating systems with many (more or less) identical subparts such as oscillator networks and the specific position/number of a single oscillator is not important. The default measure to compare the histograms is the 1-Wasserstein distance.
+
+## Clustering
+
+So far, we used mainly DBSCAN for the clustering. In principal, one can also use other clustering algorithms though. DBSCAN also returns a "Noise Cluster"/Outlier. In the standard julia implemenation this is Cluster "0", here for all routines the Outliers are Cluster "1" and all other clusters have the following ascending numbers. 
 
 ## How-to define your own systems.
 
