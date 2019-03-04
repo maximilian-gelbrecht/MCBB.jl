@@ -664,7 +664,7 @@ Plot with e.g
     cb[:ax][:set_xlabel]("Colorbar: Im(z)", rotation=0)
 """
 function get_trajectory(prob::MCBBProblem, sol::MCBBSol, clusters::DbscanResult, i::Int; only_sol::Bool=true)
-    i_sol = rand(findall(clusters.assignments .== i))
+    i_sol = rand(findall(clusters.assignments .== (i-1)))
     prob_i = prob.p.prob_func(prob.p.prob, i_sol, false)
     sol_i = sol.solve_command(prob_i)
     if only_sol
