@@ -365,7 +365,7 @@ function sort!(prob::MCBBProblem, i::Int=1)
         sortind = sortperm(p)
     end
     prob.ic[:,:] = prob.ic[sortind,:]
-    prob.par[:,:] = prob.ic[sortind,:]
+    prob.par[:,:] = prob.par[sortind,:]
 end
 
 """
