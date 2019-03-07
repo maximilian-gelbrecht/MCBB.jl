@@ -57,18 +57,17 @@ Default `eval_ode_run`, identical to the code above.
 
 # Continue Integration / Response Analysis
 
-     eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:Function,1}, global_eval_funcs::AbstractArray, failure_handling::Symbol, cyclic_setback::Bool, flag_past_measures::Bool, par_var::OneDimParameterVar, eps::Float64, par_bounds::AbstractArray, distance_func, parameter_weighted::Bool=true, relative_parameter_flag::Bool=false, N_t::Int=200, alg=nothing, debug::Bool=false; kwargs...)
+     eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:Function,1}, global_eval_funcs::AbstractArray, par_var::OneDimParameterVar, eps::Float64, par_bounds::AbstractArray, distance_matrix_func; failure_handling::Symbol=:None, cyclic_setback::Bool=false, flag_past_measures::Bool=false, N_t::Int=200, alg=nothing, debug::Bool=false, kwargs...)
 
 Evaluation function that continues each integration and computes the same measures for `par+eps` and `par-eps`. Returns the results of the usual `eval_ode_run` (all measures) and additionally the response of the distance function to the paramater increase/decrease.
 
 * `par_var`: `ParameterVar` struct, same as handed over to the problem type.
 * `eps`: Number, response at par+/-eps
-* `distance_func`: Same distance functions that will also be used for the later analysis/clustering
-* `paramater_weighted`: Should the distance be parameter weighted?
-* `relative_parameter_flag`: Should the parameter values be rescaled to [0,1]?
+* `distance_matrix_func`: Same distance matrix functions that will also be used for the later analysis/clustering, expected signature: `(sol::MCBBSol, prob::MCBBProblem) -> D::AbstractArray`, . Attension: if the weight vector is provided this version of the distance it needs to have one less element as the function later used before clustering because the result of the response analysis is an additional measure. 
 * `N_t`: Time steps for the continued integration
 * `alg`: Algorithm for `solve()`
 * `debug`: If true, also returns the DifferentialEquations problem solved for the continuation.
+* all further keyword arguments will be handed over to `solve(prob::DEMCBBProblem, ...)`
 """
 function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::AbstractArray, global_eval_funcs::AbstractArray; failure_handling::Symbol=:None, cyclic_setback::Bool=false, replace_inf=nothing, flag_past_measures=false)
     N_dim = length(sol.prob.u0)
@@ -175,7 +174,7 @@ end
 
 # evaluation function that also includes a response analysis with a contiuation of the integration
 # it records the differnce in Distance of the measures chosen thus each time recording a pair = 1(dp,dD)
-function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:Function,1}, global_eval_funcs::AbstractArray, failure_handling::Symbol, cyclic_setback::Bool, flag_past_measures::Bool, par_var::OneDimParameterVar, eps::Float64, par_bounds::AbstractArray, distance_func, parameter_weighted::Bool=true, relative_parameter_flag::Bool=false, N_t::Int=200, alg=nothing, debug::Bool=false; kwargs...)
+function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:Function,1}, global_eval_funcs::AbstractArray, par_var::OneDimParameterVar, eps::Float64, par_bounds::AbstractArray, distance_matrix_func; failure_handling::Symbol=:None, cyclic_setback::Bool=false, flag_past_measures::Bool=false, N_t::Int=200, alg=nothing, debug::Bool=false, kwargs...)
 
     N_dim = length(sol.prob.u0)
     probi = sol.prob
@@ -183,8 +182,8 @@ function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:
     meas_1 = eval_ode_run(sol, i, state_filter, eval_funcs, global_eval_funcs; failure_handling=failure_handling, cyclic_setback=cyclic_setback)
 
     # we define a new MonteCarloProblem, so that we can reuse all the other old code. it has only three problems to solve, (p - eps, p, p+eps) for a relativly short integration time.
-    ic = zeros((3,N_dim+1))
-    par = zeros((3,1))
+    ic = zeros(eltype(sol),3,N_dim)
+    par = zeros(eltype(sol),3,1)
     # new IC is end point of last solution
     ic[1,:] = sol[end]
     ic[2,:] = sol[end]
@@ -211,13 +210,14 @@ function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:
 
     mcp = MonteCarloProblem(probi, prob_func=new_prob, output_func=(sol,i)->eval_ode_run(sol, i, state_filter, eval_funcs, global_eval_funcs; failure_handling=failure_handling, cyclic_setback=cyclic_setback, flag_past_measures=flag_past_measures))
     bamcp = DEMCBBProblem(mcp, 3, 0., ic, par, par_var) # 3 problems and no transient time
-    mcpsol = solve(bamcp, N_t=150, parallel_type=:none)
-
-    if parameter_weighted
-        D = distance_matrix(mcpsol, parameter(bamcp), distance_func, relative_parameter_flag)
+    if alg==nothing
+        mcpsol = solve(bamcp, N_t=N_t, parallel_type=:none, kwargs...)
     else
-        D = distance_matrix(mcpsol, distance_func, rel_par_flag)
+        mcpsol = solve(bamcp, alg, N_t=N_t, parallel_type=:none, kwargs...)
     end
+
+    D = distance_matrix_func(mcpsol, bamcp)
+
     # symmetric difference
     dD = (D[1,2] + D[2,3])/2.
     if debug
