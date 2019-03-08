@@ -61,3 +61,7 @@ $ cd /path/to/package/MCBB/docs/build/
 $ python3 -m http.server --bind localhost
 ```
 Afterwards in your browser go to `localhost:8000`.
+
+# TO-DO
+
+* Plot Recipes: So far, there are no plot recipes and all examples are for PyPlot. This is suboptimal and for a proper release, they should be plot recipes to make the plotting simpler 

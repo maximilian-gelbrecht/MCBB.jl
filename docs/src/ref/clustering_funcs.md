@@ -9,6 +9,8 @@ cluster_means(sol::myMCSol, clusters::DbscanResult)
 cluster_membership(par::AbstractArray, clusters::DbscanResult)
 cluster_membership(prob::myMCProblem, clusters::DbscanResult, window_size::AbstractArray, window_offset::AbstractArray, normalize::Bool=true)
 get_trajectory
+cluster_measure_mean
+cluster_measure_std
 cluster_measures
 cluster_measures_sliding_histograms
 ClusterICSpaces

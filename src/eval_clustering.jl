@@ -192,6 +192,37 @@ function cluster_means(sol::myMCSol, clusters::DbscanResult)
 end
 
 """
+    cluster_measure_mean(sol::myMCSol, clusters:DbscanResult, i::Int)
+
+Return the Mean of measure `i` for each cluster.
+"""
+function cluster_measure_mean(sol::myMCSol, clusters::DbscanResult, i::Int)
+    N_cluster = length(clusters.seeds)+1 # plus 1 -> plus "noise cluster" / not clustered points
+    measure_mean = zeros(N_cluster)
+    measure = get_measure(sol,i)
+    for i_cluster=1:N_cluster
+        measure_mean[i_cluster] = mean(measure[clusters.assignments.==(i_cluster-1),:])
+    end
+    measure_mean
+end
+
+"""
+    cluster_measure_std(sol::myMCSol, clusters:DbscanResult, i::Int)
+
+Return the std of measure `i` for each cluster.
+"""
+function cluster_measure_std(sol::myMCSol, clusters::DbscanResult, i::Int)
+    N_cluster = length(clusters.seeds)+1 # plus 1 -> plus "noise cluster" / not clustered points
+    measure_sd = zeros(N_cluster)
+    measure = get_measure(sol,i)
+    for i_cluster=1:N_cluster
+        measure_sd[i_cluster] = std(measure[clusters.assignments.==(i_cluster-1),:])
+    end
+    measure_sd
+end
+
+
+"""
      cluster_measures(prob::myMCProblem, sol::myMCSol, clusters::DbscanResult, window_size::AbstractArray, window_offset::AbstractArray)
      cluster_measures(prob::myMCProblem, sol::myMCSol, clusters::DbscanResult, window_size::Number, window_offset::Number)
 

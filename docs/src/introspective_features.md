@@ -112,6 +112,29 @@ In this plot we already see the onset of the synchronization.
 
 We can restrict this analysis to single clusters as well.
 
+With the methods ['cluster_measure_mean'](@ref) and ['cluster_measure_std'](@ref) get the means and stds of selected measures seperatly for each cluster. We can plot these with an errorbar plot to get an intuition into typical values of these measures for each cluster and how they differ from each other.
+
+```julia
+colororder = ["blue","orange","green","red","purple","brown","magenta","olive","cyan"]
+measure_1 = 1
+measure_2 = 2
+
+m1m = cluster_measure_mean(kosol, db_res, measure_1)
+m1sd = cluster_measure_std(kosol, db_res, measure_1)
+m2m = cluster_measure_mean(kosol, db_res, measure_2)
+m2sd = cluster_measure_std(kosol, db_res, measure_2)
+
+SC = scatter(m1m, m2m, c=colororder[1:length(m1m)])
+errorbar(m1m, m2m, fmt="o", ms=0,ecolor=colororder, xerr=0.005*m1sd, yerr=0.1*m2sd)
+legend(lp, ("Noise","2","3","4","5","6","7","8","9","10","11"))
+xlabel("Average Mean")
+ylabel("Average Std")
+```
+
+![Cluster Means and Stds](img/output_msk.png)
+
+In this case we scaled the error bars, as the Stds of the measures is much larger than the differences in the Average meausres. This is due to the fact that the Kuramoto oscillators are all oscillating relativly fast in this setup. It is important to note that for Cluster 3, the synchronous state, the Stds have a very small Std, meaning that almost all trials in this cluster have the same Std. This is clearly a strong indicator for a synchronous state. Cluster 2 and the noise cluster have only a slightly different average mean and std, if one would decrease the DBSCAN `\epsilon` parameter, they would probably be classified as only one cluster.
+
 The method [`cluster_measures`](@ref) gets the measure for each cluster seperately and applies a sliding window. The routine returns the parameter values of the sliding window, a ``N_{cluster}\times N_{measures}\times N_{dim}\times N_{windows}`` array for measures that are evalauted for every dimension and a ``N_{cluster}\times N_{measures}\times N_{windows}`` for global measures. For windiws in which the cluster has no members a `NaN` is returned. This is (in constrast to `missing` or `nothing`) compatible with most plotting routines. We should however always define common x-Limits for the plots because of this.
 
 ```julia
