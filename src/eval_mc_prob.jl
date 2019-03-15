@@ -63,7 +63,7 @@ Evaluation function that continues each integration and computes the same measur
 
 * `par_var`: `ParameterVar` struct, same as handed over to the problem type.
 * `eps`: Number, response at par+/-eps
-* `distance_matrix_func`: Same distance matrix functions that will also be used for the later analysis/clustering, expected signature: `(sol::MCBBSol, prob::MCBBProblem) -> D::AbstractArray`, . Attension: if the weight vector is provided this version of the distance it needs to have one less element as the function later used before clustering because the result of the response analysis is an additional measure. 
+* `distance_matrix_func`: Same distance matrix functions that will also be used for the later analysis/clustering, expected signature: `(sol::MCBBSol, prob::MCBBProblem) -> D::AbstractArray`, . Attension: if the weight vector is provided this version of the distance it needs to have one less element as the function later used before clustering because the result of the response analysis is an additional measure.
 * `N_t`: Time steps for the continued integration
 * `alg`: Algorithm for `solve()`
 * `debug`: If true, also returns the DifferentialEquations problem solved for the continuation.
@@ -179,7 +179,7 @@ function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:
     N_dim = length(sol.prob.u0)
     probi = sol.prob
 
-    meas_1 = eval_ode_run(sol, i, state_filter, eval_funcs, global_eval_funcs; failure_handling=failure_handling, cyclic_setback=cyclic_setback)
+    meas_1 = eval_ode_run(sol, i, state_filter, eval_funcs, global_eval_funcs; failure_handling=failure_handling, cyclic_setback=cyclic_setback, flag_past_measures=flag_past_measures)
 
     # we define a new MonteCarloProblem, so that we can reuse all the other old code. it has only three problems to solve, (p - eps, p, p+eps) for a relativly short integration time.
     ic = zeros(eltype(sol),3,N_dim)
