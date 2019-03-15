@@ -183,7 +183,7 @@ function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:
 
     # we define a new MonteCarloProblem, so that we can reuse all the other old code. it has only three problems to solve, (p - eps, p, p+eps) for a relativly short integration time.
     ic = zeros(eltype(sol),3,N_dim)
-    par = zeros(eltype(sol),3,1)
+    par = zeros(typeof(par_var.new_val(1)),3,1)
     # new IC is end point of last solution
     ic[1,:] = sol[end]
     ic[2,:] = sol[end]
@@ -193,6 +193,8 @@ function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:
     par[1,1] = getfield(probi.p, par_var.name) - eps
     par[2,1] = getfield(probi.p, par_var.name)
     par[3,1] = getfield(probi.p, par_var.name) + eps
+
+
     if par[1,1] < par_bounds[1]
         par[1,1] = par_bounds[1]
     end
