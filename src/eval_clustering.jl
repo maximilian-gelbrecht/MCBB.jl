@@ -16,11 +16,15 @@ Calculate the distance matrix between all individual solutions.
 * `relative_parameter`: If true, the paramater values during distance calcuation is rescaled to [0,1]
 * `histograms::Bool`: If true, the distance calculation is based on [`distance_matrix_histogram`](@ref) with the default histogram distance [`wasserstein_histogram_distance`](@ref).
 """
-function distance_matrix(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray; relative_parameter::Bool=false, histograms::Bool=false)
+function distance_matrix(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray; matrix_distance_func::Union{Function, Nothing}=nothing, relative_parameter::Bool=false, histograms::Bool=false)
 
     pars = parameter(prob)
     N_pars = length(ParameterVar(prob))
     par_c = copy(pars)
+
+    if (sol.N_meas_matrix!=0) & (matrix_distance_func==nothing)
+        error("There is a matrix measure in the solution but no distance func for it.")
+    end
 
     if relative_parameter
         for i_par=1:N_pars
@@ -33,24 +37,27 @@ function distance_matrix(sol::myMCSol, prob::myMCProblem, distance_func::Functio
     end
 
     if histograms
-        return distance_matrix_histogram(sol, par_c, distance_func, weights)
+        return distance_matrix_histogram(sol, par_c, distance_func, weights; matrix_distance_func=matrix_distance_func)
     else
         mat_elements = zeros((sol.N_mc, sol.N_mc))
 
         for i=1:sol.N_mc
             for j=i+1:sol.N_mc
-                for i_meas=1:sol.N_meas
-                    mat_elements[i,j] += distance_func(weights[i_meas]*sol.sol[i][i_meas], weights[i_meas]*sol.sol[j][i_meas])
+                for i_meas=1:sol.N_meas_dim+sol.N_meas_global
+                    mat_elements[i,j] += weights[i_meas]*distance_func(sol.sol[i][i_meas], sol.sol[j][i_meas])
+                end
+                for i_meas=sol.N_meas_dim+sol.N_meas_global+1:sol.N_meas
+                    mat_elements[i,j] += weights[i_meas]*matrix_distance_func(sol.sol[i][i_meas], sol.sol[j][i_meas])
                 end
                 for i_par=1:N_pars
-                    mat_elements[i,j] += distance_func(weights[sol.N_meas+i_par]*par_c[i,i_par], weights[sol.N_meas+i_par]*par_c[j,i_par])
+                    mat_elements[i,j] += weights[sol.N_meas+i_par]*distance_func(par_c[i,i_par], par_c[j,i_par])
                 end
             end
         end
         mat_elements += transpose(mat_elements)
     end
 end
-distance_matrix(sol::myMCSol, prob::myMCProblem, weights::AbstractArray; relative_parameter::Bool=false, histograms::Bool=false) = distance_matrix(sol, prob, (x,y)->sum(abs.(x .- y)), weights, relative_parameter=relative_parameter, histograms=histograms)
+distance_matrix(sol::myMCSol, prob::myMCProblem, weights::AbstractArray; relative_parameter::Bool=false, histograms::Bool=false) = distance_matrix(sol, prob, (x,y)->sum(abs.(x .- y)), weights; relative_parameter=relative_parameter, histograms=histograms)
 
 """
     distance_matrix_histogram(sol::myMCSol, pars::AbstractArray, distance_func::Function, weights::AbstractArray, histogram_distance::Function)
@@ -71,7 +78,7 @@ Inputs:
 * `histogram_distance`: The distance function between two histograms. Default is [`wasserstein_histogram_distance`](@ref).
 * `ecdf::Bool` if true the `histogram_distance` function gets the empirical cdfs instead of the histogram
 """
-function distance_matrix_histogram(sol::myMCSol, pars::AbstractArray, distance_func::Function, weights::AbstractArray, histogram_distance::Function; ecdf::Bool=true)
+function distance_matrix_histogram(sol::myMCSol, pars::AbstractArray{T}, distance_func, weights::AbstractArray{S}, histogram_distance::Function; matrix_distance_func::Union{Function, Nothing}=nothing, ecdf::Bool=true) where {T,S}
 
     mat_elements = zeros((sol.N_mc, sol.N_mc))
     if ndims(pars) == 2
@@ -81,8 +88,13 @@ function distance_matrix_histogram(sol::myMCSol, pars::AbstractArray, distance_f
     else
         error("parameter array has more than two dimensions.")
     end
+
     if length(weights)!=(sol.N_meas+N_pars)
         error("Amount of weights not the same as Measures + Parameters")
+    end
+
+    if (sol.N_meas_matrix!=0) & (matrix_distance_func==nothing)
+        error("There is a matrix measure in the solution but no distance func for it.")
     end
 
     # setup histogram edges for all histograms first, to be better comparible, they should be the same across all runs/trials
@@ -103,7 +115,7 @@ function distance_matrix_histogram(sol::myMCSol, pars::AbstractArray, distance_f
     end
     # do the measure loop first. this is more code, but less memory consuming as we will pre calculate the histograms
 
-    for i_meas=1:sol.N_meas_dim
+    for i_meas=1:sol.N_meas_dim # per dimension measures
         hist_weights = _compute_hist_weights(i_meas, sol, hist_edges, ecdf)
         for i=1:sol.N_mc
             for j=i+1:sol.N_mc
@@ -113,19 +125,24 @@ function distance_matrix_histogram(sol::myMCSol, pars::AbstractArray, distance_f
     end
     for i=1:sol.N_mc
         for j=1:sol.N_mc
-            for i_meas=sol.N_meas_dim+1:sol.N_meas # global measures
+            for i_meas=sol.N_meas_dim+1:sol.N_meas_dim+sol.N_meas_global # global measures
                 mat_elements[i,j] += distance_func(weights[i_meas]*sol.sol[i][i_meas], weights[i_meas]*sol.sol[j][i_meas])
             end
-            for i_par=1:N_pars
+            for i_meas=sol.N_meas_dim+sol.N_meas_global+1:sol.N_meas
+                mat_elements[i,j] += matrix_distance_func(weights[i_meas]*sol.sol[i][i_meas], weights[i_meas]*sol.sol[j][i_meas])
+            end
+            for i_par=1:N_pars # parameters
                 mat_elements[i,j] += distance_func(weights[sol.N_meas+i_par]*pars[i,i_par], weights[sol.N_meas+i_par]*pars[j,i_par])
             end
         end
     end
     mat_elements += transpose(mat_elements)
 end
-distance_matrix_histogram(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray, histogram_distance::Function) = distance_matrix_histogram(sol, parameter(prob), distance_func, weights, histogram_distance)
-distance_matrix_histogram(sol::myMCSol, par::AbstractArray, distance_func::Function, weights::AbstractArray) = distance_matrix_histogram(sol, par, distance_func, weights, wasserstein_histogram_distance)
-distance_matrix_histogram(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray) = distance_matrix_histogram(sol, parameter(prob), distance_func, weights, wasserstein_histogram_distance)
+distance_matrix_histogram(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray, histogram_distance::Function; matrix_distance_func::Union{Function, Nothing}=nothing) = distance_matrix_histogram(sol, parameter(prob), distance_func, weights, histogram_distance; matrix_distance_func=matrix_distance_func)
+
+distance_matrix_histogram(sol::myMCSol, par::AbstractArray, distance_func::Function, weights::AbstractArray; matrix_distance_func::Union{Function, Nothing}=nothing) = distance_matrix_histogram(sol, par, distance_func, weights, wasserstein_histogram_distance; matrix_distance_func=matrix_distance_func)
+
+distance_matrix_histogram(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray; matrix_distance_func::Union{Function, Nothing}=nothing) = distance_matrix_histogram(sol, parameter(prob), distance_func, weights, wasserstein_histogram_distance; matrix_distance_func=matrix_distance_func)
 
 """
     _compute_hist_weights(i_meas::Int, sol::myMCSol, hist_edges::AbstractArray, ecdf::Bool)
