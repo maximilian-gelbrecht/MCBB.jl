@@ -797,7 +797,7 @@ Custom solve for the `DEMCBBProblem`. Solves the `MonteCarloProblem`, but saves 
 """
 function solve(prob::DEMCBBProblem, alg=nothing, N_t=400::Int, parallel_type=:parfor; flag_check_inf_nan=true, custom_solve::Union{Function,Nothing}=nothing, sort_results=true, kwargs...)
     t_save = collect(tsave_array(prob.p.prob, N_t, prob.rel_transient_time))
-
+    
     if custom_solve!=nothing
         sol = custom_solve(prob, t_save)
         solve_i_command = nothing
