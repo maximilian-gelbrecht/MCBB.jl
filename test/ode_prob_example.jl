@@ -37,7 +37,7 @@ ko_sol = solve(ko_emcp, Rosenbrock23())
 # random + range
 ic_ranges = ()->rand(ic_dist)
 k_range = 1.:0.5:3.
-N_ics = 50
+N_ics = 20
 
 ko_emcp = DEMCBBProblem(rp, ic_ranges, N_ics, pars, (:K, k_range), my_eval_ode_run, tail_frac)
 ko_sol = solve(ko_emcp, Rosenbrock23())
