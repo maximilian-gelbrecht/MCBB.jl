@@ -17,7 +17,7 @@ ic = zeros(N)
 ic_dist = Uniform(-pi,pi)
 kdist = Uniform(0,10)
 pars = kuramoto_network_parameters(K, w_i_par, N, A)
-rp = ODEProblem(kuramoto_network, ic, (0.,50.), pars)
+rp = ODEProblem(kuramoto_network, ic, (0.,40.), pars)
 
 # range + range
 ic_ranges = [0.:0.5:1.5 for i=1:N]
@@ -32,7 +32,7 @@ function my_eval_ode_run(sol, i)
 end
 
 ko_emcp = DEMCBBProblem(rp, ic_ranges, pars, (:K, k_range), eval_ode_run, tail_frac)
-ko_sol = solve(ko_emcp)
+ko_sol = solve(ko_emcp, Rosenbrock23())
 
 # random + range
 ic_ranges = ()->rand(ic_dist)
@@ -40,13 +40,13 @@ k_range = 1.:0.5:3.
 N_ics = 50
 
 ko_emcp = DEMCBBProblem(rp, ic_ranges, N_ics, pars, (:K, k_range), my_eval_ode_run, tail_frac)
-ko_sol = solve(ko_emcp)
+ko_sol = solve(ko_emcp, Rosenbrock23())
 
 # define a random array
 ic_array = ()->rand(ic_dist, N)
 k_range = ()->rand(kdist)
 ko_emcp = DEMCBBProblem(rp, ic_ranges, N_ics, pars, (:K, k_range), eval_ode_run, tail_frac)
-ko_sol = solve(ko_emcp)
+ko_sol = solve(ko_emcp, Rosenbrock23())
 
 
 
@@ -56,7 +56,7 @@ ic_ranges = [()->rand(ic_dist)]
 k_range = (i)->rand(kdist)
 
 ko_emcp = DEMCBBProblem(rp, ic_ranges, N_ics, pars, (:K, k_range), eval_ode_run, tail_frac)
-ko_sol = solve(ko_emcp)
+ko_sol = solve(ko_emcp, Rosenbrock23())
 
 D = distance_matrix(ko_sol, ko_emcp, [1.,0.5,0.5,1], histograms=true);
 
