@@ -56,7 +56,7 @@ Default `eval_ode_run`, identical to the code above.
 
 # Continue Integration / Response Analysis
 
-     eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:Function,1}, global_eval_funcs::Union{AbstractArray, Nothing}, matrix_eval_funcs::Union{AbstractArray, Nothing}, par_var::OneDimParameterVar, eps::Float64, par_bounds::AbstractArray, distance_matrix_func; failure_handling::Symbol=:None, cyclic_setback::Bool=false, flag_past_measures::Bool=false, N_t::Int=200, alg=nothing, debug::Bool=false, kwargs...)
+     eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:Function,1}, global_eval_funcs::Union{AbstractArray, Nothing}, matrix_eval_funcs::Union{AbstractArray, Nothing}, par_var::OneDimParameterVar, eps::Float64, par_bounds::AbstractArray, distance_matrix_func; failure_handling::Symbol=:None, cyclic_setback::Bool=false, flag_past_measures::Bool=false, N_t::Int=200, alg=nothing, debug::Bool=false, return_pm::Bool, kwargs...)
 
 Evaluation function that continues each integration and computes the same measures for `par+eps` and `par-eps`. Returns the results of the usual `eval_ode_run` (all measures) and additionally the response of the distance function to the paramater increase/decrease.
 
@@ -223,7 +223,7 @@ function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:
     new_prob(baseprob, i, repeat) = remake(baseprob, u0=ic[i,:], tspan=new_tspan, p=par_var.new_par(probi.p; Dict(par_var.name => par[i,1])...))
 
     mcp = MonteCarloProblem(probi, prob_func=new_prob, output_func=(sol,i)->eval_ode_run(sol, i, state_filter, eval_funcs, global_eval_funcs, matrix_eval_funcs; failure_handling=failure_handling, cyclic_setback=cyclic_setback, flag_past_measures=flag_past_measures))
-    bamcp = DEMCBBProblem(mcp, 3, 0., ic, par, par_var) # 3 problems and no transient time
+    bamcp = DEMCBBProblem(mcp, 3, 0.1, ic, par, par_var) # 3 problems and no transient time
     if alg==nothing
         mcpsol = solve(bamcp, N_t=N_t, parallel_type=:none, kwargs...)
     else
@@ -474,7 +474,7 @@ end
 """
 correlation_ecdf(sol::AbstractArray, nbins::Int=30)
 
-Example function for `matrix_eval_funcs`. This routine calculates the absolute value of the Pearson correlation between the time series of all system dimensions and the ECDF of a histogram fitted to all of these values. It uses the same binning for all calculations with the edges calculated by `0:1. /nbins:1`. 
+Example function for `matrix_eval_funcs`. This routine calculates the absolute value of the Pearson correlation between the time series of all system dimensions and the ECDF of a histogram fitted to all of these values. It uses the same binning for all calculations with the edges calculated by `0:1. /nbins:1`.
 """
 correlation_ecdf(sol::AbstractArray, nbins::Int=30) = ecdf_hist(correlation_hist(sol, nbins))
 
