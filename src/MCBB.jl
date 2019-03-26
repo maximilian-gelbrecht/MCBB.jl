@@ -49,6 +49,7 @@ export get_trajectory
 export cluster_measures_sliding_histograms
 export distance_matrix_histogram, wasserstein_histogram_distance, ecdf_hist
 export stuart_landau_sathiyadevi_pars, stuart_landau_sathiyadevi!
+export BBCluster, BBClusterResult, bbcluster
 export correlation_hist, correlation, correlation_ecdf
 # Contains example systems
 include("systems.jl")
@@ -65,5 +66,6 @@ include("eval_clustering.jl")
 include("bif_analysis.jl")
 
 include("custom_mc_prob.jl")
+include("bbclustering.jl")
 
 end
