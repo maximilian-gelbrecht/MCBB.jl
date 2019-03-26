@@ -394,14 +394,19 @@ Return the results for the `k`-th measure as an array.
 """
 function get_measure(sol::MCBBSol, k::Int)
     if k <=  sol.N_meas_dim
-        arr = zeros((sol.N_mc,sol.N_dim))
+        arr = zeros(eltype(sol.sol[1][k]),(sol.N_mc,sol.N_dim))
         for i=1:sol.N_mc
             arr[i,:] = sol.sol[i][k]
         end
-    else
-        arr = zeros(sol.N_mc)
+    elseif k <= sol.N_meas_dim + sol.N_meas_global
+        arr = zeros(typeof(sol.sol[1][k]),sol.N_mc)
         for i=1:sol.N_mc
             arr[i] = sol.sol[i][k]
+        end
+    else
+        arr = zeros(eltype(sol.sol[1][k]),(sol.N_mc, size(sol.sol[1][k])...))
+        for i=1:sol.N_mc
+            arr[i,:,:] = sol.sol[i][k]
         end
     end
     arr
@@ -435,7 +440,7 @@ function normalize(sol::DEMCBBSol, k::AbstractArray)
         end
     end
 
-    sol_new = DEMCBBSol(new_mc_sol, sol.N_mc, sol.N_t, sol.N_dim, sol.N_meas, sol.N_meas_dim, sol.N_meas_global, sol.solve_command)
+    sol_new = DEMCBBSol(new_mc_sol, sol.N_mc, sol.N_t, sol.N_dim, get_measure_dimensions(sol)..., sol.solve_command)
 end
 normalize(sol::DEMCBBSol) = normalize(sol, 1:sol.N_meas)
 
@@ -852,6 +857,7 @@ function get_measure_dimensions(sol, N_dim)
     end
     (N_meas_dim + N_meas_global + N_meas_matrix, N_meas_dim, N_meas_global, N_meas_matrix)
 end
+get_measure_dimensions(sol::MCBBSol) = get_measure_dimensions(sol.sol, sol.N_dim)
 
 """
      tsave_array(prob, N_t::Int, rel_transient_time::Float64=0.7)

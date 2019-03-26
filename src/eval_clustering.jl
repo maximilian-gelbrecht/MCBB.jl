@@ -57,7 +57,7 @@ function distance_matrix(sol::myMCSol, prob::myMCProblem, distance_func::Functio
         mat_elements += transpose(mat_elements)
     end
 end
-distance_matrix(sol::myMCSol, prob::myMCProblem, weights::AbstractArray; relative_parameter::Bool=false, histograms::Bool=false) = distance_matrix(sol, prob, (x,y)->sum(abs.(x .- y)), weights; relative_parameter=relative_parameter, histograms=histograms)
+distance_matrix(sol::myMCSol, prob::myMCProblem, weights::AbstractArray; relative_parameter::Bool=false, histograms::Bool=false, matrix_distance_func::Union{Function, Nothing}=nothing) = distance_matrix(sol, prob, (x,y)->sum(abs.(x .- y)), weights; relative_parameter=relative_parameter, histograms=histograms, matrix_distance_func=matrix_distance_func)
 
 """
     distance_matrix_histogram(sol::myMCSol, pars::AbstractArray, distance_func::Function, weights::AbstractArray, histogram_distance::Function)
@@ -76,6 +76,7 @@ Inputs:
 * `distance_func`: The actual calculating the distance between the measures/parameters of each solution with each other. Signature should be `(measure_1::Union{Array,Number}, measure_2::Union{Array,Number}) -> distance::Number. Example and default is `(x,y)->sum(abs.(x .- y))`.
 * `weights`: Instead of the actual measure `weights[i_measure]*measure` is handed over to `distance_func`. Thus `weights` need to be ``N_{meas}+N_{par}`` long array.
 * `histogram_distance`: The distance function between two histograms. Default is [`wasserstein_histogram_distance`](@ref).
+* `matrix_distance_func`: The distance function between two matrices or arrays or length different from ``N_{dim}``. Used e.g. for Crosscorrelation.
 * `ecdf::Bool` if true the `histogram_distance` function gets the empirical cdfs instead of the histogram
 """
 function distance_matrix_histogram(sol::myMCSol, pars::AbstractArray{T}, distance_func, weights::AbstractArray{S}, histogram_distance::Function; matrix_distance_func::Union{Function, Nothing}=nothing, ecdf::Bool=true) where {T,S}
@@ -172,7 +173,7 @@ Returns a single (real) number. The input is the ecdf.
 
 Adopted from [`https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.wasserstein_distance.html`](@ref)
 """
-function wasserstein_histogram_distance(hist_1::AbstractArray{T}, hist_2::AbstractArray{T}, delta) where {T}
+function wasserstein_histogram_distance(hist_1::AbstractArray{T}, hist_2::AbstractArray{T}, delta=1) where {T}
     # calculate ecdf from hist
     #ecdf_1 = ecdf_hist(hist_1)
     #ecdf_2 = ecdf_hist(hist_2)
