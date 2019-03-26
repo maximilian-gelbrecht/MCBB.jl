@@ -67,6 +67,7 @@ Evaluation function that continues each integration and computes the same measur
 * `N_t`: Time steps for the continued integration
 * `alg`: Algorithm for `solve()`
 * `debug`: If true, also returns the DifferentialEquations problem solved for the continuation.
+* `return_pm`: If true, returns `D(p+dp)` AND `D(p-dp)`. If false returns the mean of these.
 * all further keyword arguments will be handed over to `solve(prob::DEMCBBProblem, ...)`
 """
 function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::AbstractArray, global_eval_funcs::AbstractArray; failure_handling::Symbol=:None, cyclic_setback::Bool=false, replace_inf=nothing, flag_past_measures=false)
@@ -174,7 +175,7 @@ end
 
 # evaluation function that also includes a response analysis with a contiuation of the integration
 # it records the differnce in Distance of the measures chosen thus each time recording a pair = 1(dp,dD)
-function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:Function,1}, global_eval_funcs::AbstractArray, par_var::OneDimParameterVar, eps::Float64, par_bounds::AbstractArray, distance_matrix_func; failure_handling::Symbol=:None, cyclic_setback::Bool=false, flag_past_measures::Bool=false, N_t::Int=200, alg=nothing, debug::Bool=false, kwargs...)
+function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:Function,1}, global_eval_funcs::AbstractArray, par_var::OneDimParameterVar, eps::Float64, par_bounds::AbstractArray, distance_matrix_func; failure_handling::Symbol=:None, cyclic_setback::Bool=false, flag_past_measures::Bool=false, N_t::Int=200, alg=nothing, debug::Bool=false, return_pm::Bool=true, kwargs...)
 
     N_dim = length(sol.prob.u0)
     probi = sol.prob
@@ -194,7 +195,6 @@ function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:
     par[2,1] = getfield(probi.p, par_var.name)
     par[3,1] = getfield(probi.p, par_var.name) + eps
 
-
     if par[1,1] < par_bounds[1]
         par[1,1] = par_bounds[1]
     end
@@ -204,11 +204,7 @@ function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:
 
     new_tspan = (probi.tspan[1],probi.tspan[1]+0.25*(probi.tspan[2]-probi.tspan[1]))
     #new_tspan = probi.tspan
-    function new_prob(baseprob, i, repeat)
-        n_prob = remake(baseprob, u0=ic[i,:])
-        n_prob = remake(n_prob, tspan=new_tspan)
-        custom_problem_new_parameters(n_prob, par_var.new_par(probi.p; Dict(par_var.name => par[i,1])...))
-    end
+    new_prob(baseprob, i, repeat) = remake(baseprob, u0=ic[i,:], tspan=new_tspan, p=par_var.new_par(probi.p; Dict(par_var.name => par[i,1])...))
 
     mcp = MonteCarloProblem(probi, prob_func=new_prob, output_func=(sol,i)->eval_ode_run(sol, i, state_filter, eval_funcs, global_eval_funcs; failure_handling=failure_handling, cyclic_setback=cyclic_setback, flag_past_measures=flag_past_measures))
     bamcp = DEMCBBProblem(mcp, 3, 0., ic, par, par_var) # 3 problems and no transient time
@@ -221,11 +217,15 @@ function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:
     D = distance_matrix_func(mcpsol, bamcp)
 
     # symmetric difference
-    dD = (D[1,2] + D[2,3])/2.
-    if debug
-        (tuple(meas_1[1]...,dD,[bamcp]),false)
+    if return_pm
+        dD = [D[1,2], D[2,3]]
     else
-        (tuple(meas_1[1]...,dD),false)
+        dD = [(D[1,2] + D[2,3])/2.]
+    end
+    if debug
+        (tuple(meas_1[1]...,dD...,[bamcp]),false)
+    else
+        (tuple(meas_1[1]...,dD...),false)
     end
 end
 
