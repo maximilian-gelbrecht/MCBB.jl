@@ -193,11 +193,11 @@ end
 
 
 """
-    cluster_means(sol::myMCSol, clusters::DbscanResult)
+    cluster_means(sol::myMCSol, clusters::ClusteringResult)
 
 Returns the mean of each measure for each cluster.
 """
-function cluster_means(sol::myMCSol, clusters::DbscanResult)
+function cluster_means(sol::myMCSol, clusters::ClusteringResult)
     N_cluster = length(clusters.seeds)+1 # plus 1 -> plus "noise cluster" / not clustered points
     N_dim = sol.N_dim
     mean_measures = zeros((N_cluster,sol.N_meas_dim,N_dim))
@@ -210,11 +210,11 @@ function cluster_means(sol::myMCSol, clusters::DbscanResult)
 end
 
 """
-    cluster_measure_mean(sol::myMCSol, clusters:DbscanResult, i::Int)
+    cluster_measure_mean(sol::myMCSol, clusters:ClusteringResult, i::Int)
 
 Return the Mean of measure `i` for each cluster.
 """
-function cluster_measure_mean(sol::myMCSol, clusters::DbscanResult, i::Int)
+function cluster_measure_mean(sol::myMCSol, clusters::ClusteringResult, i::Int)
     N_cluster = length(clusters.seeds)+1 # plus 1 -> plus "noise cluster" / not clustered points
     measure_mean = zeros(N_cluster)
     measure = get_measure(sol,i)
@@ -225,11 +225,11 @@ function cluster_measure_mean(sol::myMCSol, clusters::DbscanResult, i::Int)
 end
 
 """
-    cluster_measure_std(sol::myMCSol, clusters:DbscanResult, i::Int)
+    cluster_measure_std(sol::myMCSol, clusters:ClusteringResult, i::Int)
 
 Return the std of measure `i` for each cluster.
 """
-function cluster_measure_std(sol::myMCSol, clusters::DbscanResult, i::Int)
+function cluster_measure_std(sol::myMCSol, clusters::ClusteringResult, i::Int)
     N_cluster = length(clusters.seeds)+1 # plus 1 -> plus "noise cluster" / not clustered points
     measure_sd = zeros(N_cluster)
     measure = get_measure(sol,i)
@@ -241,8 +241,8 @@ end
 
 
 """
-     cluster_measures(prob::myMCProblem, sol::myMCSol, clusters::DbscanResult, window_size::AbstractArray, window_offset::AbstractArray)
-     cluster_measures(prob::myMCProblem, sol::myMCSol, clusters::DbscanResult, window_size::Number, window_offset::Number)
+     cluster_measures(prob::myMCProblem, sol::myMCSol, clusters::ClusteringResult, window_size::AbstractArray, window_offset::AbstractArray)
+     cluster_measures(prob::myMCProblem, sol::myMCSol, clusters::ClusteringResult, window_size::Number, window_offset::Number)
 
 Calculated the measures for each cluster along a sliding window. Can also handle multiple parameters being varied.
 
@@ -257,8 +257,8 @@ Returns a tuple with:
 * `cluster_measures`: (per dimension) measures on the parameter grid
 * `cluster_measures_global`: global measures on the parameter grid
 """
-cluster_measures(prob::myMCProblem, sol::myMCSol, clusters::DbscanResult, window_size::Number, window_offset::Number) = cluster_measures(prob, sol, clusters, [window_size], [window_offset])
-function cluster_measures(prob::myMCProblem, sol::myMCSol, clusters::DbscanResult, window_size::AbstractArray, window_offset::AbstractArray)
+cluster_measures(prob::myMCProblem, sol::myMCSol, clusters::ClusteringResult, window_size::Number, window_offset::Number) = cluster_measures(prob, sol, clusters, [window_size], [window_offset])
+function cluster_measures(prob::myMCProblem, sol::myMCSol, clusters::ClusteringResult, window_size::AbstractArray, window_offset::AbstractArray)
 
     N_dim = sol.N_dim
     N_meas_dim = sol.N_meas_dim
@@ -282,14 +282,14 @@ function cluster_measures(prob::myMCProblem, sol::myMCSol, clusters::DbscanResul
 end
 
 """
-    cluster_measures_sliding_histograms(prob::myMCProblem, sol::myMCSol, clusters::DbscanResult, i_meas::Int, window_size::Number, window_offset::Number; k_bin::Number=1)
+    cluster_measures_sliding_histograms(prob::myMCProblem, sol::myMCSol, clusters::ClusteringResult, i_meas::Int, window_size::Number, window_offset::Number; k_bin::Number=1)
 
 Calculates for each window in the sliding window array a histogram of all results of meausure `i_meas` of all runs seperatly for each cluster.
 
 Input:
 * `prob::myMCProblem`: problem
 * `sol::myMCSol`: solution object
-* `clusters::DbscanResult`: cluster results
+* `clusters::ClusteringResult`: cluster results
 * `i_meas::Int`: index of the measure to be analyzed
 * `window_size::AbstractArray`: size of the window, number or Array with length according to the number of parameters
 * `window_offset::AbstractArray`: size of the window, number or Array with length according to the number of parameters
@@ -308,7 +308,7 @@ Returns tuple with:
     cb = colorbar(PCP)
 
 """
-function cluster_measures_sliding_histograms(prob::myMCProblem, sol::myMCSol, clusters::DbscanResult, i_meas::Int, window_size::AbstractArray, window_offset::AbstractArray; k_bin::Number=1)
+function cluster_measures_sliding_histograms(prob::myMCProblem, sol::myMCSol, clusters::ClusteringResult, i_meas::Int, window_size::AbstractArray, window_offset::AbstractArray; k_bin::Number=1)
 
     N_cluster = length(clusters.seeds) + 1  # plus 1 -> plus "noise cluster" / not clustered points
     ca = clusters.assignments
@@ -363,7 +363,7 @@ function cluster_measures_sliding_histograms(prob::myMCProblem, sol::myMCSol, cl
     end
     (hist_vals, windows_mins, collect(hist_edges))
 end
-cluster_measures_sliding_histograms(prob::myMCProblem, sol::myMCSol, clusters::DbscanResult, i_meas::Int, window_size::Number, window_offset::Number; k_bin::Number=1) = cluster_measures_sliding_histograms(prob, sol, clusters, i_meas, [window_size], [window_offset], k_bin=k_bin)
+cluster_measures_sliding_histograms(prob::myMCProblem, sol::myMCSol, clusters::ClusteringResult, i_meas::Int, window_size::Number, window_offset::Number; k_bin::Number=1) = cluster_measures_sliding_histograms(prob, sol, clusters, i_meas, [window_size], [window_offset], k_bin=k_bin)
 
 """
     ClusterICSpaces
@@ -381,7 +381,7 @@ Fields of the struct:
 
 # Constructor
 
-    ClusterICSpaces(prob::myMCProblem, sol::myMCSol, clusters::DbscanResult; min_par::Number=-Inf, max_par::Number=Inf, nbins::Int64=20)
+    ClusterICSpaces(prob::myMCProblem, sol::myMCSol, clusters::ClusteringResult; min_par::Number=-Inf, max_par::Number=Inf, nbins::Int64=20)
 
 * `prob`: Problem
 * `sol`: solution of `prob`
@@ -399,7 +399,7 @@ struct ClusterICSpaces
     cross_dim_stds::AbstractArray
     cross_dim_skews::AbstractArray
 
-    function ClusterICSpaces(prob::myMCProblem, sol::myMCSol, clusters::DbscanResult; min_par::Number=-Inf, max_par::Number=Inf, nbins::Int64=20)
+    function ClusterICSpaces(prob::myMCProblem, sol::myMCSol, clusters::ClusteringResult; min_par::Number=-Inf, max_par::Number=Inf, nbins::Int64=20)
 
         if length(ParameterVar(prob))>1
             error("Not yet implemented for systems with more than one parameter")
@@ -479,11 +479,11 @@ struct ClusterICSpaces
 end
 
 """
-    cluster_n_noise(clusters::DbscanResult)
+    cluster_n_noise(clusters::ClusteringResult)
 
 Returns the number of points assignt to the "noise" cluster (somehow this is not automaticlly returned by the routine of Clustering.jl).
 """
-function cluster_n_noise(clusters::DbscanResult)
+function cluster_n_noise(clusters::ClusteringResult)
     count = 0
     for i=1:length(clusters.assignments)
         if clusters.assignments[i]==0
@@ -494,11 +494,11 @@ function cluster_n_noise(clusters::DbscanResult)
 end
 
 """
-    cluster_membership(par::AbstractArray, clusters::DbscanResult)
+    cluster_membership(par::AbstractArray, clusters::ClusteringResult)
 
 Calculates the proportion of members for each cluster for all parameter values.
 """
-function cluster_membership(par::AbstractArray, clusters::DbscanResult)
+function cluster_membership(par::AbstractArray, clusters::ClusteringResult)
     N_cluster = length(clusters.seeds) + 1  # plus 1 -> plus "noise cluster" / not clustered points
     ca = clusters.assignments
     N = length(ca)
@@ -519,13 +519,13 @@ end
 # this method uses a sliding window over the parameter axis.
 # should be used when parameters are randomly generated.
 # - normalize: normalize by number of parameters per window
-function cluster_membership(par::AbstractArray, clusters::DbscanResult, window_size::Number, window_offset::Number, normalize::Bool=true)
-    error("This used to be an old version of cluster_membership, please use cluster_membership(prob::myMCProb, clusters::DbscanResult, window_size, window_offset) now")
+function cluster_membership(par::AbstractArray, clusters::ClusteringResult, window_size::Number, window_offset::Number, normalize::Bool=true)
+    error("This used to be an old version of cluster_membership, please use cluster_membership(prob::myMCProb, clusters::ClusteringResult, window_size, window_offset) now")
 end
 
 """
-    cluster_membership(prob::myMCProblem, clusters::DbscanResult, window_size::AbstractArray, window_offset::AbstractArray, normalize::Bool=true)
-    cluster_membership(prob::myMCProblem, clusters::DbscanResult, window_size::Number, window_offset::Number, normalize::Bool=true)
+    cluster_membership(prob::myMCProblem, clusters::ClusteringResult, window_size::AbstractArray, window_offset::AbstractArray, normalize::Bool=true)
+    cluster_membership(prob::myMCProblem, clusters::ClusteringResult, window_size::Number, window_offset::Number, normalize::Bool=true)
 
 Calculates the proportion of members for each cluster within a parameter sliding window.
 
@@ -539,7 +539,7 @@ Returns a tuple with:
 * `parameter_windows`: the center value of the sliding windows, in case multiple parameter are being varied, it is a meshgrid.
 * `cluster_measures`: members of the clusters on the parameter grid
 """
-function cluster_membership(prob::myMCProblem, clusters::DbscanResult, window_size::AbstractArray, window_offset::AbstractArray, normalize::Bool=true)
+function cluster_membership(prob::myMCProblem, clusters::ClusteringResult, window_size::AbstractArray, window_offset::AbstractArray, normalize::Bool=true)
 
     N_cluster = length(clusters.seeds) + 1  # plus 1 -> plus "noise cluster" / not clustered points
     ca = clusters.assignments
@@ -577,7 +577,7 @@ function cluster_membership(prob::myMCProblem, clusters::DbscanResult, window_si
     # return
     (parameter_mesh, memberships)
 end
-cluster_membership(prob::myMCProblem, clusters::DbscanResult, window_size::Number, window_offset::Number, normalize::Bool=true) = cluster_membership(prob, clusters, [window_size], [window_offset], normalize)
+cluster_membership(prob::myMCProblem, clusters::ClusteringResult, window_size::Number, window_offset::Number, normalize::Bool=true) = cluster_membership(prob, clusters, [window_size], [window_offset], normalize)
 
 """
     measure_on_parameter_sliding_window
@@ -586,7 +586,7 @@ Does calculate measures (per cluster) on parameter sliding windows. This routine
 
 _ATTENTION_: If a cluster has no members within a window the value is set to `NaN`. This should simply omit these points from beeing plotted (while `missing` and `nothing` are currently not compatible with most plotting packages).
 
-    measure_on_parameter_sliding_window(prob::myMCProblem, sol::myMCSol, i::Int, clusters::DbscanResult, window_size::Number, window_offset::Number)
+    measure_on_parameter_sliding_window(prob::myMCProblem, sol::myMCSol, i::Int, clusters::ClusteringResult, window_size::Number, window_offset::Number)
 
 Does return the `i`-th measure for each cluster seperatly on the parameter sliding window grid
 
@@ -606,9 +606,9 @@ All methods return a tuple with:
 * `cluster_measures`: members of the clusters on the parameter grid
 """
 measure_on_parameter_sliding_window(prob::myMCProblem, sol::myMCSol, i::Int, window_size::Number, window_offset::Number) = measure_on_parameter_sliding_window(prob, sol, i, [window_size], [window_offset])
-measure_on_parameter_sliding_window(prob::myMCProblem, sol::myMCSol, i::Int, clusters::DbscanResult, window_size::Number, window_offset::Number) = measure_on_parameter_sliding_window(prob, sol, i, clusters, [window_size], [window_offset])
+measure_on_parameter_sliding_window(prob::myMCProblem, sol::myMCSol, i::Int, clusters::ClusteringResult, window_size::Number, window_offset::Number) = measure_on_parameter_sliding_window(prob, sol, i, clusters, [window_size], [window_offset])
 measure_on_parameter_sliding_window(prob::myMCProblem, sol::myMCSol, i::Int, window_size::AbstractArray, window_offset::AbstractArray) = measure_on_parameter_sliding_window(prob, sol, i, zeros(Int,prob.N_mc), 1, window_size, window_offset)
-measure_on_parameter_sliding_window(prob::myMCProblem, sol::myMCSol, i::Int, clusters::DbscanResult, window_size::AbstractArray, window_offset::AbstractArray) = measure_on_parameter_sliding_window(prob, sol, i, clusters.assignments, length(clusters.seeds) + 1, window_size, window_offset)
+measure_on_parameter_sliding_window(prob::myMCProblem, sol::myMCSol, i::Int, clusters::ClusteringResult, window_size::AbstractArray, window_offset::AbstractArray) = measure_on_parameter_sliding_window(prob, sol, i, clusters.assignments, length(clusters.seeds) + 1, window_size, window_offset)
 function measure_on_parameter_sliding_window(prob::myMCProblem, sol::myMCSol, i::Int, clusters_assignments::AbstractArray, N_cluster::Int, window_size::AbstractArray, window_offset::AbstractArray)
 
     ca = clusters_assignments
@@ -697,7 +697,7 @@ function _sliding_window_parameter(prob::myMCProblem, window_size::AbstractArray
 end
 
 """
-    get_trajectory(prob::MCBBProblem, sol::MCBBSol, clusters::DbscanResult, i::Int; only_sol::Bool=true)
+    get_trajectory(prob::MCBBProblem, sol::MCBBSol, clusters::ClusteringResult, i::Int; only_sol::Bool=true)
 
 Solves and returns a trajectory that is classified in cluster `i`. Randomly selects one IC/Parameter configuration, so that mulitple executions of this routine will yield different results! If `only_sol==true` it returns only the solution, otherwise it returns a tuple `(solution, problem, i_run)` where `i_run` is the number of the trial in `prob` and `sol`.
 
@@ -712,7 +712,7 @@ Plot with e.g
     cb = colorbar(IM, orientation="horizontal")
     cb[:ax][:set_xlabel]("Colorbar: Im(z)", rotation=0)
 """
-function get_trajectory(prob::MCBBProblem, sol::MCBBSol, clusters::DbscanResult, i::Int; only_sol::Bool=true)
+function get_trajectory(prob::MCBBProblem, sol::MCBBSol, clusters::ClusteringResult, i::Int; only_sol::Bool=true)
     i_sol = rand(findall(clusters.assignments .== (i-1)))
     prob_i = prob.p.prob_func(prob.p.prob, i_sol, false)
     sol_i = sol.solve_command(prob_i)
