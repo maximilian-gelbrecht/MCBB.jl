@@ -2,22 +2,23 @@
 ## All functions that evaluate the solutions directly
 ###############
 
-using DifferentialEquations, Interpolations, Distances
+using DifferentialEquations, Statistics, Interpolations, Distances
 # using Miniball
 import Distributions, StatsBase
 
 """
     eval_ode_run
 
-Evaluation functions for the `MonteCarloProblem`. Given a set of measures the solution `sol` is evaluated seperatly per dimension. An additional set of global measures take in the complete solution and return a single number. Handing over the function to `DEMCBBProblem` (and thus also to `MonteCarloProblem`) the expected signature is `(sol, i::Int) -> (results, repeat::Bool)`. Here, there are several more general versions that can be adjusted to the experiment.
+Evaluation functions for the `MonteCarloProblem`. Given a set of measures the solution `sol` is evaluated seperatly per dimension. An additional set of global measures take in the complete solution and return a single number or a matrix. Handing over this function to `DEMCBBProblem` (and thus also to `MonteCarloProblem`) the expected signature is `(sol, i::Int) -> (results, repeat::Bool)`. Here, there are several more general versions that can be adjusted to the experiment.
 
-    eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:Function,1}, global_eval_funcs::AbstractArray; failure_handling::Symbol=:None, cyclic_setback::Bool=false, replace_inf=nothing)
+    eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:Function,1}, global_eval_funcs::Union{AbstractArray, Nothing}=nothing, matrix_eval_funcs::Union{AbstractArray, Nothing}=nothing; failure_handling::Symbol=:None, cyclic_setback::Bool=false, replace_inf=nothing)
 
 * `sol`: solution of one of the MonteCarloProblem runs, should have only timesteps with constant time intervals between them
 * `i`: Int, number of iteration/run
 * `state_filter`: Array with indicies of all dimensions (of the solutions) that should be evaluated
 * `eval_funcs`: Array of functions that should be applied to every dimension of the solution. Signature: `(sol::AbstractArray) -> measure` or `(sol::AbstractArray, previous_results::AbstractArray) -> measure` depending on the value of `flag_past_measures`.
-* `global_eval_funcs`: Array of functions that should be applied to the complete N-dimensional solution, signature (N-Dim Array w/ Samples ::AbstractArray, Mean::Number, Std::Number) -> Measure
+* `global_eval_funcs`: Array of functions that should be applied to the complete N-dimensional solution, signature (N-Dim Array w/ Samples ::AbstractArray) -> Measure::Number
+* `matrix_eval_funcs`: Array of functions that should be applied to the complete N_dimensional solution and return a matrix (or vector), like e.g covariance or correlation, signature `(N-Dim Array w/ Samples ::AbstractArray) -> Measure::AbstractArray` (technical detail: length(measure)!=N_dim (system dimension))
 * `failure_handling`: How failure of integration is handled. Should be `:None` (do no checks), `:Inf` (If `retcode==:DtLessThanMin: return Inf`) or `:Repeat` (If no succes, repeat the trial (only works with random initial conditions))
 * `cyclic_setback`: Bool, if true ``N*2\\pi`` is substracted from the solution so that the first element of the solution that is analysed is within ``[-\\pi, \\pi]``. Usefull e.g. for phase oscillators.
 * `replace_inf`: Number or Nothing, if a number replaces all Infs in the solution with this number. Can be usefull if one still wants to distinguish between different solutions containing Infs, +Inf is replaced by the Number, -Inf by (-1)*Number.
@@ -31,13 +32,12 @@ In order to derive a valid evaluation function from this for the `MCBBProblem` o
         N_dim = length(sol.prob.u0)
         state_filter = collect(1:N_dim)
         eval_funcs = [mean, std]
-        global_eval_funcs = []
-        eval_ode_run(sol, i, state_filter, eval_funcs, global_eval_funcs)
+        eval_ode_run(sol, i, state_filter, eval_funcs)
     end
 
 # Utilizing previous results
 
-If one wants to utilze the previous results (and don't compute measures twice), one has to use the `flag_past_measures=true` option. An example could read:
+If one wants to utilze the previous results (and don't compute measures twice), one has to use the `flag_past_measures=true` option. This is only possible for the per dimension measures. An example could read:
 
     function my_eval_ode_run(sol, i)
         N_dim = length(sol.prob.u0)
@@ -45,8 +45,7 @@ If one wants to utilze the previous results (and don't compute measures twice), 
         meanval(u::AbstractArray, past_measures::AbstractArray) = StatsBase.mean(u)
         standarddev(u::AbstractArray, past_measures::AbstractArray) = StatsBase.std(u; mean=dim_measures[1], corrected=false)
         eval_funcs = [meanval, standarddev, empirical_1D_KL_divergence_hist]
-        global_eval_funcs = []
-        eval_ode_run(sol, i, state_filter, eval_funcs, global_eval_funcs; flag_past_measures=true)
+        eval_ode_run(sol, i, state_filter, eval_funcs; flag_past_measures=true)
     end
 
 Latter function is also already available as a default `eval_ode_run` in this library. The order of the functions is important. In this example `meanval` will always get an empty array as the second argument, `standarddev` will get an array with the result from `meanval` as the only value and ` empirical_1D_KL_divergence_hist` will get an additional array with the results from `meanval` and `standarddev`.
@@ -57,7 +56,7 @@ Default `eval_ode_run`, identical to the code above.
 
 # Continue Integration / Response Analysis
 
-     eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:Function,1}, global_eval_funcs::AbstractArray, par_var::OneDimParameterVar, eps::Float64, par_bounds::AbstractArray, distance_matrix_func; failure_handling::Symbol=:None, cyclic_setback::Bool=false, flag_past_measures::Bool=false, N_t::Int=200, alg=nothing, debug::Bool=false, kwargs...)
+     eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:Function,1}, global_eval_funcs::Union{AbstractArray, Nothing}, matrix_eval_funcs::Union{AbstractArray, Nothing}, par_var::OneDimParameterVar, eps::Float64, par_bounds::AbstractArray, distance_matrix_func; failure_handling::Symbol=:None, cyclic_setback::Bool=false, flag_past_measures::Bool=false, N_t::Int=200, alg=nothing, debug::Bool=false, kwargs...)
 
 Evaluation function that continues each integration and computes the same measures for `par+eps` and `par-eps`. Returns the results of the usual `eval_ode_run` (all measures) and additionally the response of the distance function to the paramater increase/decrease.
 
@@ -70,7 +69,7 @@ Evaluation function that continues each integration and computes the same measur
 * `return_pm`: If true, returns `D(p+dp)` AND `D(p-dp)`. If false returns the mean of these.
 * all further keyword arguments will be handed over to `solve(prob::DEMCBBProblem, ...)`
 """
-function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::AbstractArray, global_eval_funcs::AbstractArray; failure_handling::Symbol=:None, cyclic_setback::Bool=false, replace_inf=nothing, flag_past_measures=false)
+function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::AbstractArray, global_eval_funcs::Union{AbstractArray, Nothing}=nothing, matrix_eval_funcs::Union{AbstractArray, Nothing}=nothing; failure_handling::Symbol=:None, cyclic_setback::Bool=false, replace_inf=nothing, flag_past_measures=false)
     N_dim = length(sol.prob.u0)
     N_dim_measures = length(eval_funcs)  # mean and var are always computed
 
@@ -78,7 +77,18 @@ function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Abstract
         error("No per dimension measures")
     end
 
-    N_dim_global_measures = length(global_eval_funcs)
+    if global_eval_funcs == nothing
+        N_dim_global_measures = 0
+    else
+        N_dim_global_measures = length(global_eval_funcs)
+    end
+
+    if matrix_eval_funcs == nothing
+        N_dim_matrix_measures = 0
+    else
+        N_dim_matrix_measures = length(matrix_eval_funcs)
+    end
+
 
     if failure_handling==:None
         failure_handling=:None # do nothing
@@ -131,6 +141,7 @@ function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Abstract
     end
 
     dim_measures = [zeros(Float64, N_dim) for i=1:N_dim_measures]
+    matrix_measures = []
     global_measures = zeros(Float64, N_dim_global_measures)
     # per dimension measures
     for i_dim in state_filter
@@ -157,9 +168,15 @@ function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Abstract
 
     # measures using all dimensions
     for i_meas=1:N_dim_global_measures
-        global_measures[i_meas] = global_eval_funcs[i_meas](sol[:,2:end])
+        global_measures[i_meas] = global_eval_funcs[i_meas](sol[state_filter,2:end])
     end
-    (tuple(dim_measures...,global_measures...),false)
+
+    # measures returning matrices (or arrays with a length different from N_dim)
+    for i_meas=1:N_dim_matrix_measures
+        push!(matrix_measures, matrix_eval_funcs[i_meas](sol[state_filter,2:end]))
+    end
+
+    (tuple(dim_measures..., global_measures..., matrix_measures...),false)
 end
 
 # MonteCarloProblem needs a function with only (sol, i) as inputs and this way the default of all dimensions beeing evaluated is easier to handle than with an optional/keyword argument
@@ -169,18 +186,17 @@ function eval_ode_run(sol, i)
     meanval(u::AbstractArray, past_measures::AbstractArray) = StatsBase.mean(u)
     standarddev(u::AbstractArray, past_measures::AbstractArray) = StatsBase.std(u; mean=past_measures[1], corrected=true)
     eval_funcs = [meanval, standarddev, empirical_1D_KL_divergence_hist]
-    global_eval_funcs = []
-    eval_ode_run(sol, i, state_filter, eval_funcs, global_eval_funcs; flag_past_measures=true)
+    eval_ode_run(sol, i, state_filter, eval_funcs; flag_past_measures=true)
 end
 
 # evaluation function that also includes a response analysis with a contiuation of the integration
 # it records the differnce in Distance of the measures chosen thus each time recording a pair = 1(dp,dD)
-function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:Function,1}, global_eval_funcs::AbstractArray, par_var::OneDimParameterVar, eps::Float64, par_bounds::AbstractArray, distance_matrix_func; failure_handling::Symbol=:None, cyclic_setback::Bool=false, flag_past_measures::Bool=false, N_t::Int=200, alg=nothing, debug::Bool=false, return_pm::Bool=true, kwargs...)
+function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:Function,1}, global_eval_funcs::Union{AbstractArray, Nothing}, matrix_eval_funcs::Union{AbstractArray, Nothing}, par_var::OneDimParameterVar, eps::Float64, par_bounds::AbstractArray, distance_matrix_func; failure_handling::Symbol=:None, cyclic_setback::Bool=false, flag_past_measures::Bool=false, N_t::Int=200, alg=nothing, debug::Bool=false, return_pm::Bool=true, kwargs...)
 
     N_dim = length(sol.prob.u0)
     probi = sol.prob
 
-    meas_1 = eval_ode_run(sol, i, state_filter, eval_funcs, global_eval_funcs; failure_handling=failure_handling, cyclic_setback=cyclic_setback, flag_past_measures=flag_past_measures)
+    meas_1 = eval_ode_run(sol, i, state_filter, eval_funcs, global_eval_funcs, matrix_eval_funcs; failure_handling=failure_handling, cyclic_setback=cyclic_setback, flag_past_measures=flag_past_measures)
 
     # we define a new MonteCarloProblem, so that we can reuse all the other old code. it has only three problems to solve, (p - eps, p, p+eps) for a relativly short integration time.
     ic = zeros(eltype(sol),3,N_dim)
@@ -206,7 +222,7 @@ function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:
     #new_tspan = probi.tspan
     new_prob(baseprob, i, repeat) = remake(baseprob, u0=ic[i,:], tspan=new_tspan, p=par_var.new_par(probi.p; Dict(par_var.name => par[i,1])...))
 
-    mcp = MonteCarloProblem(probi, prob_func=new_prob, output_func=(sol,i)->eval_ode_run(sol, i, state_filter, eval_funcs, global_eval_funcs; failure_handling=failure_handling, cyclic_setback=cyclic_setback, flag_past_measures=flag_past_measures))
+    mcp = MonteCarloProblem(probi, prob_func=new_prob, output_func=(sol,i)->eval_ode_run(sol, i, state_filter, eval_funcs, global_eval_funcs, matrix_eval_funcs; failure_handling=failure_handling, cyclic_setback=cyclic_setback, flag_past_measures=flag_past_measures))
     bamcp = DEMCBBProblem(mcp, 3, 0., ic, par, par_var) # 3 problems and no transient time
     if alg==nothing
         mcpsol = solve(bamcp, N_t=N_t, parallel_type=:none, kwargs...)
@@ -433,6 +449,36 @@ function wasserstein_ecdf(u::AbstractArray, mu::Number, sig::Number)
     ref_cdf = normal_cdf.(us[1:end-1])
     sum(abs.(u_ecdf .- ref_cdf) .* deltas)
 end
+
+_corr(sol::AbstractArray) = abs.(cor(sol, dims=2))
+
+"""
+    correlation(sol::AbstractArray)
+
+Example function for `matrix_eval_funcs`. This routine calculates the absolute value of the Pearson correlation between the time series of all system dimensions and returns it as a matrix.
+"""
+correlation(sol::AbstractArray) = _corr(sol)
+
+"""
+    correlation_hist(sol::AbstractArray, nbins::Int=30)
+
+Example function for `matrix_eval_funcs`. This routine calculates the absolute value of the Pearson correlation between the time series of all system dimensions and returns the weights of histogram fitted to all of these values. It uses the same binning for all calculations with the edges calculated by `0:1. /nbins:1`.
+"""
+function correlation_hist(sol::AbstractArray, nbins::Int=30)
+    edges = 0:1. /nbins:1
+    corr_vals = _corr(sol)
+    hist = fit(Histogram, reshape(corr_vals,:), edges)
+    return hist.weights
+end
+
+"""
+correlation_ecdf(sol::AbstractArray, nbins::Int=30)
+
+Example function for `matrix_eval_funcs`. This routine calculates the absolute value of the Pearson correlation between the time series of all system dimensions and the ECDF of a histogram fitted to all of these values. It uses the same binning for all calculations with the edges calculated by `0:1. /nbins:1`. 
+"""
+correlation_ecdf(sol::AbstractArray, nbins::Int=30) = ecdf_hist(correlation_hist(sol, nbins))
+
+
 
 # curve entropy according to Balestrino et al, 2009, Entropy Journal
 # could be used as an additional measure for the clustering

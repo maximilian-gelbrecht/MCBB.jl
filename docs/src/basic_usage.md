@@ -119,6 +119,9 @@ function eval_ode_run_kura(sol, i)
     global_eval_funcs = [k_order_parameter]
     eval_ode_run(sol, i, state_filter, eval_funcs, global_eval_funcs, cyclic_setback=true)
 end
+
+It is also possible to track measures that return matrices or arrays of different size from the 1-d length-`N` arrays, like cross-correlation or covariance with the `matrix_eval_funcs` keyword. See [`eval_ode_run`](@ref) for a detailed reference.
+
 ```
 We set up the `DEMCBBProblem` again with
 ```julia
@@ -170,7 +173,7 @@ The clustering is based on the distance matrix. Its calculation is performed wit
 
 ## Clustering
 
-So far, we used mainly DBSCAN for the clustering. In principal, one can also use other clustering algorithms though. DBSCAN also returns a "Noise Cluster"/Outlier. In the standard julia implemenation this is Cluster "0", here for all routines the Outliers are Cluster "1" and all other clusters have the following ascending numbers. 
+So far, we used mainly DBSCAN for the clustering. In principal, one can also use other clustering algorithms though. DBSCAN also returns a "Noise Cluster"/Outlier. In the standard julia implemenation this is Cluster "0", here for all routines the Outliers are Cluster "1" and all other clusters have the following ascending numbers.
 
 ## How-to define your own systems.
 

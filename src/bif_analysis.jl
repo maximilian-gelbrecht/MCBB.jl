@@ -60,6 +60,7 @@ Fields are:
 * `N_meas`: number of measures used, ``N_{meas} = N_{meas_{dim}} + N_{meas_{global}}``
 * `N_meas_dim`: number of measures that are evalauted for every dimension seperatly
 * `N_meas_global`: number of measures that are evalauted globally
+* `N_meas_matrix`: number of measures that return matrices.
 """
 struct ContinuationSolution <: myMCSol
     sol::AbstractArray
@@ -68,6 +69,7 @@ struct ContinuationSolution <: myMCSol
     N_meas::Int # number of measures used, N_meas = N_meas_dim + N_meas_global
     N_meas_dim::Int # number of measures that are evaluated for every dimension
     N_meas_global::Int # number of global measures, in the case of system dimension == 1, N_meas_global = 1 = N_meas and N_meas_dim = 0
+    N_meas_matrix::Int
 end
 
 """
@@ -107,6 +109,8 @@ function solve(prob::ContinuationProblem, N_t=400::Int, rel_transient_time::Floa
     sol_i = solve_command(prob.prob)
     sol = []
     push!(sol,prob.eval_func(sol_i, 1)[1])
+
+    N_dim , ___ = size(sol_i)
 
     if return_probs
         prob_vec = []
@@ -160,9 +164,9 @@ function solve(prob::ContinuationProblem, N_t=400::Int, rel_transient_time::Floa
     end
 
     if return_probs
-        return (ContinuationSolution(sol, par_vector, length(par_vector), get_measure_dimensions(sol)...), prob_vec)
+        return (ContinuationSolution(sol, par_vector, length(par_vector), get_measure_dimensions(sol, N_dim)...), prob_vec)
     else
-        return ContinuationSolution(sol, par_vector, prob.N, get_measure_dimensions(sol)...)
+        return ContinuationSolution(sol, par_vector, prob.N, get_measure_dimensions(sol, N_dim)...)
     end
 end
 

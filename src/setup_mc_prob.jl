@@ -294,6 +294,7 @@ struct DEMCBBSol <: MCBBSol
     N_meas::Int
     N_meas_dim::Int
     N_meas_global::Int
+    N_meas_matrix::Int
     solve_command::Function
 end
 
@@ -801,7 +802,7 @@ function solve(prob::DEMCBBProblem, alg=nothing, N_t=400::Int, parallel_type=:pa
         sol = custom_solve(prob, t_save)
         solve_i_command = nothing
     elseif alg!=nothing
-        sol = solve(prob.p, alg=alg, num_monte=prob.N_mc, dense=false, save_everystep=false, saveat=t_save, savestart=false, parallel_type=parallel_type; kwargs...)
+        sol = solve(prob.p, alg, num_monte=prob.N_mc, dense=false, save_everystep=false, saveat=t_save, savestart=false, parallel_type=parallel_type; kwargs...)
         solve_i_command = (prob_i) -> solve(prob_i, alg=alg, dense=false, save_everystep=false, saveat_t_save, savestart=false; kwargs...)
     else
         sol = solve(prob.p, num_monte=prob.N_mc, dense=false, save_everystep=false, saveat=t_save, savestart=false, parallel_type=parallel_type; kwargs...)
@@ -809,8 +810,9 @@ function solve(prob::DEMCBBProblem, alg=nothing, N_t=400::Int, parallel_type=:pa
     end
 
 
+    ___, N_dim = size(prob.ic)
 
-    mysol = DEMCBBSol(sol, prob.N_mc, N_t, length(prob.p.prob.u0), get_measure_dimensions(sol)..., solve_i_command)
+    mysol = DEMCBBSol(sol, prob.N_mc, N_t, length(prob.p.prob.u0), get_measure_dimensions(sol, N_dim)..., solve_i_command)
 
     if flag_check_inf_nan
         inf_nan = check_inf_nan(mysol)
@@ -830,20 +832,25 @@ solve_euler_inf(prob::DEMCBBProblem, t_save::AbstractArray; dt=0.1) = solve(prob
 
 Returns the number of measures of `sol` as a tuple `(N_meas_total, N_meas_dim, N_meas_global)`
 """
-function get_measure_dimensions(sol)
+function get_measure_dimensions(sol, N_dim)
     sol1 = sol[1] # use the first solution for the dimension determination
 
     N_meas_dim = 0
     N_meas_global = 0
+    N_meas_matrix = 0
 
     for i=1:length(sol1)
         if typeof(sol1[i]) <: AbstractArray
-            N_meas_dim += 1
+            if length(sol1[i])==N_dim
+                N_meas_dim += 1
+            else
+                N_meas_matrix += 1
+            end
         else
             N_meas_global += 1
         end
     end
-    (N_meas_dim + N_meas_global, N_meas_dim, N_meas_global)
+    (N_meas_dim + N_meas_global + N_meas_matrix, N_meas_dim, N_meas_global, N_meas_matrix)
 end
 
 """
