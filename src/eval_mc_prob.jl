@@ -109,7 +109,8 @@ function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Abstract
             if inf_flag
                 dim_measures = [Inf.*ones(N_dim) for i=1:N_dim_measures]
                 global_measures = [Inf for i=1:N_dim_global_measures]
-                return (tuple(dim_measures...,global_measures...),false)
+                matrix_measures = [Inf for i=1:N_dim_matrix_measures]
+                return (tuple(dim_measures...,global_measures..., matrix_measures...),false)
             else
                 @warn "Failure Handling Warning, DtLessThanMin but Solution not diverging."
             end

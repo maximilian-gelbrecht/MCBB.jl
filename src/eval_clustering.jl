@@ -78,8 +78,9 @@ Inputs:
 * `histogram_distance`: The distance function between two histograms. Default is [`wasserstein_histogram_distance`](@ref).
 * `matrix_distance_func`: The distance function between two matrices or arrays or length different from ``N_{dim}``. Used e.g. for Crosscorrelation.
 * `ecdf::Bool` if true the `histogram_distance` function gets the empirical cdfs instead of the histogram
+* `k_bin::Int`: Multiplier to increase (``k_{bin}>1``) or decrease the bin width and thus decrease or increase the number of bins. It is a multiplier to the Freedman-Draconis rule. Default: ``k_{bin}=1``
 """
-function distance_matrix_histogram(sol::myMCSol, pars::AbstractArray{T}, distance_func, weights::AbstractArray{S}, histogram_distance::Function; matrix_distance_func::Union{Function, Nothing}=nothing, ecdf::Bool=true) where {T,S}
+function distance_matrix_histogram(sol::myMCSol, pars::AbstractArray{T}, distance_func, weights::AbstractArray{S}, histogram_distance::Function; matrix_distance_func::Union{Function, Nothing}=nothing, ecdf::Bool=true, k_bin::Int=1) where {T,S}
 
     mat_elements = zeros((sol.N_mc, sol.N_mc))
     if ndims(pars) == 2
@@ -105,9 +106,9 @@ function distance_matrix_histogram(sol::myMCSol, pars::AbstractArray{T}, distanc
         data_i = get_measure(sol, i_meas)
         flat_array = collect(Iterators.flatten(data_i))
 
-        # we use double the freedman-draconis rule because we are calculationg the IQR
+        # we use half the freedman-draconis rule because we are calculationg the IQR
         # and max/min from _all_ values
-        bin_width = (4. *iqr(flat_array))/(sol.N_mc^(1/3.))
+        bin_width = (k_bin *iqr(flat_array))/(sol.N_dim^(1/3.))
         minval = minimum(flat_array)
         maxval = maximum(flat_array)
 
@@ -151,6 +152,12 @@ distance_matrix_histogram(sol::myMCSol, prob::myMCProblem, distance_func::Functi
 Helper function, computes histogram weights from measures for measure `i_meas`.
 """
 function _compute_hist_weights(i_meas::Int, sol::myMCSol, hist_edges::AbstractArray, ecdf::Bool)
+    println("_compute_hist_weights:")
+    println(i_meas)
+    println(hist_edges[i_meas])
+    println(get_measure(sol, i_meas))
+    println((sol.N_mc,length(hist_edges[i_meas])-1))
+    println("---")
     weights = zeros((sol.N_mc, length(hist_edges[i_meas])-1))
     for i=1:sol.N_mc
         weights[i,:] = fit(Histogram, sol.sol[i][i_meas], hist_edges[i_meas], closed=:left).weights
