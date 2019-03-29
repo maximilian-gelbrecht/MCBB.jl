@@ -18,6 +18,26 @@ Parameter Variation types, these structs holds information about the parameters 
 * `MulitDimParameterVarArray, MultiDimParameterVarFunc <: MultiDimParameterVar`
 """
 abstract type ParameterVar end
+
+"""
+    OneDimParameterVar
+
+Paramter Variation types for setups with one parameter.
+
+# Subtypes
+* ['ParameterVarFunc'](@ref)
+* ['ParameterVarFunc'](@ref)
+
+# Common constructors
+* `OneDimParameterVar(name::Symbol,new_val::AbstractArray,new_par::Function)``
+* `OneDimParameterVar(name::Symbol,new_val::AbstractArray)`
+* `OneDimParameterVar(name::Symbol,new_val::Function, new_par::Function)`
+* `OneDimParameterVar(name::Symbol,new_val::Function)`
+
+* `name`: Symbol of the name of the parameter
+* `new_val`:: Function that returns a new value, signature: `(i::Int) -> new_value::Number` or `()-> new_value::Number` or Array with all parameter values
+* `new_par`:: Function that returns a new parameter struct, default: Parameters.reconstruct, signature: `(old_par; Dict(name=>new_val)) = new_par`
+"""
 abstract type OneDimParameterVar <: ParameterVar end
 
 """

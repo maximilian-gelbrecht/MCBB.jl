@@ -60,7 +60,7 @@ end
 distance_matrix(sol::myMCSol, prob::myMCProblem, weights::AbstractArray; relative_parameter::Bool=false, histograms::Bool=false, matrix_distance_func::Union{Function, Nothing}=nothing) = distance_matrix(sol, prob, (x,y)->sum(abs.(x .- y)), weights; relative_parameter=relative_parameter, histograms=histograms, matrix_distance_func=matrix_distance_func)
 
 """
-    distance_matrix_histogram(sol::myMCSol, pars::AbstractArray, distance_func::Function, weights::AbstractArray, histogram_distance::Function)
+    distance_matrix_histogram(sol::myMCSol, pars::AbstractArray{T}, distance_func, weights::AbstractArray{S}, histogram_distance::Function; matrix_distance_func::Union{Function, Nothing}=nothing, ecdf::Bool=true, k_bin::Int=1)
 
 This function is called by `distance_matrix` if it is called with the `histograms` flag `true`.
 
@@ -80,7 +80,7 @@ Inputs:
 * `ecdf::Bool` if true the `histogram_distance` function gets the empirical cdfs instead of the histogram
 * `k_bin::Int`: Multiplier to increase (``k_{bin}>1``) or decrease the bin width and thus decrease or increase the number of bins. It is a multiplier to the Freedman-Draconis rule. Default: ``k_{bin}=1``
 """
-function distance_matrix_histogram(sol::myMCSol, pars::AbstractArray{T}, distance_func, weights::AbstractArray{S}, histogram_distance::Function; matrix_distance_func::Union{Function, Nothing}=nothing, ecdf::Bool=true, k_bin::Int=1) where {T,S}
+function distance_matrix_histogram(sol::myMCSol, pars::AbstractArray{T}, distance_func, weights::AbstractArray{S}, histogram_distance::Function; matrix_distance_func::Union{Function, Nothing}=nothing, ecdf::Bool=true, k_bin::Number=1) where {T,S}
 
     mat_elements = zeros((sol.N_mc, sol.N_mc))
     if ndims(pars) == 2
@@ -108,7 +108,8 @@ function distance_matrix_histogram(sol::myMCSol, pars::AbstractArray{T}, distanc
 
         # we use half the freedman-draconis rule because we are calculationg the IQR
         # and max/min from _all_ values
-        bin_width = (k_bin *iqr(flat_array))/(sol.N_dim^(1/3.))
+        bin_width = (4 * k_bin *iqr(flat_array))/(sol.N_mc^(1/3.))
+        #bin_width = (k_bin *iqr(flat_array))/(sol.N_dim^(1/3.))
         minval = minimum(flat_array)
         maxval = maximum(flat_array)
 
@@ -128,10 +129,14 @@ function distance_matrix_histogram(sol::myMCSol, pars::AbstractArray{T}, distanc
     for i=1:sol.N_mc
         for j=1:sol.N_mc
             for i_meas=sol.N_meas_dim+1:sol.N_meas_dim+sol.N_meas_global # global measures
-                mat_elements[i,j] += distance_func(weights[i_meas]*sol.sol[i][i_meas], weights[i_meas]*sol.sol[j][i_meas])
+                if weights[i_meas]!=0
+                    mat_elements[i,j] += distance_func(weights[i_meas]*sol.sol[i][i_meas], weights[i_meas]*sol.sol[j][i_meas])
+                end
             end
             for i_meas=sol.N_meas_dim+sol.N_meas_global+1:sol.N_meas
-                mat_elements[i,j] += matrix_distance_func(weights[i_meas]*sol.sol[i][i_meas], weights[i_meas]*sol.sol[j][i_meas])
+                if weights[i_meas]!=0
+                    mat_elements[i,j] += matrix_distance_func(weights[i_meas]*sol.sol[i][i_meas], weights[i_meas]*sol.sol[j][i_meas])
+                end
             end
             for i_par=1:N_pars # parameters
                 mat_elements[i,j] += distance_func(weights[sol.N_meas+i_par]*pars[i,i_par], weights[sol.N_meas+i_par]*pars[j,i_par])
@@ -140,11 +145,11 @@ function distance_matrix_histogram(sol::myMCSol, pars::AbstractArray{T}, distanc
     end
     mat_elements += transpose(mat_elements)
 end
-distance_matrix_histogram(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray, histogram_distance::Function; matrix_distance_func::Union{Function, Nothing}=nothing) = distance_matrix_histogram(sol, parameter(prob), distance_func, weights, histogram_distance; matrix_distance_func=matrix_distance_func)
+distance_matrix_histogram(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray, histogram_distance::Function; kwargs...) = distance_matrix_histogram(sol, parameter(prob), distance_func, weights, histogram_distance; kwargs...)
 
-distance_matrix_histogram(sol::myMCSol, par::AbstractArray, distance_func::Function, weights::AbstractArray; matrix_distance_func::Union{Function, Nothing}=nothing) = distance_matrix_histogram(sol, par, distance_func, weights, wasserstein_histogram_distance; matrix_distance_func=matrix_distance_func)
+distance_matrix_histogram(sol::myMCSol, par::AbstractArray, distance_func::Function, weights::AbstractArray; kwargs...) = distance_matrix_histogram(sol, par, distance_func, weights, wasserstein_histogram_distance; kwargs...)
 
-distance_matrix_histogram(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray; matrix_distance_func::Union{Function, Nothing}=nothing) = distance_matrix_histogram(sol, parameter(prob), distance_func, weights, wasserstein_histogram_distance; matrix_distance_func=matrix_distance_func)
+distance_matrix_histogram(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray; kwargs...) = distance_matrix_histogram(sol, parameter(prob), distance_func, weights, wasserstein_histogram_distance; kwargs...)
 
 """
     _compute_hist_weights(i_meas::Int, sol::myMCSol, hist_edges::AbstractArray, ecdf::Bool)
@@ -152,12 +157,6 @@ distance_matrix_histogram(sol::myMCSol, prob::myMCProblem, distance_func::Functi
 Helper function, computes histogram weights from measures for measure `i_meas`.
 """
 function _compute_hist_weights(i_meas::Int, sol::myMCSol, hist_edges::AbstractArray, ecdf::Bool)
-    println("_compute_hist_weights:")
-    println(i_meas)
-    println(hist_edges[i_meas])
-    println(get_measure(sol, i_meas))
-    println((sol.N_mc,length(hist_edges[i_meas])-1))
-    println("---")
     weights = zeros((sol.N_mc, length(hist_edges[i_meas])-1))
     for i=1:sol.N_mc
         weights[i,:] = fit(Histogram, sol.sol[i][i_meas], hist_edges[i_meas], closed=:left).weights
