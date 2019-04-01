@@ -418,15 +418,15 @@ function get_measure(sol::MCBBSol, k::Int)
         for i=1:sol.N_mc
             arr[i,:] = sol.sol[i][k]
         end
-    elseif k <= sol.N_meas_dim + sol.N_meas_global
-        arr = zeros(typeof(sol.sol[1][k]),sol.N_mc)
-        for i=1:sol.N_mc
-            arr[i] = sol.sol[i][k]
-        end
-    else
+    elseif k <= sol.N_meas_dim + sol.N_meas_matrix
         arr = zeros(eltype(sol.sol[1][k]),(sol.N_mc, size(sol.sol[1][k])...))
         for i=1:sol.N_mc
             arr[i,:,:] = sol.sol[i][k]
+        end
+    else
+        arr = zeros(typeof(sol.sol[1][k]),sol.N_mc)
+        for i=1:sol.N_mc
+            arr[i] = sol.sol[i][k]
         end
     end
     arr

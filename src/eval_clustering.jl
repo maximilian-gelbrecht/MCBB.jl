@@ -79,8 +79,9 @@ Inputs:
 * `matrix_distance_func`: The distance function between two matrices or arrays or length different from ``N_{dim}``. Used e.g. for Crosscorrelation.
 * `ecdf::Bool` if true the `histogram_distance` function gets the empirical cdfs instead of the histogram
 * `k_bin::Int`: Multiplier to increase (``k_{bin}>1``) or decrease the bin width and thus decrease or increase the number of bins. It is a multiplier to the Freedman-Draconis rule. Default: ``k_{bin}=1``
+* `low_memory::Bool`: If `true` the computation needs less memory but more computation.
 """
-function distance_matrix_histogram(sol::myMCSol, pars::AbstractArray{T}, distance_func, weights::AbstractArray{S}, histogram_distance::Function; matrix_distance_func::Union{Function, Nothing}=nothing, ecdf::Bool=true, k_bin::Number=1) where {T,S}
+function distance_matrix_histogram(sol::myMCSol, pars::AbstractArray{T}, distance_func, weights::AbstractArray{S}, histogram_distance::Function; matrix_distance_func::Union{Function, Nothing}=nothing, ecdf::Bool=true, k_bin::Number=1, low_memory::Bool=true) where {T,S}
 
     mat_elements = zeros((sol.N_mc, sol.N_mc))
     if ndims(pars) == 2
@@ -113,16 +114,27 @@ function distance_matrix_histogram(sol::myMCSol, pars::AbstractArray{T}, distanc
         minval = minimum(flat_array)
         maxval = maximum(flat_array)
 
-        push!(hist_edges,(minval-bin_width/2.):bin_width:(maxval+bin_width/2.))
+        push!(hist_edges,(minval-bin_width):bin_width:(maxval+bin_width))
         push!(bin_widths, bin_width)
     end
     # do the measure loop first. this is more code, but less memory consuming as we will pre calculate the histograms
 
-    for i_meas=1:sol.N_meas_dim # per dimension measures
-        hist_weights = _compute_hist_weights(i_meas, sol, hist_edges, ecdf)
-        for i=1:sol.N_mc
-            for j=i+1:sol.N_mc
-                mat_elements[i,j] += weights[i_meas]*histogram_distance(hist_weights[i,:], hist_weights[j,:], bin_widths[i_meas])
+    if low_memory
+        for i_meas=1:sol.N_meas_dim # per dimension measures
+            hist_weights =
+            for i=1:sol.N_mc
+                for j=i+1:sol.N_mc
+                    mat_elements[i,j] += weights[i_meas]*histogram_distance(_compute_ecdf(sol.sol[i][i_meas], hist_edges[i_meas]),_compute_ecdf(sol.sol[j][i_meas], hist_edges[i_meas]), bin_widths[i_meas])
+                end
+            end
+        end
+    else
+        for i_meas=1:sol.N_meas_dim # per dimension measures
+            hist_weights = _compute_hist_weights(i_meas, sol, hist_edges, ecdf)
+            for i=1:sol.N_mc
+                for j=i+1:sol.N_mc
+                    mat_elements[i,j] += weights[i_meas]*histogram_distance(hist_weights[i,:], hist_weights[j,:], bin_widths[i_meas])
+                end
             end
         end
     end
@@ -167,6 +179,27 @@ function _compute_hist_weights(i_meas::Int, sol::myMCSol, hist_edges::AbstractAr
         end
     end
     weights
+end
+
+function _compute_ecdf(data::AbstractArray{T}, hist_edges::AbstractArray) where T<:Number
+    N_bins = length(hist_edges) - 1
+    weights = zeros(eltype(data), N_bins)
+    sorted_data = sort(data)
+    N = length(sorted_data)
+    i_bin = 1
+    for i_data=1:N
+        if sorted_data[i_data] > hist_edges[i_bin+1]
+            i_bin += 1
+            weights[i_bin] = weights[i_bin - 1]
+        end
+        weights[i_bin] += 1
+    end
+    if i_bin!=N_bins
+        for i=i_bin:N_bins
+            weights[i] = weights[i - 1]
+        end
+    end
+    weights = weights./weights[end]
 end
 
 """

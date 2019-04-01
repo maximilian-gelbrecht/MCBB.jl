@@ -17,7 +17,7 @@ struct BBCluster <: ClusteringResult
 end
 
 """
-    bbcluster(D::AbstractArray{T}, dplus::AbstractVector{T}, dminus::AbstractVector{T}, pars::AbstractVector{T}, eps::T, minpts::Int; k::S=1.5, par_distance_func::Union{Function, Nothing}=nothing) where {T,S}<:Real
+    bbcluster(D::AbstractArray{T}, dplus::AbstractVector{T}, dminus::AbstractVector{T}, pars::AbstractVector{T}, p_eps::T, minpts::Int; k::S=1.5, par_distance_func::Union{Function, Nothing}=nothing) where {T,S}<:Real
 
 Performs the BBClustering, a modified DBSCAN clustering adjusted for Basin Bifurcation Analysis
 
@@ -28,17 +28,21 @@ Inputs:
 * `dminus`: Response of Distance Measure at `p-\\delta p`
 * `pars`: Parameter vector
 * `delta_p`: Used to estimate response `dplus` and `dminus`
-* `eps`: Epsilon Parameter, only points with parameters closer than `eps` are connected.
+* `p_eps`: Epsilon Parameter, only points with parameters closer than `p_eps` are connected.
 * `minpts`: Minimum number of points for a cluster, otherwise outlier
 * `k`: Paramater for the clustering, should be `1 < k < 2`
-* `par_distance_func`: Distance function for parameters, check: ``par_distance_func(pars[i],pars[j]) < eps``
+* `par_distance_func`: Distance function for parameters, check: ``par_distance_func(pars[i],pars[j]) < p_eps``
+
+    bbcluster(D::AbstractArray, prob::MCBBProblem, sol::MCBBSol, delta_p::T; p_eps::Union{Nothing,T}=nothing, minpts::Int=1, k::Number=1.5, par_distance_func::Union{Function,Nothing}=nothing) where T<:Real
+
+Convenience wrapper of the above defined function with ['MCBBProblem'](@ref) and ['MCBBSol'](@ref) as inputs. Default value for `p_eps` is five times the mean parameter difference.
 """
-function bbcluster(D::AbstractArray, dplus::AbstractVector, dminus::AbstractVector, pars::AbstractVector, delta_p::T, eps::T, minpts::Int; k::Number=1.5, par_distance_func::Union{Function, Nothing}=nothing) where T<:Real
+function bbcluster(D::AbstractArray, dplus::AbstractVector, dminus::AbstractVector, pars::AbstractVector, delta_p::T, p_eps::T, minpts::Int=1; k::Number=1.5, par_distance_func::Union{Function, Nothing}=nothing) where T<:Real
     n = size(D, 1)
     size(D, 2) == n || error("D must be a square matrix.")
     n >= 2 || error("There must be at least two points.")
     k > 0 || error("k must be a positive real value.")
-    k > 0 || error("eps must be a positive real value.")
+    p_eps > 0 || error("p_eps must be a positive real value.")
     minpts >= 1 || error("minpts must be a positive integer.")
     size(dplus, 1) == n || error("dplus must have the same length as rows/columns in D")
     size(dminus, 1) == n || error("dminus must have the same length as rows/columns in D")
@@ -48,10 +52,17 @@ function bbcluster(D::AbstractArray, dplus::AbstractVector, dminus::AbstractVect
         par_distance_func = (x,y) -> abs(x - y)
     end
     # invoke core algorithm
-    _bbcluster(D, dplus, dminus, pars, delta_p, eps, minpts, k, 1:n, par_distance_func)
+    _bbcluster(D, dplus, dminus, pars, delta_p, p_eps, minpts, k, 1:n, par_distance_func)
 end
 
-function _bbcluster(D::AbstractArray{T}, dplus::AbstractVector{T}, dminus::AbstractVector{T}, pars::AbstractVector{T}, delta_p::T, eps::T, minpts::Int, k::Real, visitseq::AbstractVector{Int}, par_distance_func::Function) where T<:Real
+function bbcluster(D::AbstractArray, prob::MCBBProblem, sol::MCBBSol, delta_p::T; p_eps::Union{Nothing,T}=nothing, minpts::Int=1, k::Number=1.5, par_distance_func::Union{Function,Nothing}=nothing) where T<:Real
+
+    # lets use 5 times the mean parameter difference as a default value for p_eps
+    p_eps = 5. * mean(diff(parameter(prob)))
+    bbcluster(D, get_measure(sol, sol.N_meas - 2), get_measure(sol, sol.N_meas - 1), parameter(prob), delta_p, p_eps, minpts, k, par_distance_func)
+end
+
+function _bbcluster(D::AbstractArray{T}, dplus::AbstractVector{T}, dminus::AbstractVector{T}, pars::AbstractVector{T}, delta_p::T, p_eps::T, minpts::Int, k::Real, visitseq::AbstractVector{Int}, par_distance_func::Function) where T<:Real
     n = size(D, 1)
 
     # prepare
@@ -66,10 +77,10 @@ function _bbcluster(D::AbstractArray{T}, dplus::AbstractVector{T}, dminus::Abstr
     for p in visitseq
         if assignments[p] == 0 && !visited[p]
             visited[p] = true
-            nbs = _bb_region_query(D, dplus, dminus, pars, delta_p, eps, p, kval, par_distance_func)
+            nbs = _bb_region_query(D, dplus, dminus, pars, delta_p, p_eps, p, kval, par_distance_func)
             if length(nbs) >= minpts
                 k_c += 1
-                cnt = _bb_expand_cluster!(D, dplus, dminus, pars, delta_p, k_c, p, nbs, eps, kval, minpts, assignments, visited, par_distance_func)
+                cnt = _bb_expand_cluster!(D, dplus, dminus, pars, delta_p, k_c, p, nbs, p_eps, kval, minpts, assignments, visited, par_distance_func)
                 push!(seeds, p)
                 push!(counts, cnt)
             end
@@ -82,7 +93,7 @@ end
 
 ## key steps
 # dbg: seems to work
-function _bb_region_query(D::AbstractArray{T}, dplus::AbstractVector{T}, dminus::AbstractVector{T}, pars::AbstractVector{T}, delta_p::T, eps::T, p::Int, k::T, par_distance_func::Function) where T<:Real
+function _bb_region_query(D::AbstractArray{T}, dplus::AbstractVector{T}, dminus::AbstractVector{T}, pars::AbstractVector{T}, delta_p::T, p_eps::T, p::Int, k::T, par_distance_func::Function) where T<:Real
     n = size(D,1)
     nbs = Int[]
     dists = view(D,:,p)
@@ -90,7 +101,7 @@ function _bb_region_query(D::AbstractArray{T}, dplus::AbstractVector{T}, dminus:
 
     for i = 1:n
         dist_par = par_distance_func(pars[i], pars[p])
-        if dist_par < eps
+        if dist_par < p_eps
             rescaled_dist = dists[i]*(delta_p/dist_par)
             @inbounds if rescaled_dist <= k*(dpm_min + min(dplus[i],dminus[i]))
                 push!(nbs, i)
@@ -107,8 +118,8 @@ function _bb_expand_cluster!(D::AbstractArray{T},           # distance matrix
                               delta_p::T,
                               k_c::Int,                    # the index of current cluster
                               p::Int,                      # the index of seeding point
-                              nbs::Vector{Int},            # eps-neighborhood of p
-                              eps::T,                      # radius of neighborhood
+                              nbs::Vector{Int},            # p_eps-neighborhood of p
+                              p_eps::T,                      # radius of neighborhood
                               kval::T,
                               minpts::Int,                 # minimum number of neighbors of a density point
                               assignments::Vector{Int},    # assignment vector
@@ -120,7 +131,7 @@ function _bb_expand_cluster!(D::AbstractArray{T},           # distance matrix
         q = popfirst!(nbs)
         if !visited[q]
             visited[q] = true
-            qnbs = _bb_region_query(D, dplus, dminus, pars, delta_p, eps, q, kval, par_distance_func)
+            qnbs = _bb_region_query(D, dplus, dminus, pars, delta_p, p_eps, q, kval, par_distance_func)
             if length(qnbs) >= minpts
                 for x in qnbs
                     if assignments[x] == 0

@@ -159,8 +159,8 @@ As we see the cluster membership diagram really shows the onset of the synchroni
 
 The solution object stores all the measures and some other information. [`Introspective Features`](@ref) in this manual goes into some more detail about it, but it is important to note that every of the measures are ordered in the following way:
     * first: all per dimension measures in the same order as in the `eval_funcs` array (default: 1: mean, 2: SD, 3: KL-Div)
+    * then: all matrix measures
     * then: all global measures
-    * then: all matrix measures 
     * optional: for routines that also incorporate the parameters, they are last in order.
 This order plays a role for all routines that work with one of the measures.
 

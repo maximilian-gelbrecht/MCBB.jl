@@ -11,14 +11,14 @@ import Distributions, StatsBase
 
 Evaluation functions for the `MonteCarloProblem`. Given a set of measures the solution `sol` is evaluated seperatly per dimension. An additional set of global measures take in the complete solution and return a single number or a matrix. Handing over this function to `DEMCBBProblem` (and thus also to `MonteCarloProblem`) the expected signature is `(sol, i::Int) -> (results, repeat::Bool)`. Here, there are several more general versions that can be adjusted to the experiment.
 
-    eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:Function,1}, global_eval_funcs::Union{AbstractArray, Nothing}=nothing, matrix_eval_funcs::Union{AbstractArray, Nothing}=nothing; failure_handling::Symbol=:None, cyclic_setback::Bool=false, replace_inf=nothing)
+    eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:Function,1}, matrix_eval_funcs::Union{AbstractArray, Nothing}=nothing, global_eval_funcs::Union{AbstractArray, Nothing}=nothing; failure_handling::Symbol=:None, cyclic_setback::Bool=false, replace_inf=nothing)
 
 * `sol`: solution of one of the MonteCarloProblem runs, should have only timesteps with constant time intervals between them
 * `i`: Int, number of iteration/run
 * `state_filter`: Array with indicies of all dimensions (of the solutions) that should be evaluated
 * `eval_funcs`: Array of functions that should be applied to every dimension of the solution. Signature: `(sol::AbstractArray) -> measure` or `(sol::AbstractArray, previous_results::AbstractArray) -> measure` depending on the value of `flag_past_measures`.
-* `global_eval_funcs`: Array of functions that should be applied to the complete N-dimensional solution, signature (N-Dim Array w/ Samples ::AbstractArray) -> Measure::Number
 * `matrix_eval_funcs`: Array of functions that should be applied to the complete N_dimensional solution and return a matrix (or vector), like e.g covariance or correlation, signature `(N-Dim Array w/ Samples ::AbstractArray) -> Measure::AbstractArray` (technical detail: length(measure)!=N_dim (system dimension))
+* `global_eval_funcs`: Array of functions that should be applied to the complete N-dimensional solution, signature (N-Dim Array w/ Samples ::AbstractArray) -> Measure::Number
 * `failure_handling`: How failure of integration is handled. Should be `:None` (do no checks), `:Inf` (If `retcode==:DtLessThanMin: return Inf`) or `:Repeat` (If no succes, repeat the trial (only works with random initial conditions))
 * `cyclic_setback`: Bool, if true ``N*2\\pi`` is substracted from the solution so that the first element of the solution that is analysed is within ``[-\\pi, \\pi]``. Usefull e.g. for phase oscillators.
 * `replace_inf`: Number or Nothing, if a number replaces all Infs in the solution with this number. Can be usefull if one still wants to distinguish between different solutions containing Infs, +Inf is replaced by the Number, -Inf by (-1)*Number.
@@ -56,7 +56,7 @@ Default `eval_ode_run`, identical to the code above.
 
 # Continue Integration / Response Analysis
 
-     eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:Function,1}, global_eval_funcs::Union{AbstractArray, Nothing}, matrix_eval_funcs::Union{AbstractArray, Nothing}, par_var::OneDimParameterVar, eps::Float64, par_bounds::AbstractArray, distance_matrix_func; failure_handling::Symbol=:None, cyclic_setback::Bool=false, flag_past_measures::Bool=false, N_t::Int=200, alg=nothing, debug::Bool=false, return_pm::Bool, kwargs...)
+     eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:Function,1},  matrix_eval_funcs::Union{AbstractArray, Nothing}, global_eval_funcs::Union{AbstractArray, Nothing}, par_var::OneDimParameterVar, eps::Float64, par_bounds::AbstractArray, distance_matrix_func; failure_handling::Symbol=:None, cyclic_setback::Bool=false, flag_past_measures::Bool=false, N_t::Int=200, alg=nothing, debug::Bool=false, return_pm::Bool, kwargs...)
 
 Evaluation function that continues each integration and computes the same measures for `par+eps` and `par-eps`. Returns the results of the usual `eval_ode_run` (all measures) and additionally the response of the distance function to the paramater increase/decrease.
 
@@ -69,7 +69,7 @@ Evaluation function that continues each integration and computes the same measur
 * `return_pm`: If true, returns `D(p+dp)` AND `D(p-dp)`. If false returns the mean of these.
 * all further keyword arguments will be handed over to `solve(prob::DEMCBBProblem, ...)`
 """
-function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::AbstractArray, global_eval_funcs::Union{AbstractArray, Nothing}=nothing, matrix_eval_funcs::Union{AbstractArray, Nothing}=nothing; failure_handling::Symbol=:None, cyclic_setback::Bool=false, replace_inf=nothing, flag_past_measures=false)
+function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::AbstractArray, matrix_eval_funcs::Union{AbstractArray, Nothing}=nothing, global_eval_funcs::Union{AbstractArray, Nothing}=nothing; failure_handling::Symbol=:None, cyclic_setback::Bool=false, replace_inf=nothing, flag_past_measures=false)
     N_dim = length(sol.prob.u0)
     N_dim_measures = length(eval_funcs)  # mean and var are always computed
 
@@ -177,7 +177,7 @@ function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Abstract
         push!(matrix_measures, matrix_eval_funcs[i_meas](sol[state_filter,2:end]))
     end
 
-    (tuple(dim_measures..., global_measures..., matrix_measures...),false)
+    (tuple(dim_measures..., matrix_measures..., global_measures...),false)
 end
 
 # MonteCarloProblem needs a function with only (sol, i) as inputs and this way the default of all dimensions beeing evaluated is easier to handle than with an optional/keyword argument
