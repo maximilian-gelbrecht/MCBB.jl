@@ -1,6 +1,5 @@
 # Here, the Basin Bifurcation Clustering Algorithm is in developing
 # the code is based on the DBSCAN code from Clustering.jl
-using Printf
 import Clustering.ClusteringResult
 
 mutable struct BBClusterResult <: ClusteringResult

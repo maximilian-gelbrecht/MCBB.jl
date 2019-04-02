@@ -109,12 +109,16 @@ function distance_matrix_histogram(sol::myMCSol, pars::AbstractArray{T}, distanc
 
         # we use half the freedman-draconis rule because we are calculationg the IQR
         # and max/min from _all_ values
-        bin_width = (4 * k_bin *iqr(flat_array))/(sol.N_mc^(1/3.))
-        #bin_width = (k_bin *iqr(flat_array))/(sol.N_dim^(1/3.))
+        #bin_width = (4 * k_bin *iqr(flat_array))/(sol.N_mc^(1/3.))
+        bin_width = (k_bin *iqr(flat_array))/(sol.N_dim^(1/3.))
         minval = minimum(flat_array)
         maxval = maximum(flat_array)
-
-        push!(hist_edges,(minval-bin_width):bin_width:(maxval+bin_width))
+        hist_edge = (minval-bin_width):bin_width:(maxval+bin_width)
+        if length(hist_edge) > 100
+            @warn "Very large number of Hist Bins calculated via IQR, there might be something fishy here, e.g. IQR=0. For now the Number of Bins is set to 25"
+            hist_edge = range(minval - 0.1*minval, maxval + 0.1*maxval, length=25)
+        end
+        push!(hist_edges, hist_edge)
         push!(bin_widths, bin_width)
     end
     # do the measure loop first. this is more code, but less memory consuming as we will pre calculate the histograms
@@ -169,7 +173,7 @@ distance_matrix_histogram(sol::myMCSol, prob::myMCProblem, distance_func::Functi
 Helper function, computes histogram weights from measures for measure `i_meas`.
 """
 function _compute_hist_weights(i_meas::Int, sol::myMCSol, hist_edges::AbstractArray, ecdf::Bool)
-    weights = zeros((sol.N_mc, length(hist_edges[i_meas])-1))
+    weights = zeros(Float32, (sol.N_mc, length(hist_edges[i_meas])-1))
     for i=1:sol.N_mc
         weights[i,:] = fit(Histogram, sol.sol[i][i_meas], hist_edges[i_meas], closed=:left).weights
     end
