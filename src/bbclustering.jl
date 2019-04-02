@@ -9,13 +9,6 @@ mutable struct BBClusterResult <: ClusteringResult
     counts::Vector{Int}         # number of points in each cluster, size (k,)
 end
 
-
-struct BBCluster <: ClusteringResult
-    size::Int                      # number of points in cluster
-    core_indices::Vector{Int}      # core points indices
-    boundary_indices::Vector{Int}  # boundary points indices
-end
-
 """
     bbcluster(D::AbstractArray{T}, dplus::AbstractVector{T}, dminus::AbstractVector{T}, pars::AbstractVector{T}, p_eps::T, minpts::Int; k::S=1.5, par_distance_func::Union{Function, Nothing}=nothing) where {T,S}<:Real
 
@@ -31,7 +24,7 @@ Inputs:
 * `p_eps`: Epsilon Parameter, only points with parameters closer than `p_eps` are connected.
 * `minpts`: Minimum number of points for a cluster, otherwise outlier
 * `k`: Paramater for the clustering, should be `1 < k < 2`
-* `par_distance_func`: Distance function for parameters, check: ``par_distance_func(pars[i],pars[j]) < p_eps``
+* `par_distance_func`: Distance function for parameters, check: `par_distance_func(pars[i],pars[j]) < p_eps`
 
     bbcluster(D::AbstractArray, prob::MCBBProblem, sol::MCBBSol, delta_p::T; p_eps::Union{Nothing,T}=nothing, minpts::Int=1, k::Number=1.5, par_distance_func::Union{Function,Nothing}=nothing) where T<:Real
 

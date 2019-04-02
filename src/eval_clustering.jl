@@ -81,7 +81,7 @@ Inputs:
 * `k_bin::Int`: Multiplier to increase (``k_{bin}>1``) or decrease the bin width and thus decrease or increase the number of bins. It is a multiplier to the Freedman-Draconis rule. Default: ``k_{bin}=1``
 * `low_memory::Bool`: If `true` the computation needs less memory but more computation.
 """
-function distance_matrix_histogram(sol::myMCSol, pars::AbstractArray{T}, distance_func, weights::AbstractArray{S}, histogram_distance::Function; matrix_distance_func::Union{Function, Nothing}=nothing, ecdf::Bool=true, k_bin::Number=1, low_memory::Bool=true) where {T,S}
+function distance_matrix_histogram(sol::myMCSol, pars::AbstractArray{T}, distance_func, weights::AbstractArray{S}, histogram_distance::Function; matrix_distance_func::Union{Function, Nothing}=nothing, ecdf::Bool=true, k_bin::Number=1, low_memory::Bool=false) where {T,S}
 
     mat_elements = zeros((sol.N_mc, sol.N_mc))
     if ndims(pars) == 2
