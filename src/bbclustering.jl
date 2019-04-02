@@ -1,6 +1,6 @@
 # Here, the Basin Bifurcation Clustering Algorithm is in developing
 # the code is based on the DBSCAN code from Clustering.jl
-
+using Printf
 import Clustering.ClusteringResult
 
 mutable struct BBClusterResult <: ClusteringResult
@@ -30,7 +30,7 @@ Inputs:
 
 Convenience wrapper of the above defined function with ['MCBBProblem'](@ref) and ['MCBBSol'](@ref) as inputs. Default value for `p_eps` is five times the mean parameter difference.
 """
-function bbcluster(D::AbstractArray, dplus::AbstractVector, dminus::AbstractVector, pars::AbstractVector, delta_p::T, p_eps::T, minpts::Int=1; k::Number=1.5, par_distance_func::Union{Function, Nothing}=nothing) where T<:Real
+function bbcluster(D::AbstractArray, dplus::AbstractVector, dminus::AbstractVector, pars::AbstractVector, delta_p::Real, p_eps::Real, minpts::Int=1; k::Number=1.5, par_distance_func::Union{Function, Nothing}=nothing)
     n = size(D, 1)
     size(D, 2) == n || error("D must be a square matrix.")
     n >= 2 || error("There must be at least two points.")
@@ -51,8 +51,11 @@ end
 function bbcluster(D::AbstractArray, prob::MCBBProblem, sol::MCBBSol, delta_p::T; p_eps::Union{Nothing,T}=nothing, minpts::Int=1, k::Number=1.5, par_distance_func::Union{Function,Nothing}=nothing) where T<:Real
 
     # lets use 5 times the mean parameter difference as a default value for p_eps
-    p_eps = 5. * mean(diff(parameter(prob)))
-    bbcluster(D, get_measure(sol, sol.N_meas - 2), get_measure(sol, sol.N_meas - 1), parameter(prob), delta_p, p_eps, minpts, k, par_distance_func)
+    if p_eps==nothing
+        p_eps = 10. * mean(abs.(diff(parameter(prob))))
+    end
+
+    bbcluster(D, get_measure(sol, sol.N_meas), get_measure(sol, sol.N_meas - 1), parameter(prob), delta_p, p_eps, minpts, k=k, par_distance_func=par_distance_func)
 end
 
 function _bbcluster(D::AbstractArray{T}, dplus::AbstractVector{T}, dminus::AbstractVector{T}, pars::AbstractVector{T}, delta_p::T, p_eps::T, minpts::Int, k::Real, visitseq::AbstractVector{Int}, par_distance_func::Function) where T<:Real
@@ -69,11 +72,13 @@ function _bbcluster(D::AbstractArray{T}, dplus::AbstractVector{T}, dminus::Abstr
     # main loop
     for p in visitseq
         if assignments[p] == 0 && !visited[p]
+            #@printf "p=%d p_eps=%f kval=%f" p p_eps kval
             visited[p] = true
             nbs = _bb_region_query(D, dplus, dminus, pars, delta_p, p_eps, p, kval, par_distance_func)
             if length(nbs) >= minpts
                 k_c += 1
                 cnt = _bb_expand_cluster!(D, dplus, dminus, pars, delta_p, k_c, p, nbs, p_eps, kval, minpts, assignments, visited, par_distance_func)
+                #@printf "k_c=%d cnt=%d minpts=%d" k_c cnt minpts
                 push!(seeds, p)
                 push!(counts, cnt)
             end
