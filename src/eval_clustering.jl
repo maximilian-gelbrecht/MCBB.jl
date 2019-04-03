@@ -37,7 +37,7 @@ function distance_matrix(sol::myMCSol, prob::myMCProblem, distance_func::Functio
     end
 
     if histograms
-        return distance_matrix_histogram(sol, par_c, distance_func, weights; matrix_distance_func=matrix_distance_func)
+        mat_elements = distance_matrix_histogram(sol, par_c, distance_func, weights; matrix_distance_func=matrix_distance_func)
     else
         mat_elements = zeros((sol.N_mc, sol.N_mc))
 
@@ -56,6 +56,14 @@ function distance_matrix(sol::myMCSol, prob::myMCProblem, distance_func::Functio
         end
         mat_elements += transpose(mat_elements)
     end
+
+    if sum(isnan.(mat_elements))>0
+        @warn "There are some elements NaN in the distance matrix"
+    end
+    if sum(isinf.(mat_elements))>0
+        @warn "There are some elements Inf in the distance matrix"
+    end
+    mat_elements
 end
 distance_matrix(sol::myMCSol, prob::myMCProblem, weights::AbstractArray; relative_parameter::Bool=false, histograms::Bool=false, matrix_distance_func::Union{Function, Nothing}=nothing) = distance_matrix(sol, prob, (x,y)->sum(abs.(x .- y)), weights; relative_parameter=relative_parameter, histograms=histograms, matrix_distance_func=matrix_distance_func)
 
@@ -107,10 +115,9 @@ function distance_matrix_histogram(sol::myMCSol, pars::AbstractArray{T}, distanc
         data_i = get_measure(sol, i_meas)
         flat_array = collect(Iterators.flatten(data_i))
 
-        # we use half the freedman-draconis rule because we are calculationg the IQR
-        # and max/min from _all_ values
+        # we use half the freedman-draconis rule because we are calculationg the IQR and max/min from _all_ values
         #bin_width = (4 * k_bin *iqr(flat_array))/(sol.N_mc^(1/3.))
-        bin_width = (k_bin *iqr(flat_array))/(sol.N_dim^(1/3.))
+        bin_width = (0.5 * k_bin *iqr(flat_array))/(sol.N_dim^(1/3.))
         minval = minimum(flat_array)
         maxval = maximum(flat_array)
         hist_edge = (minval-bin_width):bin_width:(maxval+bin_width)
@@ -124,8 +131,8 @@ function distance_matrix_histogram(sol::myMCSol, pars::AbstractArray{T}, distanc
     # do the measure loop first. this is more code, but less memory consuming as we will pre calculate the histograms
 
     if low_memory
+        println("Calculating distance with low-memory option")
         for i_meas=1:sol.N_meas_dim # per dimension measures
-            hist_weights =
             for i=1:sol.N_mc
                 for j=i+1:sol.N_mc
                     mat_elements[i,j] += weights[i_meas]*histogram_distance(_compute_ecdf(sol.sol[i][i_meas], hist_edges[i_meas]),_compute_ecdf(sol.sol[j][i_meas], hist_edges[i_meas]), bin_widths[i_meas])
@@ -199,7 +206,7 @@ function _compute_ecdf(data::AbstractArray{T}, hist_edges::AbstractArray) where 
         weights[i_bin] += 1
     end
     if i_bin!=N_bins
-        for i=i_bin:N_bins
+        for i=i_bin+1:N_bins
             weights[i] = weights[i - 1]
         end
     end
@@ -208,7 +215,7 @@ end
 
 """
 
-One possible histogram distance for `distance_matrix_histogram` (also the default one). It calculates the 1-Wasserstein / Earth Movers Distance between the two histograms by first computing the ECDF and then computing the discrete integral
+One possible histogram distance for `distance_matrix_histogram` (also the default one). It calculates the 1-Wasserstein / Earth Movers Distance between the two ECDFs by first computing the ECDF and then computing the discrete integral
 
 ``\\int_{-\\inf}^{+inf}|ECDF(hist\\_1) - ECDF(hist\\_2)| dx = \\sum_i | ECDF(hist\\_1)_i - ECDF(hist\\_2)_i | \\cdot bin\\_width``.
 
@@ -280,6 +287,39 @@ function cluster_measure_std(sol::myMCSol, clusters::ClusteringResult, i::Int)
         measure_sd[i_cluster] = std(measure[clusters.assignments.==(i_cluster-1),:])
     end
     measure_sd
+end
+
+"""
+    get_measure(sol::myMCSol, i::Int, clusters::ClusteringResult, i_cluster::Int, prob::Union{MCBBProblem,Nothing}=nothing, min_par::Number=-Inf, max_par::Number=+Inf)
+
+Get measure `i` for the `i_cluster`-th cluster with parameter values between `min_par` and `max_par`. If no `prob` is given, it ignores the parameter values
+"""
+function get_measure(sol::myMCSol, i::Int, clusters::ClusteringResult, i_cluster::Int, prob::Union{MCBBProblem,Nothing}=nothing, min_par::Number=-Inf, max_par::Number=+Inf)
+
+    ca = clusters.assignments
+    measure = get_measure(sol, i)
+    par = parameter(prob)
+    N = sol.N_mc
+
+    cluster_ind = (ca .== (i_cluster-1))
+
+    if prob==nothing
+        par_ind = ones(Bool, N)
+    else
+        par_ind = (par .> min_par) .& (par .< max_par)
+    end
+
+    ind = cluster_ind .& par_ind
+
+    if ndims(measure)==1
+        return measure[ind]
+    elseif ndims(measure)==2
+        return measure[ind,:]
+    elseif ndims(measure)==3
+        return measure[ind,:,:]
+    else
+        error("The Measure Results has more than 3 dimensions, there is something wrong here.")
+    end
 end
 
 

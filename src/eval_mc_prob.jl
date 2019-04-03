@@ -56,7 +56,7 @@ Default `eval_ode_run`, identical to the code above.
 
 # Continue Integration / Response Analysis
 
-     eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:Function,1},  matrix_eval_funcs::Union{AbstractArray, Nothing}, global_eval_funcs::Union{AbstractArray, Nothing}, par_var::OneDimParameterVar, eps::Float64, par_bounds::AbstractArray, distance_matrix_func; failure_handling::Symbol=:None, cyclic_setback::Bool=false, flag_past_measures::Bool=false, N_t::Int=200, alg=nothing, debug::Bool=false, return_pm::Bool, kwargs...)
+     eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:Function,1},  matrix_eval_funcs::Union{AbstractArray, Nothing}, global_eval_funcs::Union{AbstractArray, Nothing}, par_var::OneDimParameterVar, eps::Float64, par_bounds::AbstractArray, distance_matrix_func; failure_handling::Symbol=:None, cyclic_setback::Bool=false, flag_past_measures::Bool=false, N_t::Int=200, alg=nothing, debug::Bool=false, return_pm::Bool, new_tspan::Union{Nothing, AbstractArray}, kwargs...)
 
 Evaluation function that continues each integration and computes the same measures for `par+eps` and `par-eps`. Returns the results of the usual `eval_ode_run` (all measures) and additionally the response of the distance function to the paramater increase/decrease.
 
@@ -67,6 +67,8 @@ Evaluation function that continues each integration and computes the same measur
 * `alg`: Algorithm for `solve()`
 * `debug`: If true, also returns the DifferentialEquations problem solved for the continuation.
 * `return_pm`: If true, returns `D(p+dp)` AND `D(p-dp)`. If false returns the mean of these.
+* `new_tspan`: timespan for continued integeration, default: 15% of the original timespan
+
 * all further keyword arguments will be handed over to `solve(prob::DEMCBBProblem, ...)`
 """
 function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::AbstractArray, matrix_eval_funcs::Union{AbstractArray, Nothing}=nothing, global_eval_funcs::Union{AbstractArray, Nothing}=nothing; failure_handling::Symbol=:None, cyclic_setback::Bool=false, replace_inf=nothing, flag_past_measures=false)
@@ -192,7 +194,7 @@ end
 
 # evaluation function that also includes a response analysis with a contiuation of the integration
 # it records the differnce in Distance of the measures chosen thus each time recording a pair = 1(dp,dD)
-function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:Function,1}, global_eval_funcs::Union{AbstractArray, Nothing}, matrix_eval_funcs::Union{AbstractArray, Nothing}, par_var::OneDimParameterVar, eps::Float64, par_bounds::AbstractArray, distance_matrix_func; failure_handling::Symbol=:None, cyclic_setback::Bool=false, flag_past_measures::Bool=false, N_t::Int=200, alg=nothing, debug::Bool=false, return_pm::Bool=true, kwargs...)
+function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:Function,1}, global_eval_funcs::Union{AbstractArray, Nothing}, matrix_eval_funcs::Union{AbstractArray, Nothing}, par_var::OneDimParameterVar, eps::Float64, par_bounds::AbstractArray, distance_matrix_func; failure_handling::Symbol=:None, cyclic_setback::Bool=false, flag_past_measures::Bool=false, N_t::Int=200, alg=nothing, debug::Bool=false, return_pm::Bool=true, new_tspan::Union{Nothing, AbstractArray}=nothing, kwargs...)
 
     N_dim = length(sol.prob.u0)
     probi = sol.prob
@@ -219,7 +221,10 @@ function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:
         par[3,1] = par_bounds[2]
     end
 
-    new_tspan = (probi.tspan[1],probi.tspan[1]+0.25*(probi.tspan[2]-probi.tspan[1]))
+    if new_tspan == nothing
+        new_tspan = (probi.tspan[1], probi.tspan[1] +0.15*(probi.tspan[2] - probi.tspan[1]))
+    end
+
     #new_tspan = probi.tspan
     new_prob(baseprob, i, repeat) = remake(baseprob, u0=ic[i,:], tspan=new_tspan, p=par_var.new_par(probi.p; Dict(par_var.name => par[i,1])...))
 
