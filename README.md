@@ -1,6 +1,6 @@
 Library and Script with Example to explore High Dimensional Bifurcations with sample and clustering based methods using Julia language.
 
-It uses Julia 1.0 (and is not backwards compatible to Julia < v0.7)
+It uses Julia 1.0/1.1 (and is not backwards compatible to Julia < v0.7)
 
 # NEWS
 
@@ -64,4 +64,4 @@ Afterwards in your browser go to `localhost:8000`.
 
 # TO-DO
 
-* Plot Recipes: So far, there are no plot recipes and all examples are for PyPlot. This is suboptimal and for a proper release, they should be plot recipes to make the plotting simpler 
+* Plot Recipes: So far, there are no plot recipes and all examples are for PyPlot. This is suboptimal and for a proper release, they should be plot recipes to make the plotting simpler
