@@ -1,6 +1,6 @@
 # Basic Usage
 
-In the following we will show how the library works on two example, a logistic map and a first order Kuramoto network.
+In the following we will show how the library works on two example, a logistic map and a first order Kuramoto network. All important routines and functions also have docstrings that can be either viewed in the reference here in this documentation or by using Julia's regular help interface (first typing "?" and then the name of the function). 
 
 First, we import the library and all other packages that we need to set up the systems.
 
@@ -39,7 +39,7 @@ The tuple `par_var` contains the name of the parameter field to be changed as a 
 
 Next, we set up the base DifferentialEquations problem (if you are interested in problems that can't be solved with DifferentialEquations, see [`CustomMCBBProblem`](@ref)). As mentioned, the logistic map is already one of the pre-made systems, thus
 ```julia
-dp = DiscreteProblem(logistic, [ic_ranges()], (0.,5000.), pars);
+dp = DiscreteProblem(logistic, [ic_ranges()], (0.,1000.), pars);
 ```
 We are only interested in solutions after 80% of the integration time
 ```julia
@@ -47,7 +47,7 @@ tail_frac = 0.8;
 ```
 and can use the pre-made `eval_ode_run` for analyzing the solutions of each Differential Equation (see [`eval_ode_run`](@ref) for more information). This `eval_ode_run` will track the mean, std and Kullback-Leibler divergence of the solutions. Thus we can finally setup the [`DEMCBBProblem`](@ref) with
 ```julia
-mc_prob = DEMCBBProblem(dp, ic_ranges, N_ic, pars, (:r,r), eval_ode_run, tail_frac);
+log_emcp = DEMCBBProblem(dp, ic_ranges, N_ic, pars, (:r,r), eval_ode_run, tail_frac);
 ```
 and solve it
 ```julia
@@ -55,7 +55,7 @@ log_sol = solve(log_emcp);
 ```
 Subsequently, we calculate the distance matrix and cluster the results
 ```julia
-D_log = distance_matrix(log_sol, mc_prob, [1,0.75,0.5,1.]);
+D_log = distance_matrix(log_sol, log_emcp, [1,0.75,0.5,1.]);
 
 ```
 In order to determine the ``\epsilon`` parameter of DBSCAN we suggest one of three possibilities:
@@ -101,7 +101,7 @@ N_ics = 3000
 K_range = (i)->rand(kdist)
 pars = kuramoto_network_parameters(K, w_i_par, N, A)
 
-rp = ODEProblem(kuramoto_network, ic, (0.,3000.), pars)
+rp = ODEProblem(kuramoto_network, ic, (0.,1000.), pars)
 ```
 In this case we want to have another evaluation function. We don't need the Kullback-Leibler divergence, but we are interested in the global order parameter as the system to compare it to our results.
 

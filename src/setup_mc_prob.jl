@@ -113,11 +113,11 @@ OneDimParameterVar(name::Symbol,new_val::Function) = ParameterVarFunc(name, new_
 Holds information about multiple parameters that should be varied simultaneously.
 The struct has the fields:
 
-* `data`: 1-D Array of `ParamterVar`
+* `data`: 1-D Array of `OneDimParamterVar`
 * `Function`: function that returns a new parameter struct given keyword arguments of _all_ parameters that should be varied. signature: `(old_par; Dict(name_1=>new_val_1, name_2=>new_val_2, ...)) = new_par`
 * `N`: Number of parameters that are varied.
 
-Internally there are two different types, `MultiDimParameterVarFunc` and `MultiDimParameterVarArray`. The only difference is what type of ParameterVar they store. The different types are needed for dispatching on them in the routines that setup `DEMCBBProblem`
+Internally there are two different types, `MultiDimParameterVarFunc` and `MultiDimParameterVarArray`. The only difference is what type of ParameterVar they store. The different types are needed for dispatching on them in the routines that setups `DEMCBBProblem`
 
 # Initialization
 * `MultiDimParameterVar(data::Array{ParameterVarFunc,1}, func::Function)`
@@ -201,7 +201,7 @@ The type has two different main constructors and several others that do automati
 Setup a DEMCBBProblem with _randomized_ initial conditions (and parameters).
 
 * `p`: A Problem from DifferentialEquations, currently supported are `DiscreteProblem`, `ODEProblem`, `SDEProblem`,`DDEProblem` the base problem one is interested in.
-* `ic_gens`: A function or an array of functions that generate the initial conditions for each trial. Function signature is `()->new_value::Number` or `(i_run)->new_value::Number`. If only one function is provided its used for all IC dims, if ``M<N_{dim}`` functions with ``N_{dim}=k\\cdot M`` are provided these functions are repeated ``k`` times (usefull e.g. for coupled chaotic oscillators).
+* `ic_gens`: A function or an array of functions that generate the initial conditions for each trial. Function signature is `()->new_value::Number` or `(i_run)->new_value::Number` or `()->new_value::AbstractArray` or `(i_run)->new_value::AbstractArray`. If only one function is provided its used for all IC dims, if ``M<N_{dim}`` functions with ``N_{dim}=k\\cdot M`` are provided these functions are repeated ``k`` times (usefull e.g. for coupled chaotic oscillators).
 * `N_ic`: Number of trials to be computed, if parameter variation is varied by an array/range, `N_ic` is the number of initial conditions for each parameter value. Each parameter step then has the same `N_ic` idential initial conditions.
 * `pars`: parameter struct of the underlying system
 * `par_range_tuple`:  `ParameterVar`, information about how the parameters are varied, see [`ParameterVar`](@ref). Its also possible to hand over an appropiate tuple that will be automaticly converted to a `ParameterVar` type. A tuple of (First: name of the parameter as a symbol, Second: AbstractArray or Function that contains all parameters for the experiment or a function that generates parameter values. The function has to be format (oldvalue) -> (newvalue), Third: OPTIONAL: a function that maps (old_parameter_instance; (par_range[1],new_parameter_value)) -> new_parameter_instance. Default is 'reconstruct' from @with_kw/Parameters.jl is used) For examples see [`Basic Usage`](@ref).
