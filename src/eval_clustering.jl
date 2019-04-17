@@ -248,7 +248,6 @@ function cluster_distance(sol::myMCSol, cluster_results::ClusteringResult, clust
     else
         per_dim_distance_func = histogram_distance
     end
-
     ca = cluster_results.assignments
 
     cluster_ind_1 = (ca .== (cluster_1 - 1))
@@ -265,7 +264,7 @@ function cluster_distance(sol::myMCSol, cluster_results::ClusteringResult, clust
     sum = []
 
     # measures
-    for i=1:sol.N_meas
+    for i in measures
         D = zeros(eltype(sol.sol[1][i]), N_cluster_1, N_cluster_2)
         for (ji, j) in enumerate(cluster_ind_1)
             for (ki, k) in enumerate(cluster_ind_2)
