@@ -244,17 +244,17 @@ function cluster_distance(sol::myMCSol, cluster_results::ClusteringResult, clust
     end
 
     if histogram_distance==nothing
-        per_dim_distance = distance_func
+        per_dim_distance_func = distance_func
     else
-        per_dim_distance = histogram_distance
+        per_dim_distance_func = histogram_distance
     end
 
     ca = cluster_results.assignments
 
-    cluster_ind_1 = (ca .== (cluster_1 + 1))
-    cluster_ind_2 = (ca .== (cluster_2 + 1))
-    N_cluster_1 = sum(cluster_ind_1)
-    N_cluster_2 = sum(cluster_ind_2)
+    cluster_ind_1 = (ca .== (cluster_1 - 1))
+    cluster_ind_2 = (ca .== (cluster_2 - 1))
+    N_cluster_1 = Base.sum(cluster_ind_1)
+    N_cluster_2 = Base.sum(cluster_ind_2)
 
     cluster_ind_1 = findall(cluster_ind_1)
     cluster_ind_2 = findall(cluster_ind_2)
@@ -264,13 +264,12 @@ function cluster_distance(sol::myMCSol, cluster_results::ClusteringResult, clust
     res = []
     sum = []
 
-
     # measures
     for i=1:sol.N_meas
         D = zeros(eltype(sol.sol[1][i]), N_cluster_1, N_cluster_2)
-        for j in cluster_ind_1
-            for k in cluster_ind_2
-                D[j,k] = distance_funcs[i](sol.sol[j][i], sol.sol[k][i])
+        for (ji, j) in enumerate(cluster_ind_1)
+            for (ki, k) in enumerate(cluster_ind_2)
+                D[ji,ki] = distance_funcs[i](sol.sol[j][i], sol.sol[k][i])
             end
         end
         push!(sum, Dict("mean"=>mean(D), "std"=>std(D)))
