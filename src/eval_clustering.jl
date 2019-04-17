@@ -116,19 +116,7 @@ function distance_matrix_histogram(sol::myMCSol, pars::AbstractArray{T}, distanc
     hist_edges = []
     bin_widths = []
     for i_meas=1:sol.N_meas_dim
-        data_i = get_measure(sol, i_meas)
-        flat_array = collect(Iterators.flatten(data_i))
-
-        # we use half the freedman-draconis rule because we are calculationg the IQR and max/min from _all_ values
-        #bin_width = (4 * k_bin *iqr(flat_array))/(sol.N_mc^(1/3.))
-        bin_width = (0.5 * k_bin *iqr(flat_array))/(sol.N_dim^(1/3.))
-        minval = minimum(flat_array)
-        maxval = maximum(flat_array)
-        hist_edge = (minval-bin_width):bin_width:(maxval+bin_width)
-        if length(hist_edge) > 100
-            @warn "Very large number of Hist Bins calculated via IQR, there might be something fishy here, e.g. IQR=0. For now the Number of Bins is set to 25"
-            hist_edge = range(minval - 0.1*minval, maxval + 0.1*maxval, length=25)
-        end
+        hist_edge, bin_width = _compute_hist_edges(i_meas, sol, k_bin)
         push!(hist_edges, hist_edge)
         push!(bin_widths, bin_width)
     end
@@ -198,6 +186,30 @@ function _compute_hist_weights(i_meas::Int, sol::myMCSol, hist_edges::AbstractAr
     weights
 end
 
+"""
+    _compute_hist_edges(i_meas::Int, sol::myMCSol, k_bin::Number)
+
+Helper function, computes the edges of the histograms. Uses Freedman-Draconis rule. `k_bin` is an additional prefactor to the computed bin width.
+"""
+function _compute_hist_edges(i_meas::Int, sol::myMCSol, k_bin::Number)
+
+    data_i = get_measure(sol, i_meas)
+    flat_array = collect(Iterators.flatten(data_i))
+
+    # we use half the freedman-draconis rule because we are calculationg the IQR and max/min from _all_ values
+    #bin_width = (4 * k_bin *iqr(flat_array))/(sol.N_mc^(1/3.))
+    bin_width = (0.5 * k_bin *iqr(flat_array))/(sol.N_dim^(1/3.))
+    minval = minimum(flat_array)
+    maxval = maximum(flat_array)
+    hist_edge = (minval-bin_width):bin_width:(maxval+bin_width)
+    if length(hist_edge) > 100
+        @warn "Very large number of Hist Bins calculated via IQR, there might be something fishy here, e.g. IQR=0. For now the Number of Bins is set to 25"
+        hist_edge = range(minval - 0.1*minval, maxval + 0.1*maxval, length=25)
+    end
+    return hist_edge, bin_width
+end
+
+
 function _compute_ecdf(data::AbstractArray{T}, hist_edges::AbstractArray) where T<:Number
     N_bins = length(hist_edges) - 1
     weights = zeros(eltype(data), N_bins)
@@ -244,10 +256,16 @@ function cluster_distance(sol::myMCSol, cluster_results::ClusteringResult, clust
     end
 
     if histogram_distance==nothing
+        println("per_dim equal reg")
         per_dim_distance_func = distance_func
+        hist_flag = false
     else
         per_dim_distance_func = histogram_distance
+
+        hist_flag = true
     end
+
+
     ca = cluster_results.assignments
 
     cluster_ind_1 = (ca .== (cluster_1 - 1))
@@ -260,15 +278,28 @@ function cluster_distance(sol::myMCSol, cluster_results::ClusteringResult, clust
 
     distance_funcs = [[per_dim_distance_func for i=1:sol.N_meas_dim]; [matrix_distance_func for i=1:sol.N_meas_matrix];[distance_func for i=1:sol.N_meas_global]]
 
+
     res = []
     sum = []
 
     # measures
     for i in measures
         D = zeros(eltype(sol.sol[1][i]), N_cluster_1, N_cluster_2)
-        for (ji, j) in enumerate(cluster_ind_1)
-            for (ki, k) in enumerate(cluster_ind_2)
-                D[ji,ki] = distance_funcs[i](sol.sol[j][i], sol.sol[k][i])
+
+        if hist_flag & (i < sol.N_meas_dim) # histogram distance
+            hist_egdes, bin_width = _compute_hist_edges(i, sol, k_bin)
+            hist_weights = _compute_hist_weights(i, sol, hist_edges, ecdf)
+
+            for (ji, j) in enumerate(cluster_ind_1)
+                for (ki, k) in enumerate(cluster_ind_2)
+                    D[ji,ki] = distance_funcs[i](hist_weights[j], hist_weights[k], bin_width)
+                end
+            end
+        else  # regular distance
+            for (ji, j) in enumerate(cluster_ind_1)
+                for (ki, k) in enumerate(cluster_ind_2)
+                    D[ji,ki] = distance_funcs[i](sol.sol[j][i], sol.sol[k][i])
+                end
             end
         end
         push!(sum, Dict("mean"=>mean(D), "std"=>std(D)))
