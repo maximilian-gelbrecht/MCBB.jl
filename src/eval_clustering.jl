@@ -133,7 +133,7 @@ function distance_matrix_histogram(sol::myMCSol, pars::AbstractArray{T}, distanc
         end
     else
         for i_meas=1:sol.N_meas_dim # per dimension measures
-            hist_weights = _compute_hist_weights(i_meas, sol, hist_edges, ecdf)
+            hist_weights = _compute_hist_weights(i_meas, sol, hist_edges[i_meas], ecdf)
             for i=1:sol.N_mc
                 for j=i+1:sol.N_mc
                     mat_elements[i,j] += weights[i_meas]*histogram_distance(hist_weights[i,:], hist_weights[j,:], bin_widths[i_meas])
@@ -173,10 +173,10 @@ distance_matrix_histogram(sol::myMCSol, prob::myMCProblem, distance_func::Functi
 
 Helper function, computes histogram weights from measures for measure `i_meas`.
 """
-function _compute_hist_weights(i_meas::Int, sol::myMCSol, hist_edges::AbstractArray, ecdf::Bool)
-    weights = zeros(Float32, (sol.N_mc, length(hist_edges[i_meas])-1))
+function _compute_hist_weights(i_meas::Int, sol::myMCSol, hist_edge::AbstractArray, ecdf::Bool)
+    weights = zeros(Float32, (sol.N_mc, length(hist_edge)-1))
     for i=1:sol.N_mc
-        weights[i,:] = fit(Histogram, sol.sol[i][i_meas], hist_edges[i_meas], closed=:left).weights
+        weights[i,:] = fit(Histogram, sol.sol[i][i_meas], hist_edge, closed=:left).weights
     end
     if ecdf
         for i=1:sol.N_mc
@@ -232,7 +232,7 @@ function _compute_ecdf(data::AbstractArray{T}, hist_edges::AbstractArray) where 
 end
 
 """
-    cluster_distance(sol::myMCSol, cluster_results::ClusteringResult, cluster_1::Int, cluster_2::Int; measures::Union{AbstractArray, Nothing}=nothing)
+    cluster_distance(sol::myMCSol, cluster_results::ClusteringResult, cluster_1::Int, cluster_2::Int; measures::Union{AbstractArray, Nothing}=nothing, distance_func=nothing, histogram_distance=nothing, matrix_distance_func=nothing, k_bin::Number=1)
 
 Does calculate the distance between the members of two cluster seperatly for each measure
 
@@ -243,13 +243,17 @@ Does calculate the distance between the members of two cluster seperatly for eac
 * `cluster_1`: Index of the first cluster to be analysed (noise/outlier cluster = 1)
 * `cluster_2`: Index of the second cluster to be analysed
 * `measures`: Which measures should be analysed, default: all.
+* `distance_func`: Distance function for regular per dimension measures and global measures
+* `matrix_distance_func`: Distance function for matrix values measures
+* `histogram_distance`: If a function is given, calculates the distance based on histograms (see [`distance_matrix_histogram`](@ref))
+* `k_bin`: Prefactor for bin width in case histograms are used.
 
 # Output
 
 * Array with
 * Summary dictionary, mean and std of the distances
 """
-function cluster_distance(sol::myMCSol, cluster_results::ClusteringResult, cluster_1::Int, cluster_2::Int; measures::Union{AbstractArray, Nothing}=nothing, distance_func=nothing, histogram_distance=nothing, matrix_distance_func=nothing)
+function cluster_distance(sol::myMCSol, cluster_results::ClusteringResult, cluster_1::Int, cluster_2::Int; measures::Union{AbstractArray, Nothing}=nothing, distance_func=nothing, histogram_distance=nothing, matrix_distance_func=nothing, k_bin::Number=1, ecdf_flag::Bool=true)
 
     if measures==nothing
         measures = 1:sol.N_meas
@@ -287,12 +291,12 @@ function cluster_distance(sol::myMCSol, cluster_results::ClusteringResult, clust
         D = zeros(eltype(sol.sol[1][i]), N_cluster_1, N_cluster_2)
 
         if hist_flag & (i < sol.N_meas_dim) # histogram distance
-            hist_egdes, bin_width = _compute_hist_edges(i, sol, k_bin)
-            hist_weights = _compute_hist_weights(i, sol, hist_edges, ecdf)
+            hist_edges, bin_width = _compute_hist_edges(i, sol, k_bin)
+            hist_weights = _compute_hist_weights(i, sol, hist_edges, ecdf_flag)
 
             for (ji, j) in enumerate(cluster_ind_1)
                 for (ki, k) in enumerate(cluster_ind_2)
-                    D[ji,ki] = distance_funcs[i](hist_weights[j], hist_weights[k], bin_width)
+                    D[ji,ki] = distance_funcs[i](hist_weights[j,:], hist_weights[k,:], bin_width)
                 end
             end
         else  # regular distance
