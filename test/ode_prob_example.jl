@@ -48,19 +48,26 @@ k_range = ()->rand(kdist)
 ko_emcp = DEMCBBProblem(rp, ic_ranges, N_ics, pars, (:K, k_range), eval_ode_run, tail_frac)
 ko_sol = solve(ko_emcp)
 
-
+function eval_ode_run_all_test(sol, i)
+    N_dim = length(sol.prob.u0)
+    state_filter = collect(1:N_dim)
+    eval_funcs = [mean, std]
+    matrix_eval_funcs = [correlation_ecdf]
+    global_eval_funcs = [(x)->sum(x)]
+    eval_ode_run(sol, i, state_filter, eval_funcs, matrix_eval_funcs, global_eval_funcs)
+end
 
 
 # random + random
 ic_ranges = [()->rand(ic_dist)]
 k_range = (i)->rand(kdist)
 
-ko_emcp = DEMCBBProblem(rp, ic_ranges, N_ics, pars, (:K, k_range), eval_ode_run, tail_frac)
+ko_emcp = DEMCBBProblem(rp, ic_ranges, N_ics, pars, (:K, k_range), eval_ode_run_all_test, tail_frac)
 ko_sol = solve(ko_emcp)
 
-D = distance_matrix(ko_sol, ko_emcp, [1.,0.5,0.5,1], histograms=true);
+D = distance_matrix(ko_sol, ko_emcp, [1.,0.5,1.,1.,1], histograms=true, matrix_distance_func=wasserstein_histogram_distance);
 
-D = distance_matrix(ko_sol, ko_emcp, [1.,0.5,0.5,1.]);
+D = distance_matrix(ko_sol, ko_emcp, [1.,0.5,1.,1.,1], matrix_distance_func=wasserstein_histogram_distance);
 k = 4
 fdist = k_dist(D,k);
 

@@ -43,12 +43,16 @@ function distance_matrix(sol::myMCSol, prob::myMCProblem, distance_func::Functio
 
         for i=1:sol.N_mc
             for j=i+1:sol.N_mc
-                for i_meas=1:sol.N_meas_dim+sol.N_meas_global
+                for i_meas=1:sol.N_meas_dim
                     mat_elements[i,j] += weights[i_meas]*distance_func(sol.sol[i][i_meas], sol.sol[j][i_meas])
                 end
-                for i_meas=sol.N_meas_dim+sol.N_meas_global+1:sol.N_meas
+                for i_meas =sol.N_meas_dim+1:sol.N_meas_dim+sol.N_meas_matrix
                     mat_elements[i,j] += weights[i_meas]*matrix_distance_func(sol.sol[i][i_meas], sol.sol[j][i_meas])
                 end
+                for i_meas = sol.N_meas_dim+sol.N_meas_matrix+1:sol.N_meas
+                    mat_elements[i,j] += weights[i_meas]*distance_func(sol.sol[i][i_meas], sol.sol[j][i_meas])
+                end
+
                 for i_par=1:N_pars
                     mat_elements[i,j] += weights[sol.N_meas+i_par]*distance_func(par_c[i,i_par], par_c[j,i_par])
                 end
@@ -151,16 +155,18 @@ function distance_matrix_histogram(sol::myMCSol, pars::AbstractArray{T}, distanc
     end
     for i=1:sol.N_mc
         for j=1:sol.N_mc
-            for i_meas=sol.N_meas_dim+1:sol.N_meas_dim+sol.N_meas_global # global measures
-                if weights[i_meas]!=0
-                    mat_elements[i,j] += distance_func(weights[i_meas]*sol.sol[i][i_meas], weights[i_meas]*sol.sol[j][i_meas])
-                end
-            end
-            for i_meas=sol.N_meas_dim+sol.N_meas_global+1:sol.N_meas
+            for i_meas = sol.N_meas_dim+1:sol.N_meas_dim+sol.N_meas_matrix
                 if weights[i_meas]!=0
                     mat_elements[i,j] += matrix_distance_func(weights[i_meas]*sol.sol[i][i_meas], weights[i_meas]*sol.sol[j][i_meas])
                 end
             end
+
+            for i_meas = sol.N_meas_dim+sol.N_meas_matrix+1:sol.N_meas# global measures
+                if weights[i_meas]!=0
+                    mat_elements[i,j] += distance_func(weights[i_meas]*sol.sol[i][i_meas], weights[i_meas]*sol.sol[j][i_meas])
+                end
+            end
+
             for i_par=1:N_pars # parameters
                 mat_elements[i,j] += distance_func(weights[sol.N_meas+i_par]*pars[i,i_par], weights[sol.N_meas+i_par]*pars[j,i_par])
             end
@@ -212,6 +218,68 @@ function _compute_ecdf(data::AbstractArray{T}, hist_edges::AbstractArray) where 
     end
     weights = weights./weights[end]
 end
+
+"""
+    cluster_distance(sol::myMCSol, cluster_results::ClusteringResult, cluster_1::Int, cluster_2::Int; measures::Union{AbstractArray, Nothing}=nothing)
+
+Does calculate the distance between the members of two cluster seperatly for each measure
+
+# Inputs
+
+* `sol`: Solution object
+* `cluster_results`: results from the clustering
+* `cluster_1`: Index of the first cluster to be analysed (noise/outlier cluster = 1)
+* `cluster_2`: Index of the second cluster to be analysed
+* `measures`: Which measures should be analysed, default: all.
+
+# Output
+
+* Array with
+* Summary dictionary, mean and std of the distances
+"""
+function cluster_distance(sol::myMCSol, cluster_results::ClusteringResult, cluster_1::Int, cluster_2::Int; measures::Union{AbstractArray, Nothing}=nothing, distance_func=nothing, histogram_distance=nothing, matrix_distance_func=nothing)
+
+    if measures==nothing
+        measures = 1:sol.N_meas
+    end
+
+    if histogram_distance==nothing
+        per_dim_distance = distance_func
+    else
+        per_dim_distance = histogram_distance
+    end
+
+    ca = cluster_results.assignments
+
+    cluster_ind_1 = (ca .== (cluster_1 + 1))
+    cluster_ind_2 = (ca .== (cluster_2 + 1))
+    N_cluster_1 = sum(cluster_ind_1)
+    N_cluster_2 = sum(cluster_ind_2)
+
+    cluster_ind_1 = findall(cluster_ind_1)
+    cluster_ind_2 = findall(cluster_ind_2)
+
+    distance_funcs = [[per_dim_distance_func for i=1:sol.N_meas_dim]; [matrix_distance_func for i=1:sol.N_meas_matrix];[distance_func for i=1:sol.N_meas_global]]
+
+    res = []
+    sum = []
+
+
+    # measures
+    for i=1:sol.N_meas
+        D = zeros(eltype(sol.sol[1][i]), N_cluster_1, N_cluster_2)
+        for j in cluster_ind_1
+            for k in cluster_ind_2
+                D[j,k] = distance_funcs[i](sol.sol[j][i], sol.sol[k][i])
+            end
+        end
+        push!(sum, Dict("mean"=>mean(D), "std"=>std(D)))
+        push!(res, D)
+    end
+
+    return (res, sum)
+end
+
 
 """
 

@@ -51,6 +51,7 @@ export distance_matrix_histogram, wasserstein_histogram_distance, ecdf_hist
 export stuart_landau_sathiyadevi_pars, stuart_landau_sathiyadevi!
 export BBClusterResult, bbcluster
 export correlation_hist, correlation, correlation_ecdf
+export cluster_distance
 # Contains example systems
 include("systems.jl")
 

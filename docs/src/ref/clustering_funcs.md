@@ -5,6 +5,7 @@ distance_matrix
 distance_matrix_histogram
 wasserstein_histogram_distance
 ecdf_hist
+cluster_distance
 cluster_means(sol::myMCSol, clusters::DbscanResult)
 cluster_membership(par::AbstractArray, clusters::DbscanResult)
 cluster_membership(prob::myMCProblem, clusters::DbscanResult, window_size::AbstractArray, window_offset::AbstractArray, normalize::Bool=true)
