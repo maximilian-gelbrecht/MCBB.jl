@@ -249,6 +249,6 @@ function normalize(sol::CustomMCBBSolution, k::AbstractArray)
         end
     end
 
-    sol_new = CustomMCBBSolution(new_mc_sol, sol.N_mc, sol.N_t, sol.N_dim, sol.N_meas, sol.N_meas_dim, sol.N_meas_global, sol.solve_command)
+    sol_new = CustomMCBBSolution(new_mc_sol, sol.N_mc, sol.N_t, sol.N_dim, sol.N_meas, sol.N_meas_dim, sol.N_meas_global, sol.N_meas_matrix, sol.solve_command)
 end
 normalize(sol::CustomMCBBSolution) = normalize(sol, 1:sol.N_meas)
