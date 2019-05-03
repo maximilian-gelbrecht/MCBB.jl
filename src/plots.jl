@@ -8,12 +8,13 @@ using RecipesBase
 
     _3d = res.multidim_flag
 
-    if typeof(plot_index)<:Number
-        plot_index = [plot_index]
-    end
 
     if plot_index==nothing
         N_cluster = _3d ? size(res.data)[3] : size(res.data)[2]
+
+        if _3d
+            error("Please enter plot_index kwarg for 3d plot to work.")
+        end
 
         plot_index = 1:N_cluster
     end
@@ -42,12 +43,11 @@ using RecipesBase
 
     else
 
-        x = res.par[:,:, 1]
-        y = res.par[:,:, 2]
-        z = res.data[:,:, plot_index]
-        seriestype --> :surface
-        xlabel --> "Parameter 1"
-        ylabel --> "Parameter 2"
+        x = res.par[:,1,1]
+        y = res.par[1,:,2]
+        z = res.data[:,:, plot_index]'
+        seriestype --> :heatmap
+
         zlabel --> "Approximate Relative Basin Volume"
     end
     grid --> true

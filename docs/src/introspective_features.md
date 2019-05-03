@@ -121,11 +121,11 @@ m1sd = cluster_measure_std(kosol, db_res, measure_1)
 m2m = cluster_measure_mean(kosol, db_res, measure_2)
 m2sd = cluster_measure_std(kosol, db_res, measure_2)
 
-SC = scatter(m1m, m2m, c=colororder[1:length(m1m)])
-errorbar(m1m, m2m, fmt="o", ms=0,ecolor=colororder, xerr=0.005*m1sd, yerr=0.1*m2sd)
-legend(lp, ("Noise","2","3","4","5","6","7","8","9","10","11"))
-xlabel("Average Mean")
-ylabel("Average Std")
+SC = PyPlot.scatter(m1m, m2m, c=colororder[1:length(m1m)])
+PyPlot.errorbar(m1m, m2m, fmt="o", ms=0,ecolor=colororder, xerr=0.005*m1sd, yerr=0.1*m2sd)
+PyPlot.legend(lp, ("Noise","2","3","4","5","6","7","8","9","10","11"))
+PyPlot.xlabel("Average Mean")
+PyPlot.ylabel("Average Std")
 ```
 
 ![Cluster Means and Stds](img/output_msk.png)
@@ -171,10 +171,10 @@ print(cluster_ms[3,1,:])
 With the method [`get_trajectory`](@ref) we can get the full trajectory of an example trial within a certain cluster. This can help us get a further impression of the nature of the trajectories inside the cluster.
 
 ```julia
-IM = imshow(Matrix(get_trajectory(ko_mcp,kosol, db_res,0,only_sol=true)), aspect=4)
-ylabel("Oscillator i")
-xlabel("Time")
-cb = colorbar(IM, orientation="horizontal")
+IM = PyPlot.imshow(Matrix(get_trajectory(ko_mcp,kosol, db_res,0,only_sol=true)), aspect=4)
+PyPlot.ylabel("Oscillator i")
+PyPlot.xlabel("Time")
+cb = PyPlot.colorbar(IM, orientation="horizontal")
 cb[:ax][:set_xlabel]("Colorbar: Im(z)", rotation=0)
 ```
 
@@ -188,7 +188,7 @@ and for the second cluster we see a synchronized system (except for one oscillat
 
 ## Cluster Measure Histograms
 
-It is also possible to show how the histograms of a measure on a sliding window. [`cluster_measures_sliding_histograms`](@ref) does just that. It returns for each cluster and for each window a histogram of a measure of your choice as a [`ClusterMeasureHistogramResult`](@ref). 
+It is also possible to show how the histograms of a measure on a sliding window. [`cluster_measures_sliding_histograms`](@ref) does just that. It returns for each cluster and for each window a histogram of a measure of your choice as a [`ClusterMeasureHistogramResult`](@ref).
 
 ```julia
 cluster_hist_res = cluster_measures_sliding_histograms(ko_mcp, kosol, db_res, 1, 0.25, 0.125)
