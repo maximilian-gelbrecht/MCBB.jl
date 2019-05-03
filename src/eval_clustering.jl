@@ -934,6 +934,10 @@ Stores the results of [`cluster_membership`](@ref) and can be used for [`Cluster
 
 Does plot the [`ClusterMembershipResult`](@ref). Uses Plot recipes and thus hands over all kwargs possible from Plots.jl.
 
+## Hints
+
+The order of the labels for the legend is reversed.
+
 ## Additional Kwargs
 
 * `plot_index`: Range or Array with the indices of the clusters to be plotted. Default: all.

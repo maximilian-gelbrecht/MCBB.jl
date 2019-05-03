@@ -20,14 +20,15 @@ using RecipesBase
     end
 
     labels = []
-    if 1 in plot_index
-        push!(labels, "1: Outlier")
-    end
 
-    for ip in plot_index
-        if !(ip==1)
+    for ip=length(plot_index):-1:1
+        if !(plot_index[ip]==1)
             push!(labels, string(ip))
         end
+    end
+
+    if 1 in plot_index
+        push!(labels, "1: Outlier")
     end
 
     if !(_3d)
@@ -51,13 +52,13 @@ using RecipesBase
         zlabel --> "Approximate Relative Basin Volume"
     end
     grid --> true
-    label -> labels
-    fillalpha --> 0.5
+    label --> labels
+    fillalpha --> 0.6
     gridstyle --> :dot
     gridalpha --> 1.0
     gridlinewidth --> 2
     linecolor --> "white"
-    linewidth --> 2
+    linewidth --> 2.5
     minorgrid --> :on
 
     xyz = _3d ? (x,y,z) : (x,y)
