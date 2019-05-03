@@ -55,9 +55,9 @@ using RecipesBase
     label --> labels
     fillalpha --> 0.6
     gridstyle --> :dot
+    linecolor := "white"
     gridalpha --> 1.0
     gridlinewidth --> 2
-    linecolor --> "white"
     linewidth --> 2.5
     minorgrid --> :on
 
