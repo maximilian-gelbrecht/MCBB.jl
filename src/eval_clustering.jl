@@ -2,7 +2,83 @@
 ##### Results Evaluation functions
 ###########
 using Distributions, Clustering, StatsBase
+import Clustering.dbscan
 #using PairwiseListMatrices
+
+"""
+    abstract type AbstractDistanceMatrix{T} <: AbstractArray{T,2} end
+
+Abstract Datatype for all Distance Matrix types. Currently, there are within MCBB:
+    * [`DistanceMatrix`](@ref)
+    * [`DistanceMatrixHist`](@ref)
+"""
+abstract type AbstractDistanceMatrix{T} <: AbstractArray{T,2} end
+
+"""
+    DistanceMatrix{T}
+
+Type for distance matrices. This type should behave just like any `AbstractArray{T,2}`. There's a [`convert`](@ref) to `AbstractArray{T,2}`.
+
+It also holds additional information about the distance calculation.
+
+# Fields (and constructor)
+
+* `data::AbstractArray{T,2}`: The actual distance matrix
+* `weights::AbstractArray{T,1}`: The weights that were used to compute it
+* `distance_func::Function`: The function that was used to compute it
+* `relative_parameter::Bool`: Was the parameter rescaled?
+"""
+mutable struct DistanceMatrix{T,S} <: AbstractDistanceMatrix{T}
+    data::AbstractArray{T,2}
+    weights::AbstractArray{S,1}
+    distance_func::Function
+    matrix_eval_funcs::Union{Function, Nothing}
+    relative_parameter::Bool
+end
+
+"""
+    DistanceMatrixHist{T}
+
+Type for distance matrices which were computed using Histograms. This type should behave just like any `AbstractArray{T,2}`. There's a [`convert`](@ref) to `AbstractArray{T,2}`.
+
+It also holds additional information about the distance calculation.
+
+# Fields (and constructor)
+
+* `data::AbstractArray{T,2}`: The actual distance matrix
+* `weights::AbstractArray{T,1}`: The weights that were used to compute it
+* `distance_func::Function`: The function that was used to compute the distance between the global measures
+* `matrix_distance_func::Union{Function, Nothing}`: The function that was used to compute it
+* `relative_parameter::Bool`: Was the parameter rescaled?
+* `histogram_distance::Function`: Function used to compute the histogram distance
+* `hist_edges`: Array of arrays/ranges with all histogram edges
+* `bin_width`: Array of all histogram bin widths
+* `ecdf`: Was the ECDF used in the distance computation?
+* `k_bin`: Additional factor in bin_width computation
+
+"""
+mutable struct DistanceMatrixHist{T,S} <: AbstractDistanceMatrix{T}
+    data::AbstractArray{T,2}
+    weights::AbstractArray{S,1}
+    distance_func::Function
+    matrix_distance_func::Union{Function, Nothing}
+    relative_parameter::Bool
+    histogram_distance::Function
+    hist_edges
+    bin_width
+    ecdf::Bool
+    k_bin::Number
+end
+
+Base.size(dm::AbstractDistanceMatrix) = size(dm.data)
+Base.getindex(dm::AbstractDistanceMatrix, i::Int) = getindex(dm.data, i)
+Base.getindex(dm::AbstractDistanceMatrix, I...) = getindex(dm.data, I...)
+Base.setindex!(dm::AbstractDistanceMatrix, v, i::Int) = setindex!(dm.data, v, i)
+Base.setindex!(dm::AbstractDistanceMatrix, v, I::Vararg) = setindex!(dm.data, v, I)
+
+Base.convert(::AbstractArray{T,2}, dm::AbstractDistanceMatrix{T}) where T<:Number = dm.data
+
+Clustering.dbscan(dm::AbstractDistanceMatrix{T}, eps::Number, k::Int) where T<:Number = dbscan(dm.data, eps, k)
 
 """
      distance_matrix(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray; relative_parameter::Bool=false, histograms::Bool=false)
@@ -15,11 +91,14 @@ Calculate the distance matrix between all individual solutions.
 * `weights`: Instead of the actual measure `weights[i_measure]*measure` is handed over to `distance_func`. Thus `weights` need to be ``N_{meas}+N_{par}`` long array.
 * `relative_parameter`: If true, the paramater values during distance calcuation is rescaled to [0,1]
 * `histograms::Bool`: If true, the distance calculation is based on [`distance_matrix_histogram`](@ref) with the default histogram distance [`wasserstein_histogram_distance`](@ref).
+
+Returns an instance of [`DistanceMatrix`](@ref)
 """
 function distance_matrix(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray; matrix_distance_func::Union{Function, Nothing}=nothing, relative_parameter::Bool=false, histograms::Bool=false)
 
-    pars = parameter(prob)
     N_pars = length(ParameterVar(prob))
+
+    pars = parameter(prob)
     par_c = copy(pars)
 
     if (sol.N_meas_matrix!=0) & (matrix_distance_func==nothing)
@@ -27,17 +106,11 @@ function distance_matrix(sol::myMCSol, prob::myMCProblem, distance_func::Functio
     end
 
     if relative_parameter
-        for i_par=1:N_pars
-            min_par = minimum(par[:,i_par])
-            max_par = maximum(par[:,i_par])
-            #par_range = max_par - min_par
-            par_rel = (par[:,i_par] .- min_par)./max_par
-            par_c[:,i_par] = par_rel
-        end
+        par_c = _relative_parameter(prob)
     end
 
     if histograms
-        mat_elements = distance_matrix_histogram(sol, par_c, distance_func, weights; matrix_distance_func=matrix_distance_func)
+        return distance_matrix_histogram(sol, prob, distance_func, weights; matrix_distance_func=matrix_distance_func, relative_parameter=relative_parameter)
     else
         mat_elements = zeros((sol.N_mc, sol.N_mc))
 
@@ -67,7 +140,8 @@ function distance_matrix(sol::myMCSol, prob::myMCProblem, distance_func::Functio
     if sum(isinf.(mat_elements))>0
         @warn "There are some elements Inf in the distance matrix"
     end
-    mat_elements
+
+    return DistanceMatrix(mat_elements, weights, distance_func, matrix_distance_func, relative_parameter)
 end
 distance_matrix(sol::myMCSol, prob::myMCProblem, weights::AbstractArray; relative_parameter::Bool=false, histograms::Bool=false, matrix_distance_func::Union{Function, Nothing}=nothing) = distance_matrix(sol, prob, (x,y)->sum(abs.(x .- y)), weights; relative_parameter=relative_parameter, histograms=histograms, matrix_distance_func=matrix_distance_func)
 
@@ -92,17 +166,19 @@ Inputs:
 * `ecdf::Bool` if true the `histogram_distance` function gets the empirical cdfs instead of the histogram
 * `k_bin::Int`: Multiplier to increase (``k_{bin}>1``) or decrease the bin width and thus decrease or increase the number of bins. It is a multiplier to the Freedman-Draconis rule. Default: ``k_{bin}=1``
 * `low_memory::Bool`: If `true` the computation needs less memory but more computation.
+
+Returns a instance of [`DistanceMatrixHist`](@ref)
 """
-function distance_matrix_histogram(sol::myMCSol, pars::AbstractArray{T}, distance_func, weights::AbstractArray{S}, histogram_distance::Function; matrix_distance_func::Union{Function, Nothing}=nothing, ecdf::Bool=true, k_bin::Number=1, low_memory::Bool=false) where {T,S}
+function distance_matrix_histogram(sol::myMCSol, prob::myMCProblem, distance_func, weights::AbstractArray{S}, histogram_distance::Function; matrix_distance_func::Union{Function, Nothing}=nothing, ecdf::Bool=true, k_bin::Number=1, low_memory::Bool=false, relative_parameter::Bool=false) where {T,S}
+
+    if relative_parameter
+        pars = _relative_parameter(prob)
+    else
+        pars = parameter(prob)
+    end
 
     mat_elements = zeros((sol.N_mc, sol.N_mc))
-    if ndims(pars) == 2
-        (__, N_pars) = size(pars)
-    elseif ndims(pars) == 1
-        N_pars = 1
-    else
-        error("parameter array has more than two dimensions.")
-    end
+    N_pars = length(ParameterVar(prob))
 
     if length(weights)!=(sol.N_meas+N_pars)
         error("Amount of weights not the same as Measures + Parameters")
@@ -161,12 +237,36 @@ function distance_matrix_histogram(sol::myMCSol, pars::AbstractArray{T}, distanc
         end
     end
     mat_elements += transpose(mat_elements)
+
+    if sum(isnan.(mat_elements))>0
+        @warn "There are some elements NaN in the distance matrix"
+    end
+    if sum(isinf.(mat_elements))>0
+        @warn "There are some elements Inf in the distance matrix"
+    end
+
+    return DistanceMatrixHist(mat_elements, weights, distance_func, matrix_distance_func, relative_parameter, histogram_distance, hist_edges, bin_widths, ecdf, k_bin)
 end
-distance_matrix_histogram(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray, histogram_distance::Function; kwargs...) = distance_matrix_histogram(sol, parameter(prob), distance_func, weights, histogram_distance; kwargs...)
+distance_matrix_histogram(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray; kwargs...) = distance_matrix_histogram(sol, prob, distance_func, weights, wasserstein_histogram_distance; kwargs...)
 
-distance_matrix_histogram(sol::myMCSol, par::AbstractArray, distance_func::Function, weights::AbstractArray; kwargs...) = distance_matrix_histogram(sol, par, distance_func, weights, wasserstein_histogram_distance; kwargs...)
+"""
+    _relative_parameter(prob::myMCProblem)
 
-distance_matrix_histogram(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray; kwargs...) = distance_matrix_histogram(sol, parameter(prob), distance_func, weights, wasserstein_histogram_distance; kwargs...)
+Helper function that rescales the parameter to [0,1]. Returns an Array with the rescaled parameter.
+"""
+function _relative_parameter(prob::myMCProblem)
+    N_pars = length(ParameterVar(prob))
+    par = parameter(prob)
+    par_c = copy(par)
+    for i_par=1:N_pars
+        min_par = minimum(par[:,i_par])
+        max_par = maximum(par[:,i_par])
+        #par_range = max_par - min_par
+        par_rel = (par[:,i_par] .- min_par)./max_par
+        par_c[:,i_par] = par_rel
+    end
+    return par_c
+end
 
 """
     _compute_hist_weights(i_meas::Int, sol::myMCSol, hist_edges::AbstractArray, ecdf::Bool)
@@ -318,7 +418,7 @@ end
 
 One possible histogram distance for `distance_matrix_histogram` (also the default one). It calculates the 1-Wasserstein / Earth Movers Distance between the two ECDFs by first computing the ECDF and then computing the discrete integral
 
-``\\int_{-\\inf}^{+inf}|ECDF(hist\\_1) - ECDF(hist\\_2)| dx = \\sum_i | ECDF(hist\\_1)_i - ECDF(hist\\_2)_i | \\cdot bin\\_width``.
+``\\int_{-\\infty}^{+\\infty}|ECDF(hist\\_1) - ECDF(hist\\_2)| dx = \\sum_i | ECDF(hist\\_1)_i - ECDF(hist\\_2)_i | \\cdot bin\\_width``.
 
 Returns a single (real) number. The input is the ecdf.
 
@@ -436,10 +536,16 @@ Calculated the measures for each cluster along a sliding window. Can also handle
 * `window_size`: Size of the window. In case multiple paramaters being varied has to be an array.
 * `window_offset`: Offset of the sliding window. In case multiple paramaters being varied has to be an array.
 
-Returns a tuple with:
-* `parameter_windows`: the center value of the sliding windows, in case multiple parameter are being varied, it is a meshgrid.
+Returns an instance of [`ClusterMeasureResult`](@ref) with fields:
+* `par`: the center value of the sliding windows, in case multiple parameter are being varied, it is a meshgrid.
 * `cluster_measures`: (per dimension) measures on the parameter grid
 * `cluster_measures_global`: global measures on the parameter grid
+
+# Plot:
+
+* The `i`-th measure can be plotted with `plot(res::ClusterMeasureResult, i::Int, kwargs...)`
+
+* A single cluster and measure can be plotted with `plot(res::ClusterMeasureResult, i_meas::Int, i_cluster::Int, kwargs...)`.
 """
 cluster_measures(prob::myMCProblem, sol::myMCSol, clusters::ClusteringResult, window_size::Number, window_offset::Number) = cluster_measures(prob, sol, clusters, [window_size], [window_offset])
 function cluster_measures(prob::myMCProblem, sol::myMCSol, clusters::ClusteringResult, window_size::AbstractArray, window_offset::AbstractArray)
@@ -462,7 +568,30 @@ function cluster_measures(prob::myMCProblem, sol::myMCSol, clusters::ClusteringR
         p_windows, c_temp = measure_on_parameter_sliding_window(prob, sol, i_meas, clusters, window_size, window_offset)
         cluster_measures_global[:,i_meas - N_meas_dim,[Colon() for i=1:N_par]...] =  c_temp[:,1,[Colon() for i=1:N_par]...]
     end
-    (p_windows, cluster_measures, cluster_measures_global)
+    _multidim = (N_par > 1) ? true : false
+    ClusterMeasureResult(p_windows, cluster_measures, cluster_measures_global, _multidim)
+end
+
+"""
+    ClusterMeasureResult
+
+Results of [`cluster_measures`](@ref).
+
+# Fields:
+* `par`
+* `cluster_measures`
+* `cluster_measures_global`
+
+# Plot:
+
+The `i`-th measure of the `j-`th cluster can be plotted with `plot(res::ClusterMeasureResult, i::Int, j::Int, kwargs...)`
+
+"""
+struct ClusterMeasureResult
+    par
+    cluster_measures
+    cluster_measures_global
+    multidim_flag
 end
 
 """
@@ -479,17 +608,12 @@ Input:
 * `window_offset::AbstractArray`: size of the window, number or Array with length according to the number of parameters
 * `k_bin::Number`: Bin Count Modifier. `k_bin`-times the Freedman Draconis rule is used for binning the data. Default: 1
 
-Returns tuple with:
+Returns an instance of [`ClusterMeasureHistogramResult`](@ref) with fields:
 * `hist_vals`: N_cluster, N_windows..., N_bins - sized array with the value of the histograms for each window
-* `window_mins`: left corner of the sliding windows, "x-axis-labels" of the plot
+* `par`: midpoint of the sliding windows, "x-axis-labels" of the plot
 * `hist_bins`: center of the bins, "y-axis-label" of the plot
 
-# Example Plot
-
-    using PyPlot
-    (vals, wins, edges) = cluster_measures_sliding_histograms(prob, sol, cluster_res, 1, 0.05, 0.05)
-    PCP = pcolor(wins[1], hist_bins, collect(vals[1,:,:]'))
-    cb = colorbar(PCP)
+Can be plotted with `plot(res::ClusterMeasureHistogramResult, kwargs...)`. See [`ClusterMeasureHistogramResult`](@ref) for details.
 
 """
 function cluster_measures_sliding_histograms(prob::myMCProblem, sol::myMCSol, clusters::ClusteringResult, i_meas::Int, window_size::AbstractArray, window_offset::AbstractArray; k_bin::Number=1)
@@ -545,9 +669,40 @@ function cluster_measures_sliding_histograms(prob::myMCProblem, sol::myMCSol, cl
             end
         end
     end
-    (hist_vals, windows_mins, collect(hist_edges))
+    _multidim = (N_par > 1) ? true : false
+    ClusterMeasureHistogramResult(hist_vals, windows_mins, collect(hist_edges[1:end-1]) .+ (bin_width/2.), _multidim)
 end
 cluster_measures_sliding_histograms(prob::myMCProblem, sol::myMCSol, clusters::ClusteringResult, i_meas::Int, window_size::Number, window_offset::Number; k_bin::Number=1) = cluster_measures_sliding_histograms(prob, sol, clusters, i_meas, [window_size], [window_offset], k_bin=k_bin)
+
+"""
+    ClusterMeasureHistogramResult
+
+Stores results of [`cluster_measures_sliding_histograms`](@ref).
+
+# Fields
+
+* `hist_vals`: N_cluster, N_windows..., N_bins - sized array with the value of the histograms for each window
+* `par`: midpoint of the sliding windows, "x-axis-labels" of the plot
+* `hist_edges`: center of the bins, "y-axis-label" of the plot
+* `multidim_flag`
+
+# Plot
+
+Can be plotted with `plot(res::ClusterMeasureHistogramResult, kwargs...)`
+
+## Additional kwargs
+
+* `plot_index`: Range or Array or Number with the indices of the clusters to be plotted. Default: all.
+"""
+struct ClusterMeasureHistogramResult
+    hist_vals
+    par
+    hist_edges
+    multidim_flag
+end
+
+
+
 
 """
     ClusterICSpaces
@@ -681,6 +836,10 @@ end
     cluster_membership(par::AbstractArray, clusters::ClusteringResult)
 
 Calculates the proportion of members for each cluster for all parameter values.
+
+Returns an instance [`ClusterMembershipResult`](@ref) with fields:
+* `par`: the center value of the sliding windows, in case multiple parameter are being varied, it is a meshgrid.
+* `data`: members of the clusters on the parameter grid
 """
 function cluster_membership(par::AbstractArray, clusters::ClusteringResult)
     N_cluster = length(clusters.seeds) + 1  # plus 1 -> plus "noise cluster" / not clustered points
@@ -694,17 +853,7 @@ function cluster_membership(par::AbstractArray, clusters::ClusteringResult)
         i_par = searchsortedfirst(par_u,par[i])
         memberships[i_par, ca[i]+1] += 1
     end
-    memberships
-end
-
-### OLD VERSION, WILL BE DELETED AT SOME POINT
-# counts how many solutions are part of the individual clusters for each parameter step
-# -  par needs to be 1d mapping each run to its parameter value, e.g. par[:,end]
-# this method uses a sliding window over the parameter axis.
-# should be used when parameters are randomly generated.
-# - normalize: normalize by number of parameters per window
-function cluster_membership(par::AbstractArray, clusters::ClusteringResult, window_size::Number, window_offset::Number, normalize::Bool=true)
-    error("This used to be an old version of cluster_membership, please use cluster_membership(prob::myMCProb, clusters::ClusteringResult, window_size, window_offset) now")
+    ClusterMembershipResult(par, memberships, false)
 end
 
 """
@@ -719,9 +868,11 @@ Calculates the proportion of members for each cluster within a parameter sliding
 * `window_size`: Size of the window. In case multiple paramaters being varied has to be an array.
 * `window_offset`: Offset of the sliding window. In case multiple paramaters being varied has to be an array.
 
-Returns a tuple with:
-* `parameter_windows`: the center value of the sliding windows, in case multiple parameter are being varied, it is a meshgrid.
-* `cluster_measures`: members of the clusters on the parameter grid
+Returns an instance [`ClusterMembershipResult`](@ref) with fields:
+* `par`: the center value of the sliding windows, in case multiple parameter are being varied, it is a meshgrid.
+* `data`: members of the clusters on the parameter grid
+
+The results can be plotted with directly with `plot(results, kwargs...)`. See [`ClusterMembershipResult`](@ref) for details on the plotting
 """
 function cluster_membership(prob::myMCProblem, clusters::ClusteringResult, window_size::AbstractArray, window_offset::AbstractArray, normalize::Bool=true)
 
@@ -759,9 +910,46 @@ function cluster_membership(prob::myMCProblem, clusters::ClusteringResult, windo
     end
 
     # return
-    (parameter_mesh, memberships)
+    if N_par == 1
+        flag = false
+    else
+        flag = true
+    end
+
+    ClusterMembershipResult(parameter_mesh, memberships, flag)
 end
 cluster_membership(prob::myMCProblem, clusters::ClusteringResult, window_size::Number, window_offset::Number, normalize::Bool=true) = cluster_membership(prob, clusters, [window_size], [window_offset], normalize)
+
+"""
+    ClusterMembershipResult{T,S} <: AbstractArray
+
+Stores the results of [`cluster_membership`](@ref) and can be used for [`ClusterMembershipPlot`](@ref).
+
+# Fields
+* `par`: Parameter Array or Mesh
+* `data`: Cluster Membership data on `par`-Parameter grid.
+
+# Plot
+    plot(cm::ClusterMembershipResult, kwargs...)
+
+Does plot the [`ClusterMembershipResult`](@ref). Uses Plot recipes and thus hands over all kwargs possible from Plots.jl.
+
+## Additional Kwargs
+
+* `plot_index`: Range or Array with the indices of the clusters to be plotted. Default: all.
+"""
+mutable struct ClusterMembershipResult{T,N} <: AbstractArray{T,N}
+    par::AbstractArray
+    data::AbstractArray{T,N}
+    multidim_flag::Bool
+end
+
+Base.size(cm::ClusterMembershipResult) = size(cm.data)
+Base.getindex(cm::ClusterMembershipResult, i::Int) = getindex(cm.data, i)
+Base.getindex(cm::ClusterMembershipResult, I...) = getindex(cm.data, I...)
+Base.setindex!(cm::ClusterMembershipResult, v, i::Int) = setindex!(cm.data, v, i)
+Base.setindex!(cm::ClusterMembershipResult, v, I::Vararg) = setindex!(cm.data, v, I)
+
 
 """
     measure_on_parameter_sliding_window

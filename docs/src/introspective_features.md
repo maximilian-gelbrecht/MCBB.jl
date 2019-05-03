@@ -12,7 +12,8 @@ using Clustering
 using DifferentialEquations
 using Distributions
 using StatsBase
-using PyPlot
+import PyPlot
+using Plots
 ```
 
 ```julia
@@ -65,11 +66,7 @@ D_k = distance_matrix(kosol, ko_mcp, [1.,0.75,0.,0,1.]); # no weight on the orde
 db_eps = 110 # we found that value by scanning manually
 db_res = dbscan(D_k,db_eps,4)
 cluster_members = cluster_membership(ko_mcp,db_res,0.2,0.05);
-ax = subplot(111)
-lp = plot(cluster_members[1],cluster_members[2])
-legend(lp, ("Noise Cluster", "Cluster 1", "Cluster 2"))
-ax[:spines]["top"][:set_visible](false)
-ax[:spines]["right"][:set_visible](false);
+plot(cluster_members)
 ```
 
 ![Kuramato Membership Diagram](img/output_4_0.png)
@@ -135,37 +132,28 @@ ylabel("Average Std")
 
 In this case we scaled the error bars, as the Stds of the measures is much larger than the differences in the Average meausres. This is due to the fact that the Kuramoto oscillators are all oscillating relativly fast in this setup. It is important to note that for Cluster 3, the synchronous state, the Stds have a very small Std, meaning that almost all trials in this cluster have the same Std. This is clearly a strong indicator for a synchronous state. Cluster 2 and the noise cluster have only a slightly different average mean and std, if one would decrease the DBSCAN `\epsilon` parameter, they would probably be classified as only one cluster.
 
-The method [`cluster_measures`](@ref) gets the measure for each cluster seperately and applies a sliding window. The routine returns the parameter values of the sliding window, a ``N_{cluster}\times N_{measures}\times N_{dim}\times N_{windows}`` array for measures that are evalauted for every dimension and a ``N_{cluster}\times N_{measures}\times N_{windows}`` for global measures. For windiws in which the cluster has no members a `NaN` is returned. This is (in constrast to `missing` or `nothing`) compatible with most plotting routines. We should however always define common x-Limits for the plots because of this.
+The method [`cluster_measures`](@ref) gets the measure for each cluster seperately and applies a sliding window. The routine returns the parameter values of the sliding window, a ``N_{cluster}\times N_{measures}\times N_{dim}\times N_{windows}`` array for measures that are evalauted for every dimension and a ``N_{cluster}\times N_{measures}\times N_{windows}`` for global measures. For windows in which the cluster has no members a `NaN` is returned. This is (in constrast to `missing` or `nothing`) compatible with most plotting routines. We should however always define common x-Limits for the plots because of this. It returns these within a [`ClusterMeasureResult`](@ref) struct that can be plotted easily, as they are plot recipes defined.
 
 ```julia
-(p_win, cluster_measures_dim, cluster_measures_global) = cluster_measures(ko_mcp, kosol, db_res, 0.1, 0.01);
+cluster_meas_res = cluster_measures(ko_mcp, kosol, db_res, 0.1, 0.01);
 ```
 
 ```julia
 xlim_values = [0, 5]
-plot(p_win,Array(cluster_measures_dim[1,1,:,:]'))
-title("Means Cluster 1")
-xlabel("Coupling K");
-xlim(xlim_values[1], xlim_values[2])
+plot(cluster_meas_res, 1, 1, xlims=xlim_values, title="Means Cluster 1", xlabel="Coupling K")
 ```
 
 ![Kuramoto Cluster 1 Means](img/output_12_0.png)
 
 
 ```julia
-plot(p_win,Array(cluster_measures_dim[2,1,:,:]'))
-title("Means Cluster 2")
-xlabel("Coupling K");
-xlim(xlim_values[1], xlim_values[2])
+plot(cluster_meas_res, 1, 2, xlims=xlim_values, title="Means Cluster 2", xlabel="Coupling K")
 ```
 
 ![Kuramoto Cluster 2 Means](img/output_13_0.png)
 
 ```julia
-plot(p_win,Array(cluster_measures_dim[3,1,:,:]'))
-title("Means Cluster 3")
-xlabel("Coupling K");
-xlim(xlim_values[1], xlim_values[2])
+plot(cluster_meas_res, 1, 3, xlims=xlim_values, title="Means Cluster 2", xlabel="Coupling K")
 ```
 ![Kuramoto Cluster 3 Means](img/output_14_0.png)
 
@@ -200,11 +188,11 @@ and for the second cluster we see a synchronized system (except for one oscillat
 
 ## Cluster Measure Histograms
 
-It is also possible to show how the histograms of a measure on a sliding window. [`cluster_measures_sliding_histograms`](@ref) does just that. It returns for each cluster and for each window a histogram of a measure of your choice.
+It is also possible to show how the histograms of a measure on a sliding window. [`cluster_measures_sliding_histograms`](@ref) does just that. It returns for each cluster and for each window a histogram of a measure of your choice as a [`ClusterMeasureHistogramResult`](@ref). 
 
 ```julia
-(hist_vals, wins, hist_bins) = cluster_measures_sliding_histograms(ko_mcp, kosol, db_res, 1, 0.25, 0.125)
-PCP = pcolor(wins[1], hist_bins, collect(hist_vals[1,:,:]'))
+cluster_hist_res = cluster_measures_sliding_histograms(ko_mcp, kosol, db_res, 1, 0.25, 0.125)
+plot(cluster_hist_res, 1)
 ```
 
 ![Kuramoto Cluster 1](img/kura_hists_cluster1.png)

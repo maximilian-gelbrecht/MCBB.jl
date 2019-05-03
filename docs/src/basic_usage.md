@@ -1,6 +1,6 @@
 # Basic Usage
 
-In the following we will show how the library works on two example, a logistic map and a first order Kuramoto network. All important routines and functions also have docstrings that can be either viewed in the reference here in this documentation or by using Julia's regular help interface (first typing "?" and then the name of the function). 
+In the following we will show how the library works on two example, a logistic map and a first order Kuramoto network. All important routines and functions also have docstrings that can be either viewed in the reference here in this documentation or by using Julia's regular help interface (first typing "?" and then the name of the function).
 
 First, we import the library and all other packages that we need to set up the systems.
 
@@ -171,6 +171,8 @@ The clustering is based on the distance matrix. Its calculation is performed wit
 
 * Directly compute the difference between the individual values of the measures with a suitable norm. This is the default option (with an L1-norm used)
 * For each measure first compute a histogram or empirical CDF for each run and compare these with each other. For this purpose the keyword `histograms=true` needs to be set. This is recommended when investigating systems with many (more or less) identical subparts such as oscillator networks and the specific position/number of a single oscillator is not important. The default measure to compare the histograms is the 1-Wasserstein distance.
+
+The distance functions return elements of type [`DistanceMatrix`](@ref) or [`DistanceMatrixHist`](@ref). They behave just like regular arrays (and are in fact subtypes of `AbstractArray`) but also hold additional information about how the distance was computed. This can be espacially useful when using the histogram method. 
 
 ## Clustering
 

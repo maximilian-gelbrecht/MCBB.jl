@@ -9,7 +9,7 @@ mutable struct BBClusterResult <: ClusteringResult
 end
 
 """
-    bbcluster(D::AbstractArray{T}, dplus::AbstractVector{T}, dminus::AbstractVector{T}, pars::AbstractVector{T}, p_eps::T, minpts::Int; k::S=1.5, par_distance_func::Union{Function, Nothing}=nothing) where {T,S}<:Real
+    bbcluster(D::AbstractDistanceMatrix, dplus::AbstractVector{T}, dminus::AbstractVector{T}, pars::AbstractVector{T}, p_eps::T, minpts::Int; k::S=1.5, par_distance_func::Union{Function, Nothing}=nothing) where {T,S}<:Real
 
 Performs the BBClustering, a modified DBSCAN clustering adjusted for Basin Bifurcation Analysis
 
@@ -29,7 +29,7 @@ Inputs:
 
 Convenience wrapper of the above defined function with ['MCBBProblem'](@ref) and ['MCBBSol'](@ref) as inputs. Default value for `p_eps` is five times the mean parameter difference.
 """
-function bbcluster(D::AbstractArray, dplus::AbstractVector, dminus::AbstractVector, pars::AbstractVector, delta_p::Real, p_eps::Real, minpts::Int=1; k::Number=1.5, par_distance_func::Union{Function, Nothing}=nothing)
+function bbcluster(D::AbstractDistanceMatrix, dplus::AbstractVector, dminus::AbstractVector, pars::AbstractVector, delta_p::Real, p_eps::Real, minpts::Int=1; k::Number=1.5, par_distance_func::Union{Function, Nothing}=nothing)
     n = size(D, 1)
     size(D, 2) == n || error("D must be a square matrix.")
     n >= 2 || error("There must be at least two points.")

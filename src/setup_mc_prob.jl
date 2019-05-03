@@ -10,7 +10,7 @@ import LinearAlgebra.normalize
 """
     ParameterVar
 
-Parameter Variation types, these structs holds information about the parameters and how they should be varied. For many cases this struct is automaticlly initialized when calling `DEMCBBProblem` with appropiate Tuples. It assumes that the paremeters are itself structs most commonly with a field that has to be varied.
+Parameter Variation types, these structs holds information about the parameters and how they should be varied. For many cases this struct is automaticlly initialized when calling `DEMCBBProblem` with appropiate Tuples. It assumes that the parameters are itself structs most commonly with a field that has to be varied.
 
 # Type Hierachy
 * `OneDimParameterVar, MultiDimParameterVar <: ParameterVar`

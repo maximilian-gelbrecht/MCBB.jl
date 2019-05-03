@@ -52,6 +52,9 @@ export stuart_landau_sathiyadevi_pars, stuart_landau_sathiyadevi!
 export BBClusterResult, bbcluster
 export correlation_hist, correlation, correlation_ecdf
 export cluster_distance
+
+export AbstractDistanceMatrix, DistanceMatrix, DistanceMatrixHist
+export ClusterMembershipResult, ClusterMeasureResult, ClusterMeasureHistogramResult
 # Contains example systems
 include("systems.jl")
 
@@ -68,5 +71,5 @@ include("bif_analysis.jl")
 
 include("custom_mc_prob.jl")
 include("bbclustering.jl")
-
+include("plots.jl")
 end

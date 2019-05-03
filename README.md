@@ -4,20 +4,9 @@ It uses Julia 1.0/1.1 (and is not backwards compatible to Julia < v0.7)
 
 # NEWS
 
-The name of the project has changed from `HighBifLib` to `MCBB`. In order to transition smoothly between the old and the new version, it is easiest to deinstall the old version first
+Most plots and cluster evaluation function have been rewritten to include plot recipes for easier plotting.
 
-```
-pkg> remove HighBifLib
-```
-
-and then install the new one with the instructions below.
-
-Additionally, there have been other breaking changes:
-* `BifAnaMCProblem` is now called `DEMCBBProblem`
-* `CustomMCBBProblem` introduced for systems that don't use DifferentialEquations.jl as a backend
-* `eval_ode_run` does not have `mean_and_std` as a default evaluation function anymore.
-
-Check out the documentation for detailed info.
+Check out the documentation for detailed info, at `?cluster_membership`, `?MCBB.ClusterMembershipResult`, `?cluster_measures_sliding_histograms`, `?MCBB.ClusterMeasuresHistogramResult`, `?cluster_measures`, `?MCBB.ClusterMeasureResult`. 
 
 # Install
 
@@ -64,4 +53,4 @@ Afterwards in your browser go to `localhost:8000`.
 
 # TO-DO
 
-* Plot Recipes: So far, there are no plot recipes and all examples are for PyPlot. This is suboptimal and for a proper release, they should be plot recipes to make the plotting simpler
+* Plot Recipes: So far, there are not yet plot recipes for everything
