@@ -35,6 +35,7 @@ mutable struct DistanceMatrix{T,S} <: AbstractDistanceMatrix{T}
     matrix_eval_funcs::Union{Function, Nothing}
     relative_parameter::Bool
 end
+_distance_func(D::DistanceMatrix) = D.distance_func
 
 """
     DistanceMatrixHist{T}
@@ -77,6 +78,7 @@ Base.setindex!(dm::AbstractDistanceMatrix, v, i::Int) = setindex!(dm.data, v, i)
 Base.setindex!(dm::AbstractDistanceMatrix, v, I::Vararg) = setindex!(dm.data, v, I)
 
 Base.convert(::AbstractArray{T,2}, dm::AbstractDistanceMatrix{T}) where T<:Number = dm.data
+_distance_func(D::DistanceMatrixHist) = D.histogram_distance
 
 Clustering.dbscan(dm::AbstractDistanceMatrix{T}, eps::Number, k::Int) where T<:Number = dbscan(dm.data, eps, k)
 
@@ -332,43 +334,29 @@ function _compute_ecdf(data::AbstractArray{T}, hist_edges::AbstractArray) where 
 end
 
 """
-    cluster_distance(sol::myMCSol, cluster_results::ClusteringResult, cluster_1::Int, cluster_2::Int; measures::Union{AbstractArray, Nothing}=nothing, distance_func=nothing, histogram_distance=nothing, matrix_distance_func=nothing, k_bin::Number=1)
+    cluster_distance(sol::myMCSol, D::AbstractDistanceMatrix, cluster_results::ClusteringResult,  cluster_1::Int, cluster_2::Int; measures::Union{AbstractArray, Nothing}=nothing, distance_func=nothing, histogram_distance=nothing, matrix_distance_func=nothing, k_bin::Number=1)
 
 Does calculate the distance between the members of two cluster seperatly for each measure
 
 # Inputs
 
 * `sol`: Solution object
+* `D`: distance matrix from [`distance_matrix`](@ref)
 * `cluster_results`: results from the clustering
 * `cluster_1`: Index of the first cluster to be analysed (noise/outlier cluster = 1)
 * `cluster_2`: Index of the second cluster to be analysed
 * `measures`: Which measures should be analysed, default: all.
-* `distance_func`: Distance function for regular per dimension measures and global measures
-* `matrix_distance_func`: Distance function for matrix values measures
-* `histogram_distance`: If a function is given, calculates the distance based on histograms (see [`distance_matrix_histogram`](@ref))
-* `k_bin`: Prefactor for bin width in case histograms are used.
 
 # Output
 
 * Array with
 * Summary dictionary, mean and std of the distances
 """
-function cluster_distance(sol::myMCSol, cluster_results::ClusteringResult, cluster_1::Int, cluster_2::Int; measures::Union{AbstractArray, Nothing}=nothing, distance_func=nothing, histogram_distance=nothing, matrix_distance_func=nothing, k_bin::Number=1, ecdf_flag::Bool=true)
+function cluster_distance(sol::myMCSol, dm::AbstractDistanceMatrix, cluster_results::ClusteringResult, cluster_1::Int, cluster_2::Int; measures::Union{AbstractArray, Nothing}=nothing)
 
     if measures==nothing
         measures = 1:sol.N_meas
     end
-
-    if histogram_distance==nothing
-        println("per_dim equal reg")
-        per_dim_distance_func = distance_func
-        hist_flag = false
-    else
-        per_dim_distance_func = histogram_distance
-
-        hist_flag = true
-    end
-
 
     ca = cluster_results.assignments
 
@@ -380,8 +368,8 @@ function cluster_distance(sol::myMCSol, cluster_results::ClusteringResult, clust
     cluster_ind_1 = findall(cluster_ind_1)
     cluster_ind_2 = findall(cluster_ind_2)
 
-    distance_funcs = [[per_dim_distance_func for i=1:sol.N_meas_dim]; [matrix_distance_func for i=1:sol.N_meas_matrix];[distance_func for i=1:sol.N_meas_global]]
-
+    distance_funcs = [[_distance_func(dm) for i=1:sol.N_meas_dim]; [dm.matrix_distance_func for i=1:sol.N_meas_matrix];[dm.distance_func for i=1:sol.N_meas_global]]
+    hist_flag = (typeof(dm) <: DistanceMatrixHist)
 
     res = []
     sum = []
@@ -391,12 +379,11 @@ function cluster_distance(sol::myMCSol, cluster_results::ClusteringResult, clust
         D = zeros(eltype(sol.sol[1][i]), N_cluster_1, N_cluster_2)
 
         if hist_flag & (i < sol.N_meas_dim) # histogram distance
-            hist_edges, bin_width = _compute_hist_edges(i, sol, k_bin)
-            hist_weights = _compute_hist_weights(i, sol, hist_edges, ecdf_flag)
+            hist_weights = _compute_hist_weights(i, sol, dm.hist_edges[i], dm.ecdf)
 
             for (ji, j) in enumerate(cluster_ind_1)
                 for (ki, k) in enumerate(cluster_ind_2)
-                    D[ji,ki] = distance_funcs[i](hist_weights[j,:], hist_weights[k,:], bin_width)
+                    D[ji,ki] = distance_funcs[i](hist_weights[j,:], hist_weights[k,:], dm.bin_width[i])
                 end
             end
         else  # regular distance
@@ -424,7 +411,7 @@ Returns a single (real) number. The input is the ecdf.
 
 Adopted from [`https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.wasserstein_distance.html`](@ref)
 """
-function wasserstein_histogram_distance(hist_1::AbstractArray{T}, hist_2::AbstractArray{T}, delta=1) where {T}
+function wasserstein_histogram_distance(hist_1::AbstractArray{T}, hist_2::AbstractArray{T}, delta::Number=1) where {T}
     # calculate ecdf from hist
     #ecdf_1 = ecdf_hist(hist_1)
     #ecdf_2 = ecdf_hist(hist_2)
