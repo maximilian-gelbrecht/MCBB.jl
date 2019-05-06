@@ -221,7 +221,7 @@ function compute_distance(sol::myMCSol, i_meas::Int, distance_func::Function; us
         hist_edge, bin_width = _compute_hist_edges(i_meas, sol, k_bin)
         _compute_distance!(D, sol, i_meas, distance_func, hist_edge, bin_width, use_ecdf)
     else
-        _compute_distance!(D, sol, i_meas, distance_function)
+        _compute_distance!(D, sol, i_meas, distance_func)
     end
     return D + transpose(D)
 end
