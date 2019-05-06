@@ -2,7 +2,7 @@
 
 ```@docs
 distance_matrix
-distance_matrix_histogram
+compute_distance
 AbstractDistanceMatrix
 DistanceMatrix
 DistanceMatrixHist

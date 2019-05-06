@@ -61,10 +61,10 @@ It also holds additional information about the distance calculation.
 mutable struct DistanceMatrixHist{T,S} <: AbstractDistanceMatrix{T}
     data::AbstractArray{T,2}
     weights::AbstractArray{S,1}
-    distance_func::Function
-    matrix_distance_func::Union{Function, Nothing}
+    distance_func
+    matrix_distance_func
     relative_parameter::Bool
-    histogram_distance::Function
+    histogram_distance
     hist_edges
     bin_width
     ecdf::Bool
@@ -83,20 +83,37 @@ _distance_func(D::DistanceMatrixHist) = D.histogram_distance
 Clustering.dbscan(dm::AbstractDistanceMatrix{T}, eps::Number, k::Int) where T<:Number = dbscan(dm.data, eps, k)
 
 """
-     distance_matrix(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray; relative_parameter::Bool=false, histograms::Bool=false)
+     distance_matrix(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray; matrix_distance_func::Union{Function, Nothing}=nothing, histogram_distance_func::Union{Function, Nothing}=wasserstein_histogram_distance, relative_parameter::Bool=false, histograms::Bool=false, use_ecdf::Bool=true, k_bin::Number=1)
 
 Calculate the distance matrix between all individual solutions.
+
+# Histogram Method
+
+If it is called with the `histograms` flag `true`, computes for each run in the solution `sol` for each measure a histogram of the measures of all system dimensions. The binning of the histograms is computed with Freedman-Draconis rule and the same across all runs for each measure.
+
+The distance matrix is then computed given a suitable histogram distance function `histogram_distance` between these histograms.
+
+This is intended to be used in order to avoid symmetric configurations in larger systems to be distinguished from each other. Example: Given a system with 10 identical oscillators. Given this distance calculation a state where oscillator 1-5 are synchronized and 6-10 are not syncronized would be in the same cluster as a state where oscillator 6-10 are synchronized and 1-5 are not synchronized. If you don't want this kind of behaviour, use the regular `distance_matrix` function.
+
+# Arguments
 
 * `sol`: solution
 * `prob`: problem
 * `distance_func`: The actual calculating the distance between the measures/parameters of each solution with each other. Signature should be `(measure_1::Union{Array,Number}, measure_2::Union{Array,Number}) -> distance::Number. Example and default is `(x,y)->sum(abs.(x .- y))`.
 * `weights`: Instead of the actual measure `weights[i_measure]*measure` is handed over to `distance_func`. Thus `weights` need to be ``N_{meas}+N_{par}`` long array.
+
+## Kwargs
+
 * `relative_parameter`: If true, the paramater values during distance calcuation is rescaled to [0,1]
 * `histograms::Bool`: If true, the distance calculation is based on [`distance_matrix_histogram`](@ref) with the default histogram distance [`wasserstein_histogram_distance`](@ref).
+* `histogram_distance_func`: The distance function between two histograms. Default is [`wasserstein_histogram_distance`](@ref).
+* `matrix_distance_func`: The distance function between two matrices or arrays or length different from ``N_{dim}``. Used e.g. for Crosscorrelation.
+* `ecdf::Bool` if true the `histogram_distance` function gets the empirical cdfs instead of the histogram
+* `k_bin::Int`: Multiplier to increase (``k_{bin}>1``) or decrease the bin width and thus decrease or increase the number of bins. It is a multiplier to the Freedman-Draconis rule. Default: ``k_{bin}=1``
 
-Returns an instance of [`DistanceMatrix`](@ref)
+Returns an instance of [`DistanceMatrix`](@ref) or [`DistanceMatrixHist`](@ref)
 """
-function distance_matrix(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray; matrix_distance_func::Union{Function, Nothing}=nothing, relative_parameter::Bool=false, histograms::Bool=false)
+function distance_matrix(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray; matrix_distance_func::Union{Function, Nothing}=nothing, histogram_distance_func::Union{Function, Nothing}=wasserstein_histogram_distance, relative_parameter::Bool=false, histograms::Bool=false, use_ecdf::Bool=true, k_bin::Number=1)
 
     N_pars = length(ParameterVar(prob))
 
@@ -112,132 +129,43 @@ function distance_matrix(sol::myMCSol, prob::myMCProblem, distance_func::Functio
     end
 
     if histograms
-        return distance_matrix_histogram(sol, prob, distance_func, weights; matrix_distance_func=matrix_distance_func, relative_parameter=relative_parameter)
-    else
-        mat_elements = zeros((sol.N_mc, sol.N_mc))
-
-        for i=1:sol.N_mc
-            for j=i+1:sol.N_mc
-                for i_meas=1:sol.N_meas_dim
-                    mat_elements[i,j] += weights[i_meas]*distance_func(sol.sol[i][i_meas], sol.sol[j][i_meas])
-                end
-                for i_meas =sol.N_meas_dim+1:sol.N_meas_dim+sol.N_meas_matrix
-                    mat_elements[i,j] += weights[i_meas]*matrix_distance_func(sol.sol[i][i_meas], sol.sol[j][i_meas])
-                end
-                for i_meas = sol.N_meas_dim+sol.N_meas_matrix+1:sol.N_meas
-                    mat_elements[i,j] += weights[i_meas]*distance_func(sol.sol[i][i_meas], sol.sol[j][i_meas])
-                end
-
-                for i_par=1:N_pars
-                    mat_elements[i,j] += weights[sol.N_meas+i_par]*distance_func(par_c[i,i_par], par_c[j,i_par])
-                end
-            end
+        # setup histogram edges for all histograms first, to be better comparible, they should be the same across all runs/trials
+        hist_edges = []
+        bin_widths = []
+        for i_meas=1:sol.N_meas_dim
+            hist_edge, bin_width = _compute_hist_edges(i_meas, sol, k_bin)
+            push!(hist_edges, hist_edge)
+            push!(bin_widths, bin_width)
         end
-        mat_elements += transpose(mat_elements)
-    end
 
-    if sum(isnan.(mat_elements))>0
-        @warn "There are some elements NaN in the distance matrix"
-    end
-    if sum(isinf.(mat_elements))>0
-        @warn "There are some elements Inf in the distance matrix"
-    end
-
-    return DistanceMatrix(mat_elements, weights, distance_func, matrix_distance_func, relative_parameter)
-end
-distance_matrix(sol::myMCSol, prob::myMCProblem, weights::AbstractArray; relative_parameter::Bool=false, histograms::Bool=false, matrix_distance_func::Union{Function, Nothing}=nothing) = distance_matrix(sol, prob, (x,y)->sum(abs.(x .- y)), weights; relative_parameter=relative_parameter, histograms=histograms, matrix_distance_func=matrix_distance_func)
-
-"""
-    distance_matrix_histogram(sol::myMCSol, pars::AbstractArray{T}, distance_func, weights::AbstractArray{S}, histogram_distance::Function; matrix_distance_func::Union{Function, Nothing}=nothing, ecdf::Bool=true, k_bin::Int=1)
-
-This function is called by `distance_matrix` if it is called with the `histograms` flag `true`.
-
-Computes for each run in the solution `sol` for each measure a histogram of the measures of all system dimensions. The binning of the histograms is computed with Freedman-Draconis rule and the same across all runs for each measure.
-
-The distance matrix is then computed given a suitable histogram distance function `histogram_distance` between these histograms.
-
-This is intended to be used in order to avoid symmetric configurations in larger systems to be distinguished from each other. Example: Given a system with 10 identical oscillators. Given this distance calculation a state where oscillator 1-5 are synchronized and 6-10 are not syncronized would be in the same cluster as a state where oscillator 6-10 are synchronized and 1-5 are not synchronized. If you don't want this kind of behaviour, use the regular `distance_matrix` function.
-
-Inputs:
-* `sol::myMCSol`: solution
-* `par::AbstractArray`: parameter array (can also be called with a [`myMCProblem`](@ref) from which the parameters will be automatically taken)
-* `distance_func`: The actual calculating the distance between the measures/parameters of each solution with each other. Signature should be `(measure_1::Union{Array,Number}, measure_2::Union{Array,Number}) -> distance::Number. Example and default is `(x,y)->sum(abs.(x .- y))`.
-* `weights`: Instead of the actual measure `weights[i_measure]*measure` is handed over to `distance_func`. Thus `weights` need to be ``N_{meas}+N_{par}`` long array.
-* `histogram_distance`: The distance function between two histograms. Default is [`wasserstein_histogram_distance`](@ref).
-* `matrix_distance_func`: The distance function between two matrices or arrays or length different from ``N_{dim}``. Used e.g. for Crosscorrelation.
-* `ecdf::Bool` if true the `histogram_distance` function gets the empirical cdfs instead of the histogram
-* `k_bin::Int`: Multiplier to increase (``k_{bin}>1``) or decrease the bin width and thus decrease or increase the number of bins. It is a multiplier to the Freedman-Draconis rule. Default: ``k_{bin}=1``
-* `low_memory::Bool`: If `true` the computation needs less memory but more computation.
-
-Returns a instance of [`DistanceMatrixHist`](@ref)
-"""
-function distance_matrix_histogram(sol::myMCSol, prob::myMCProblem, distance_func, weights::AbstractArray{S}, histogram_distance::Function; matrix_distance_func::Union{Function, Nothing}=nothing, ecdf::Bool=true, k_bin::Number=1, low_memory::Bool=false, relative_parameter::Bool=false) where {T,S}
-
-    if relative_parameter
-        pars = _relative_parameter(prob)
-    else
-        pars = parameter(prob)
+        if histogram_distance_func == nothing
+            error("Histogram method chosen, but no histogram_distance_func given.")
+        end
     end
 
     mat_elements = zeros((sol.N_mc, sol.N_mc))
-    N_pars = length(ParameterVar(prob))
 
-    if length(weights)!=(sol.N_meas+N_pars)
-        error("Amount of weights not the same as Measures + Parameters")
-    end
-
-    if (sol.N_meas_matrix!=0) & (matrix_distance_func==nothing)
-        error("There is a matrix measure in the solution but no distance func for it.")
-    end
-
-    # setup histogram edges for all histograms first, to be better comparible, they should be the same across all runs/trials
-    hist_edges = []
-    bin_widths = []
     for i_meas=1:sol.N_meas_dim
-        hist_edge, bin_width = _compute_hist_edges(i_meas, sol, k_bin)
-        push!(hist_edges, hist_edge)
-        push!(bin_widths, bin_width)
-    end
-    # do the measure loop first. this is more code, but less memory consuming as we will pre calculate the histograms
-
-    if low_memory
-        println("Calculating distance with low-memory option")
-        for i_meas=1:sol.N_meas_dim # per dimension measures
-            for i=1:sol.N_mc
-                for j=i+1:sol.N_mc
-                    mat_elements[i,j] += weights[i_meas]*histogram_distance(_compute_ecdf(sol.sol[i][i_meas], hist_edges[i_meas]),_compute_ecdf(sol.sol[j][i_meas], hist_edges[i_meas]), bin_widths[i_meas])
-                end
-            end
+        if histograms
+            _compute_distance!(mat_elements, sol, i_meas, histogram_distance_func, hist_edges[i_meas], bin_widths[i_meas], use_ecdf)
+        else
+            _compute_distance!(mat_elements, sol, i_meas, distance_func, weights[i_meas])
         end
-    else
-        for i_meas=1:sol.N_meas_dim # per dimension measures
-            hist_weights = _compute_hist_weights(i_meas, sol, hist_edges[i_meas], ecdf)
-            for i=1:sol.N_mc
-                for j=i+1:sol.N_mc
-                    mat_elements[i,j] += weights[i_meas]*histogram_distance(hist_weights[i,:], hist_weights[j,:], bin_widths[i_meas])
-                end
+    end
+    for i_meas =sol.N_meas_dim+1:sol.N_meas_dim+sol.N_meas_matrix
+        _compute_distance!(mat_elements, sol, i_meas, matrix_distance_func, weights[i_meas])
+    end
+    for i_meas = sol.N_meas_dim+sol.N_meas_matrix+1:sol.N_meas
+        _compute_distance!(mat_elements, sol, i_meas, distance_func, weights[i_meas])
+    end
+    for i_par=1:N_pars
+        for i=1:sol.N_mc
+            for j=i+1:sol.N_mc
+                mat_elements[i,j] += weights[sol.N_meas+i_par]*distance_func(par_c[i,i_par], par_c[j,i_par])
             end
         end
     end
-    for i=1:sol.N_mc
-        for j=1:sol.N_mc
-            for i_meas = sol.N_meas_dim+1:sol.N_meas_dim+sol.N_meas_matrix
-                if weights[i_meas]!=0
-                    mat_elements[i,j] += matrix_distance_func(weights[i_meas]*sol.sol[i][i_meas], weights[i_meas]*sol.sol[j][i_meas])
-                end
-            end
 
-            for i_meas = sol.N_meas_dim+sol.N_meas_matrix+1:sol.N_meas# global measures
-                if weights[i_meas]!=0
-                    mat_elements[i,j] += distance_func(weights[i_meas]*sol.sol[i][i_meas], weights[i_meas]*sol.sol[j][i_meas])
-                end
-            end
-
-            for i_par=1:N_pars # parameters
-                mat_elements[i,j] += distance_func(weights[sol.N_meas+i_par]*pars[i,i_par], weights[sol.N_meas+i_par]*pars[j,i_par])
-            end
-        end
-    end
     mat_elements += transpose(mat_elements)
 
     if sum(isnan.(mat_elements))>0
@@ -247,9 +175,60 @@ function distance_matrix_histogram(sol::myMCSol, prob::myMCProblem, distance_fun
         @warn "There are some elements Inf in the distance matrix"
     end
 
-    return DistanceMatrixHist(mat_elements, weights, distance_func, matrix_distance_func, relative_parameter, histogram_distance, hist_edges, bin_widths, ecdf, k_bin)
+    if histograms
+        return DistanceMatrixHist(mat_elements, weights, distance_func, matrix_distance_func, relative_parameter, histogram_distance_func, hist_edges, bin_widths, use_ecdf, k_bin)
+    else
+        return DistanceMatrix(mat_elements, weights, distance_func, matrix_distance_func, relative_parameter)
+    end
 end
-distance_matrix_histogram(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray; kwargs...) = distance_matrix_histogram(sol, prob, distance_func, weights, wasserstein_histogram_distance; kwargs...)
+distance_matrix(sol::myMCSol, prob::myMCProblem, weights::AbstractArray; kwargs...) = distance_matrix(sol, prob, (x,y)->sum(abs.(x .- y)), weights; kwargs...)
+
+"""
+    _compute_distance!(D::AbstractArray, sol::myMCSol, i_meas::Int, distance_func::Function, weight::Number=1)
+
+Computes (inplace) the distance matrix contribution from measure `i_meas`.
+"""
+function _compute_distance!(D::AbstractArray, sol::myMCSol, i_meas::Int, distance_func::Function, weight::Number=1)
+    for i=1:sol.N_mc
+        for j=i+1:sol.N_mc
+            D[i,j] += weight * distance_func(sol.sol[i][i_meas], sol.sol[j][i_meas])
+        end
+    end
+end
+
+"""
+    _compute_distance!(D::AbstractArray, sol::myMCSol, i_meas::Int, distance_func::Function, hist_edges::AbstractArray, bin_width::Number, weight::Number=1, use_ecdf::Bool=true)
+
+Computes (inplace) the distance matrix contribution from measure `i_meas` with the histogram method.
+"""
+function _compute_distance!(D::AbstractArray, sol::myMCSol, i_meas::Int, distance_func::Function, hist_edges::AbstractArray, bin_width::Number, weight::Number=1, use_ecdf::Bool=true)
+    hist_weights = _compute_hist_weights(i_meas, sol, hist_edges, use_ecdf)
+    for i=1:sol.N_mc
+        for j=i+1:sol.N_mc
+            D[i,j] += weight * distance_func(hist_weights[i,:], hist_weights[j,:], bin_width)
+        end
+    end
+end
+
+"""
+    compute_distance(sol::myMCSol, i_meas::Int, distance_func::Function; use_histograms::Bool=false, use_ecdf::Bool=true, k_bin::Number=1)
+
+Computes a (part of the) distance matrix for only a single measure `i_meas`. Follows otherwise the same logic as [`distance_matrix`](@ref) but returns the matrix as an `Array{T,2}`.
+"""
+function compute_distance(sol::myMCSol, i_meas::Int, distance_func::Function; use_histograms::Bool=false, use_ecdf::Bool=true, k_bin::Number=1)
+    D = zeros((sol.N_mc, sol.N_mc))
+    if use_histograms
+        hist_edge, bin_width = _compute_hist_edges(i_meas, sol, k_bin)
+        _compute_distance!(D, sol, i_meas, distance_func, hist_edge, bin_width, use_ecdf)
+    else
+        _compute_distance!(D, sol, i_meas, distance_function)
+    end
+    return D + transpose(D)
+end
+
+
+#(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray; matrix_distance_func::Union{Function, Nothing}=nothing, histogram_distance_func::Union{Function, Nothing}=nothing, relative_parameter::Bool=false, histograms::Bool=false, use_ecdf::Bool=true, k_bin::Number=1)
+
 
 """
     _relative_parameter(prob::myMCProblem)
@@ -378,7 +357,7 @@ function cluster_distance(sol::myMCSol, dm::AbstractDistanceMatrix, cluster_resu
     for i in measures
         D = zeros(eltype(sol.sol[1][i]), N_cluster_1, N_cluster_2)
 
-        if hist_flag & (i < sol.N_meas_dim) # histogram distance
+        if hist_flag & (i <= sol.N_meas_dim) # histogram distance
             hist_weights = _compute_hist_weights(i, sol, dm.hist_edges[i], dm.ecdf)
 
             for (ji, j) in enumerate(cluster_ind_1)
