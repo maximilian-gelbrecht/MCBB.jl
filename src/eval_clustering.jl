@@ -457,15 +457,20 @@ function cluster_measure_std(sol::myMCSol, clusters::ClusteringResult, i::Int)
 end
 
 """
-    get_measure(sol::myMCSol, i::Int, clusters::ClusteringResult, i_cluster::Int, prob::Union{MCBBProblem,Nothing}=nothing, min_par::Number=-Inf, max_par::Number=+Inf)
+    get_measure(sol::myMCSol, i::Int, clusters::ClusteringResult, i_cluster::Int, prob::Union{MCBBProblem,Nothing}=nothing, min_par::Number=-Inf, max_par::Number=+Inf, i_par::Int=1)
 
-Get measure `i` for the `i_cluster`-th cluster with parameter values between `min_par` and `max_par`. If no `prob` is given, it ignores the parameter values
+Get measure `i` for the `i_cluster`-th cluster with parameter values between `min_par` and `max_par`. If no `prob` is given, it ignores the parameter values. In case a multidimensional setup is used, uses the `i_par`-th Parameter.
 """
-function get_measure(sol::myMCSol, i::Int, clusters::ClusteringResult, i_cluster::Int, prob::Union{MCBBProblem,Nothing}=nothing, min_par::Number=-Inf, max_par::Number=+Inf)
+function get_measure(sol::myMCSol, i::Int, clusters::ClusteringResult, i_cluster::Int, prob::Union{MCBBProblem,Nothing}=nothing, min_par::Number=-Inf, max_par::Number=+Inf, i_par::Int=1)
 
     ca = clusters.assignments
     measure = get_measure(sol, i)
     par = parameter(prob)
+
+    if length(ParameterVar(prob)) > 1
+        par = par[:,i_par]
+    end
+
     N = sol.N_mc
 
     cluster_ind = (ca .== (i_cluster-1))
@@ -1043,6 +1048,10 @@ end
 
 Solves and returns a trajectory that is classified in cluster `i`. Randomly selects one IC/Parameter configuration, so that mulitple executions of this routine will yield different results! If `only_sol==true` it returns only the solution, otherwise it returns a tuple `(solution, problem, i_run)` where `i_run` is the number of the trial in `prob` and `sol`.
 
+    get_trajectory(prob::MCBBProblem, i::Int, only_sol::Bool=true)
+
+Solves problem `i` and returns a trajectory. If `only_sol==true` it returns only the solution, otherwise it returns a tuple `(solution, problem, i_run)` where `i_run` is the number of the trial in `prob` and `sol`.
+
 # Example
 
 Plot with e.g
@@ -1056,12 +1065,16 @@ Plot with e.g
 """
 function get_trajectory(prob::MCBBProblem, sol::MCBBSol, clusters::ClusteringResult, i::Int; only_sol::Bool=true)
     i_sol = rand(findall(clusters.assignments .== (i-1)))
-    prob_i = prob.p.prob_func(prob.p.prob, i_sol, false)
+    return get_trajectory(prob, i_sol, only_sol=only_sol)
+end
+
+function get_trajectory(prob::MCBBProblem, i::Int; only_sol::Bool=true)
+    prob_i = prob.p.prob_func(prob.p.prob, i, false)
     sol_i = sol.solve_command(prob_i)
     if only_sol
         return sol_i
     else
-        return (sol_i, prob_i, i_sol)
+        return (sol_i, prob_i, i)
     end
 end
 
