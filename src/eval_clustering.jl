@@ -1048,7 +1048,7 @@ end
 
 Solves and returns a trajectory that is classified in cluster `i`. Randomly selects one IC/Parameter configuration, so that mulitple executions of this routine will yield different results! If `only_sol==true` it returns only the solution, otherwise it returns a tuple `(solution, problem, i_run)` where `i_run` is the number of the trial in `prob` and `sol`.
 
-    get_trajectory(prob::MCBBProblem, i::Int, only_sol::Bool=true)
+    get_trajectory(prob::MCBBProblem, sol::MCBBSol, i::Int, only_sol::Bool=true)
 
 Solves problem `i` and returns a trajectory. If `only_sol==true` it returns only the solution, otherwise it returns a tuple `(solution, problem, i_run)` where `i_run` is the number of the trial in `prob` and `sol`.
 
@@ -1065,10 +1065,10 @@ Plot with e.g
 """
 function get_trajectory(prob::MCBBProblem, sol::MCBBSol, clusters::ClusteringResult, i::Int; only_sol::Bool=true)
     i_sol = rand(findall(clusters.assignments .== (i-1)))
-    return get_trajectory(prob, i_sol, only_sol=only_sol)
+    return get_trajectory(prob, sol, i_sol, only_sol=only_sol)
 end
 
-function get_trajectory(prob::MCBBProblem, i::Int; only_sol::Bool=true)
+function get_trajectory(prob::MCBBProblem, sol::MCBBSol, i::Int; only_sol::Bool=true)
     prob_i = prob.p.prob_func(prob.p.prob, i, false)
     sol_i = sol.solve_command(prob_i)
     if only_sol
