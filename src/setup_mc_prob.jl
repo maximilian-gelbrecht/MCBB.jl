@@ -73,7 +73,7 @@ struct ParameterVarArray <: OneDimParameterVar
     end
 end
 ParameterVarArray(name::Symbol, arr::AbstractArray) = ParameterVarArray(name, arr, reconstruct)
-
+(parvar::ParameterVarArray)(old_par::DEParameters; kwargs...) = parvar.new_par(old_par; kwargs...)
 """
     ParameterVarFunc
 
@@ -101,6 +101,8 @@ struct ParameterVarFunc <: OneDimParameterVar
     end
 end
 ParameterVarFunc(name::Symbol, func::Function) = ParameterVarFunc(name, func, reconstruct)
+(parvar::ParameterVarFunc)(old_par::DEParameters; kwargs...) = parvar.new_par(old_par; kwargs...)
+
 
 OneDimParameterVar(name::Symbol,new_val::AbstractArray,new_par::Function) = ParameterVarArray(name, new_val, new_par)
 OneDimParameterVar(name::Symbol,new_val::AbstractArray) = ParameterVarArray(name, new_val)
@@ -138,6 +140,8 @@ struct MultiDimParameterVarArray <: MultiDimParameterVar
     new_par::Function
     N::Int
 end
+(parvar::MultiDimParameterVarArray)(old_par::DEParameters; kwargs...) = parvar.new_par(old_par; kwargs...)
+(parvar::MultiDimParameterVarFunc)(old_par::DEParameters; kwargs...) = parvar.new_par(old_par; kwargs...)
 
 MultiDimParameterVar(data::Array{ParameterVarFunc,1}, func::Function) = MultiDimParameterVarFunc(data, func, length(data))
 MultiDimParameterVar(data::Array{ParameterVarArray,1}, func::Function) = MultiDimParameterVarArray(data, func, length(data))
@@ -165,6 +169,17 @@ Base.length(par::OneDimParameterVar) = 1
 Given one of the problem types of this library its ParameterVar is returned.
 """
 ParameterVar(prob::myMCProblem) = prob.par_var
+
+
+
+struct HiddenParameterVar <: ParameterVar
+    name::Symbol
+    pars::AbstractArray
+    new_par::Function
+end
+
+(parvar::HiddenParameterVar)(i::Int; kwargs...) = parvar.new_par(pars[i,:]..., kwargs...)
+
 
 """
     MCBBProblem <: myMCProblem
@@ -528,34 +543,18 @@ Returns the functions that returns new DifferentialEquations problems needed for
 * `ic_gens`: Array of functions or arrays/ranges that contain/generate the ICs.
 * `var_par`:  `ParameterVar`, information about how the parameters are varied, see [`ParameterVar`](@ref).
 """
-function define_new_problem(prob::ODEProblem, ic::AbstractArray, par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::AbstractArray, var_par::ParameterVar)
+function define_new_problem(prob, ic::AbstractArray, par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::AbstractArray, var_par::ParameterVar)
     function new_problem(prob, i, repeat)
         _repeat_check(repeat, i, ic, ic_gens, N_dim_ic)
-        ODEProblem(prob.f, ic[i,:], prob.tspan,  var_par.new_par(parameters; _new_val_dict(var_par, par, N_dim_ic, i)...), callback=prob.callback)
+        remake(prob; u0=ic[i,:], p=var_par(parameters; _new_val_dict(var_par, par, N_dim_ic, i)...))
     end
     new_problem
 end
 
-function define_new_problem(prob::DiscreteProblem, ic::AbstractArray, par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::AbstractArray, var_par::ParameterVar)
+function define_new_problem(prob, ic::AbstractArray, par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::AbstractArray, var_par::HiddenParameterVar)
     function new_problem(prob, i, repeat)
         _repeat_check(repeat, i, ic, ic_gens, N_dim_ic)
-        DiscreteProblem(prob.f, ic[i,:], prob.tspan,  var_par.new_par(parameters; _new_val_dict(var_par, par, N_dim_ic, i)...), callback=prob.callback)
-    end
-    new_problem
-end
-
-function define_new_problem(prob::SDEProblem, ic::AbstractArray, par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::AbstractArray, var_par::ParameterVar)
-    function new_problem(prob, i, repeat)
-        _repeat_check(repeat, i, ic, ic_gens, N_dim_ic)
-        SDEProblem(prob.f, prob.g, ic[i,:], prob.tspan,  var_par.new_par(parameters; _new_val_dict(var_par, par, N_dim_ic, i)...), callback=prob.callback)
-    end
-    new_problem
-end
-
-function define_new_problem(prob::DDEProblem, ic::AbstractArray, par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::AbstractArray, var_par::ParameterVar)
-    function new_problem(prob, i, repeat)
-        _repeat_check(repeat, i, ic, ic_gens, N_dim_ic)
-        DDEProblem(prob.f, ic[i,:], prob.h, prob.tspan,  var_par.new_par(parameters; _new_val_dict(var_par, par, N_dim_ic, i)...); constant_lags=prob.constant_lags, dependent_lags=prob.dependent_lags, callback=prob.callback)
+        remake(prob; u0=ic[i,:], p=var_par(i; _new_val_dict(var_par, par, N_dim_ic, i)...))
     end
     new_problem
 end
