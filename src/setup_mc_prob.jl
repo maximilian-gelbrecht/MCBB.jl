@@ -29,7 +29,7 @@ Paramter Variation types for setups with one parameter.
 * ['ParameterVarFunc'](@ref)
 
 # Common constructors
-* `OneDimParameterVar(name::Symbol,new_val::AbstractArray,new_par::Function)``
+* `OneDimParameterVar(name::Symbol, new_val::AbstractArray, new_par::Function)``
 * `OneDimParameterVar(name::Symbol,new_val::AbstractArray)`
 * `OneDimParameterVar(name::Symbol,new_val::Function, new_par::Function)`
 * `OneDimParameterVar(name::Symbol,new_val::Function)`
@@ -74,6 +74,7 @@ struct ParameterVarArray <: OneDimParameterVar
 end
 ParameterVarArray(name::Symbol, arr::AbstractArray) = ParameterVarArray(name, arr, reconstruct)
 (parvar::ParameterVarArray)(old_par::DEParameters; kwargs...) = parvar.new_par(old_par; kwargs...)
+
 """
     ParameterVarFunc
 
@@ -102,7 +103,6 @@ struct ParameterVarFunc <: OneDimParameterVar
 end
 ParameterVarFunc(name::Symbol, func::Function) = ParameterVarFunc(name, func, reconstruct)
 (parvar::ParameterVarFunc)(old_par::DEParameters; kwargs...) = parvar.new_par(old_par; kwargs...)
-
 
 OneDimParameterVar(name::Symbol,new_val::AbstractArray,new_par::Function) = ParameterVarArray(name, new_val, new_par)
 OneDimParameterVar(name::Symbol,new_val::AbstractArray) = ParameterVarArray(name, new_val)
@@ -170,16 +170,40 @@ Given one of the problem types of this library its ParameterVar is returned.
 """
 ParameterVar(prob::myMCProblem) = prob.par_var
 
+abstract type AbstractHiddenParameterVar <: ParameterVar end
 
+"""
+    struct HiddenParameterVar <: ParameterVar
 
-struct HiddenParameterVar <: ParameterVar
+Subtype of [`ParameterVar`](@ref) that varies a lot of "hidden" parameters randomly and one control parameter.
+
+# Fields
+* `name::Symbol`
+* `pars::AbstractArray` stores the values of the hidden parameters
+* `new_par::Function` function that returns new parameter instance with signature `(pars[i,:]..., name=>new_val()) -> new_parameters`
+* `new_val::Function`:: Function that returns new values for the control parameters `(i::Int)->new_val::Number`
+"""
+struct HiddenParameterVar <: AbstractHiddenParameterVar
     name::Symbol
     pars::AbstractArray
     new_par::Function
+    new_val::Function
+end
+
+function HiddenParameterVar(name::Symbol, f::Function, N::Int, new_par)
+
+    p0 = f()
+    N_pars = length(p0)
+
+    pars = zeros(eltype(p0), N, N_pars)
+    for i=1:N
+        pars[i,:] = f()
+    end
+
+    return HiddenParameterVar(name, pars, new_par)
 end
 
 (parvar::HiddenParameterVar)(i::Int; kwargs...) = parvar.new_par(pars[i,:]..., kwargs...)
-
 
 """
     MCBBProblem <: myMCProblem
@@ -577,9 +601,7 @@ function _new_val_dict(var_par::MultiDimParameterVar, par::AbstractArray, N_dim_
     end
     Dict(par_arr)
 end
-function _new_val_dict(var_par::OneDimParameterVar, par::AbstractArray, N_dim_ic::Int, i::Int)
-    Dict(var_par.name => par[i,1])
-end
+_new_val_dict(var_par::OneDimParameterVar, par::AbstractArray, N_dim_ic::Int, i::Int) = Dict(var_par.name => par[i,1])
 
 """
     verify_func(func::Function)
