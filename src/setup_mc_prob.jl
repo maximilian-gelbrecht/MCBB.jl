@@ -535,7 +535,7 @@ function normalize(sol::DEMCBBSol, k::AbstractArray)
 
     new_mc_sol = deepcopy(sol.sol)
     for i_meas in k
-        if i_meas < (sol.N_meas_dim + sol.N_meas_matrix)
+        if i_meas <= (sol.N_meas_dim + sol.N_meas_matrix)
             for i_mc=1:sol.N_mc
                 new_mc_sol.u[i_mc][i_meas][:] = (sol.sol.u[i_mc][i_meas][:] .- min_meas[i_meas]) ./ meas_ranges[i_meas]
             end
