@@ -91,7 +91,6 @@ function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Abstract
         N_dim_matrix_measures = length(matrix_eval_funcs)
     end
 
-
     if failure_handling==:None
         failure_handling=:None # do nothing
     elseif failure_handling==:Inf
@@ -251,7 +250,6 @@ function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:
     end
 end
 
-
 """
     check_inf_nan(sol::myMCSol)
 
@@ -273,7 +271,6 @@ function check_inf_nan(sol::myMCSol)
     end
     nan_inf
 end
-
 
 """
     _cyclic_setback!(arr_in::AbstractArray)

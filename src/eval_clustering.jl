@@ -2,6 +2,7 @@
 ##### Results Evaluation functions
 ###########
 using Distributions, Clustering, StatsBase
+import Mmap
 import Clustering.dbscan
 #using PairwiseListMatrices
 
@@ -147,7 +148,7 @@ function distance_matrix(sol::myMCSol, prob::myMCProblem, distance_func::Functio
 
     for i_meas=1:sol.N_meas_dim
         if histograms
-            _compute_distance!(mat_elements, sol, i_meas, histogram_distance_func, hist_edges[i_meas], bin_widths[i_meas], use_ecdf)
+            _compute_distance!(mat_elements, sol, i_meas, histogram_distance_func, hist_edges[i_meas], bin_widths[i_meas], weights[i_meas], use_ecdf)
         else
             _compute_distance!(mat_elements, sol, i_meas, distance_func, weights[i_meas])
         end
@@ -188,7 +189,7 @@ distance_matrix(sol::myMCSol, prob::myMCProblem, weights::AbstractArray; kwargs.
 
 Computes (inplace) the distance matrix contribution from measure `i_meas`.
 """
-function _compute_distance!(D::AbstractArray, sol::myMCSol, i_meas::Int, distance_func::Function, weight::Number=1)
+function _compute_distance!(D::AbstractArray{T,2}, sol::myMCSol, i_meas::Int, distance_func::Function, weight::Number=1) where T <: Number
     for i=1:sol.N_mc
         for j=i+1:sol.N_mc
             D[i,j] += weight * distance_func(sol.sol[i][i_meas], sol.sol[j][i_meas])
@@ -201,12 +202,35 @@ end
 
 Computes (inplace) the distance matrix contribution from measure `i_meas` with the histogram method.
 """
-function _compute_distance!(D::AbstractArray, sol::myMCSol, i_meas::Int, distance_func::Function, hist_edges::AbstractArray, bin_width::Number, weight::Number=1, use_ecdf::Bool=true)
+function _compute_distance!(D::AbstractArray{T,2}, sol::myMCSol, i_meas::Int, distance_func::Function, hist_edges::AbstractArray, bin_width::Number, weight::Number=1, use_ecdf::Bool=true) where T <: Number
     hist_weights = _compute_hist_weights(i_meas, sol, hist_edges, use_ecdf)
     for i=1:sol.N_mc
         for j=i+1:sol.N_mc
             D[i,j] += weight * distance_func(hist_weights[i,:], hist_weights[j,:], bin_width)
         end
+    end
+end
+
+"""
+    _compute_distance!(D::AbstractArray{T,1}, i::Int, sol::myMCSol, i_meas::Int, distance_func::Function, weight::Number=1) where T <: Number
+
+Computes (inplace) the `i`-th row of the distance matrix contribution from measure `i_meas`.
+
+"""
+function _compute_distance!(D::AbstractArray{T,1}, i::Int, sol::myMCSol, i_meas::Int, distance_func::Function, weight::Number=1) where T <: Number
+    for j=1:sol.N_mc
+        D[j] += weight * distance_func(sol.sol[i][i_meas], sol.sol[j][i_meas])
+    end
+end
+
+"""
+    _compute_distance!(D::AbstractArray{T,2}, sol::myMCSol, i_meas::Int, distance_func::Function, hist_edges::AbstractArray, hist_weights::AbstractArray, bin_width::Number, weight::Number=1) where T <: Number
+
+Computes (inplace) the `i`-th row of the distance matrix contribution from measure `i_meas` with the histogram method.
+"""
+function _compute_distance!(D::AbstractArray{T,1}, i::Int, sol::myMCSol, i_meas::Int, distance_func::Function, hist_edges::AbstractArray, hist_weights::AbstractArray, bin_width::Number, weight::Number=1) where T <: Number
+    for j=1:sol.N_mc
+        D[j] += weight * distance_func(hist_weights[i,:], hist_weights[j,:], bin_width)
     end
 end
 
@@ -225,6 +249,106 @@ function compute_distance(sol::myMCSol, i_meas::Int, distance_func::Function; us
     end
     return D + transpose(D)
 end
+
+"""
+    distance_matrix_mmap(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray; matrix_distance_func::Union{Function, Nothing}=nothing, histogram_distance_func::Union{Function, Nothing}=wasserstein_histogram_distance, relative_parameter::Bool=false, histograms::Bool=false, use_ecdf::Bool=true, k_bin::Number=1, el_type=Float32, save_name="mmap-distance-matrix.bin")
+
+Computes the distance matrix like [`distance_matrix`](@ref) but uses memory-maped arrays. Use this if the distance matrix is too large for the memory of your computer. Same inputs as [`distance_matrix`](@ref), but with added `el_type` that determines the eltype of the saved matrix and `save_name` the name of the file on the hard disk.
+
+Due to the restriction of memory-maped arrays saving and loading distance matrices computed like this with JLD2 will only work within a single machine. A way to reload these matrices / transfer them, could be added in the future (it would be fairly straightforward to program), but was not needed so far.
+
+"""
+function distance_matrix_mmap(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray; matrix_distance_func::Union{Function, Nothing}=nothing, histogram_distance_func::Union{Function, Nothing}=wasserstein_histogram_distance, relative_parameter::Bool=false, histograms::Bool=false, use_ecdf::Bool=true, k_bin::Number=1, el_type=Float32, save_name="mmap-distance-matrix.bin")
+
+    N_pars = length(ParameterVar(prob))
+
+    pars = parameter(prob)
+    par_c = copy(pars)
+
+    if (sol.N_meas_matrix!=0) & (matrix_distance_func==nothing)
+        error("There is a matrix measure in the solution but no distance func for it.")
+    end
+
+    if relative_parameter
+        par_c = _relative_parameter(prob)
+    end
+
+    if histograms
+        # setup histogram edges for all histograms first, to be better comparible, they should be the same across all runs/trials
+        hist_edges = []
+        bin_widths = []
+        for i_meas=1:sol.N_meas_dim
+            hist_edge, bin_width = _compute_hist_edges(i_meas, sol, k_bin)
+            push!(hist_edges, hist_edge)
+            push!(bin_widths, bin_width)
+        end
+
+        if histogram_distance_func == nothing
+            error("Histogram method chosen, but no histogram_distance_func given.")
+        end
+    end
+
+    # open mmap file
+    f = open(save_name, "w+")
+    write(f, sol.N_mc)
+    write(f, sol.N_mc)
+
+    #mat_elements = zeros((sol.N_mc, sol.N_mc))
+    for i=1:sol.N_mc
+        row_elements = zeros(el_type, sol.N_mc)
+
+        for i_meas = 1:sol.N_meas_dim
+            if histograms
+                hist_weights = _compute_hist_weights(i_meas, sol, hist_edges[i_meas], use_ecdf)
+                _compute_distance!(row_elements, i, sol, i_meas, histogram_distance_func, hist_edges[i_meas], hist_weights, bin_widths[i_meas], weights[i_meas])
+            else
+                _compute_distance!(row_elemts, i, sol, i_meas, distance_func, weights[i_meas])
+            end
+        end
+
+
+        for i_meas = sol.N_meas_dim+1:sol.N_meas_dim+sol.N_meas_matrix
+            _compute_distance!(row_elements, i, sol, i_meas, matrix_distance_func, weights[i_meas])
+        end
+
+        for i_meas = sol.N_meas_dim+sol.N_meas_matrix+1:sol.N_meas
+            _compute_distance!(row_elements, i, sol, i_meas, distance_func, weights[i_meas])
+        end
+
+        for i_par=1:N_pars
+            for j=1:sol.N_mc
+                row_elements[j] += weights[sol.N_meas+i_par]*distance_func(par_c[i,i_par], par_c[j,i_par])
+            end
+        end
+
+        if sum(isnan.(row_elements))>0
+            @warn "There are some elements NaN in the distance matrix"
+        end
+        if sum(isinf.(row_elements))>0
+            @warn "There are some elements Inf in the distance matrix"
+        end
+
+        # save the row
+        write(f, row_elements)
+    end
+    close(f)
+
+    # do the mmap work
+    f = open(save_name)
+    m = read(f, Int)
+    n = read(f, Int)
+    mat_elements = Mmap.mmap(f, Matrix{el_type}, (m,n))
+
+    if histograms
+        return DistanceMatrixHist(mat_elements, weights, distance_func, matrix_distance_func, relative_parameter, histogram_distance_func, hist_edges, bin_widths, use_ecdf, k_bin)
+    else
+        return DistanceMatrix(mat_elements, weights, distance_func, matrix_distance_func, relative_parameter)
+    end
+end
+distance_matrix_mmap(sol::myMCSol, prob::myMCProblem, weights::AbstractArray; kwargs...) = distance_matrix_mmap(sol, prob, (x,y)->sum(abs.(x .- y)), weights; kwargs...)
+
+
+
 
 
 #(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray; matrix_distance_func::Union{Function, Nothing}=nothing, histogram_distance_func::Union{Function, Nothing}=nothing, relative_parameter::Bool=false, histograms::Bool=false, use_ecdf::Bool=true, k_bin::Number=1)

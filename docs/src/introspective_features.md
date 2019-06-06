@@ -123,7 +123,7 @@ m2sd = cluster_measure_std(kosol, db_res, measure_2)
 
 SC = PyPlot.scatter(m1m, m2m, c=colororder[1:length(m1m)])
 PyPlot.errorbar(m1m, m2m, fmt="o", ms=0,ecolor=colororder, xerr=0.005*m1sd, yerr=0.1*m2sd)
-PyPlot.legend(lp, ("Noise","2","3","4","5","6","7","8","9","10","11"))
+PyPlot.legend(SC, ("Noise","2","3","4","5","6","7","8","9","10","11"))
 PyPlot.xlabel("Average Mean")
 PyPlot.ylabel("Average Std")
 ```

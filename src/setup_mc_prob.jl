@@ -109,6 +109,62 @@ OneDimParameterVar(name::Symbol,new_val::AbstractArray) = ParameterVarArray(name
 OneDimParameterVar(name::Symbol,new_val::Function, new_par::Function) = ParameterVarFunc(name, new_val, new_par)
 OneDimParameterVar(name::Symbol,new_val::Function) = ParameterVarFunc(name, new_val)
 
+
+abstract type AbstractHiddenParameterVar <: OneDimParameterVar end
+
+"""
+    struct HiddenParameterVar <: ParameterVar
+
+Subtype of [`ParameterVar`](@ref) that varies a lot of "hidden" parameters randomly and one control parameter.
+
+# Fields
+* `name::Symbol`
+* `pars::AbstractArray` stores the values of the hidden parameters
+* `new_par::Function` function that returns new parameter instance with signature `(pars[i,:]..., name=>new_val()) -> new_parameters`
+* `new_val::Function`:: Function that returns new values for the control parameters `(i::Int)->new_val::Number`
+* `N_control_par::Int`: Number of control parameters drawn/used
+* `N_hidden_par::Int` Number of 'hidden' parameters
+"""
+struct HiddenParameterVar <: AbstractHiddenParameterVar
+    name::Symbol
+    pars::AbstractArray
+    new_par::Function
+    new_val::Function
+    N_control_par::Int
+    N_hidden_par::Int
+
+    function HiddenParameterVar(name::Symbol, pars::AbstractArray, new_par::Function, new_val::Function, N_control_par::Int, N_hidden_par::Union{Int, Nothing}=nothing)
+        N_pars_given, N_dim = size(pars)
+        if N_hidden_par == nothing
+            N_hidden_par = N_pars_given
+        elseif N_hidden_par > N_pars_given
+            error("Not enough different background/hidden parameters given 'N_hidden_par > size(pars)[1]'")
+        elseif N_hidden_par < N_pars_given
+            @warn "Not all differend background/hidden paraemters will be used. Is this intended?"
+        end
+
+        new(name, pars, new_par, verify_func(new_val), N_control_par, N_hidden_par)
+    end
+
+    HiddenParameterVar(name::Symbol, pars::AbstractArray, new_par::Function, new_val::AbstractArray, N_hidden_par::Union{Int, Nothing}=nothing) = new(name, pars, new_par, (i)->arr[i], N_control_par, length(new_val), N_hidden_par)
+end
+
+function HiddenParameterVar(name::Symbol, f::Function, N::Int, new_par, new_val, N_control_par::Int, N_hidden_par::Union{Int, Nothing}=nothing)
+    p0 = f()
+    N_pars = length(p0)
+
+    pars = zeros(eltype(p0), N, N_pars)
+    for i=1:N
+        pars[i,:] = f()
+    end
+
+    return HiddenParameterVar(name, pars, new_par, new_val, N_control_par, N_hidden_par)
+end
+
+(parvar::HiddenParameterVar)(i::Int; kwargs...) = parvar.new_par(parvar.pars[mod(i-1, parvar.N_hidden_par)+1,:]...; kwargs...)
+
+Base.length(p::HiddenParameterVar) = 1
+
 """
     MultiDimParameterVar
 
@@ -140,11 +196,22 @@ struct MultiDimParameterVarArray <: MultiDimParameterVar
     new_par::Function
     N::Int
 end
+
+struct MultiDimHiddenParameterVar <: MultiDimParameterVar
+    data::Array{HiddenParameterVar,1}
+    new_par::Function
+    N::Int
+end
+
 (parvar::MultiDimParameterVarArray)(old_par::DEParameters; kwargs...) = parvar.new_par(old_par; kwargs...)
 (parvar::MultiDimParameterVarFunc)(old_par::DEParameters; kwargs...) = parvar.new_par(old_par; kwargs...)
+(parvar::MultiDimHiddenParameterVar)(i::Int; kwargs...) = parvar.new_par(parvar.pars[i,:]...; kwargs...)
+
+
 
 MultiDimParameterVar(data::Array{ParameterVarFunc,1}, func::Function) = MultiDimParameterVarFunc(data, func, length(data))
 MultiDimParameterVar(data::Array{ParameterVarArray,1}, func::Function) = MultiDimParameterVarArray(data, func, length(data))
+MultiDimParameterVar(data::Array{HiddenParameterVar,1}, func::Function) = MultiDimHiddenParameterVar(data, func, length(data))
 MultiDimParameterVar(parvar::ParameterVar, func::Function) = MultiDimParameterVar([parvar], func)
 MultiDimParameterVar(parvar::ParameterVar) = MultiDimParameterVar(parvar, reconstruct)
 
@@ -170,40 +237,6 @@ Given one of the problem types of this library its ParameterVar is returned.
 """
 ParameterVar(prob::myMCProblem) = prob.par_var
 
-abstract type AbstractHiddenParameterVar <: ParameterVar end
-
-"""
-    struct HiddenParameterVar <: ParameterVar
-
-Subtype of [`ParameterVar`](@ref) that varies a lot of "hidden" parameters randomly and one control parameter.
-
-# Fields
-* `name::Symbol`
-* `pars::AbstractArray` stores the values of the hidden parameters
-* `new_par::Function` function that returns new parameter instance with signature `(pars[i,:]..., name=>new_val()) -> new_parameters`
-* `new_val::Function`:: Function that returns new values for the control parameters `(i::Int)->new_val::Number`
-"""
-struct HiddenParameterVar <: AbstractHiddenParameterVar
-    name::Symbol
-    pars::AbstractArray
-    new_par::Function
-    new_val::Function
-end
-
-function HiddenParameterVar(name::Symbol, f::Function, N::Int, new_par)
-
-    p0 = f()
-    N_pars = length(p0)
-
-    pars = zeros(eltype(p0), N, N_pars)
-    for i=1:N
-        pars[i,:] = f()
-    end
-
-    return HiddenParameterVar(name, pars, new_par)
-end
-
-(parvar::HiddenParameterVar)(i::Int; kwargs...) = parvar.new_par(pars[i,:]..., kwargs...)
 
 """
     MCBBProblem <: myMCProblem
@@ -231,7 +264,7 @@ The struct has the following fields:
 
 # Constructors
 
-The type has two different main constructors and several others that do automatic type conversions of appropiate tuples to `ParamterVar` types or of functions and arrays to arrays of functions/arrays if needed.
+The type has three different main constructors and several others that do automatic type conversions of appropiate tuples to `ParamterVar` types or of functions and arrays to arrays of functions/arrays if needed.
 
 ## Randomized Initial conditions
 
@@ -256,6 +289,14 @@ All arguments are identical to the other constructor except for:
 * `ic_ranges`: A range/array or array of ranges/arrays with initial conditions for each trial. If only one range/array is provided its used for all IC dims.
 * Note that there is _no_ `N_ic` argument in constrast to the other constructor
 
+## Hidden / Background Parameter Problem with Identical ICs
+
+In case we are varying `hidden`/`background` parameters at each trial and keep the ICs constant, we can use the regular call
+
+    DEMCBBProblem(p::DiffEqBase.DEProblem, ics::Array{Number,1}, pars::DEParameters, par_range_tuple::HiddenParameterVar, eval_ode_func::Function, tail_frac::Number)
+
+but replace the `ic_ranges` argument, with an array `ics` that contains the constant ICs and the parameter variation has to be given as a [`HiddenParameterVar`](@ref).
+
 ## Direct constructor
 
 It is also possible to initialize the type directly with its fields with
@@ -276,7 +317,7 @@ struct DEMCBBProblem <: MCBBProblem
         new(mcp, N_mc, tail_frac, ic, par, par_range_tuple)
     end
 
-    function DEMCBBProblem(p::DiffEqBase.DEProblem, ic_ranges::Array{<:AbstractArray,1}, pars::DEParameters, par_range_tuple::ParameterVar, eval_ode_func::Function, tail_frac::Number)
+    function DEMCBBProblem(p::DiffEqBase.DEProblem, ic_ranges::Array{T,1}, pars::DEParameters, par_range_tuple::ParameterVar, eval_ode_func::Function, tail_frac::Number) where T <: Union{AbstractArray, Number}
         (ic_coupling_problem, ic, par, N_mc) = setup_ic_par_mc_problem(p, ic_ranges, pars, par_range_tuple)
         mcp = MonteCarloProblem(p, prob_func=ic_coupling_problem, output_func=eval_ode_func)
         new(mcp, N_mc, tail_frac, ic, par, par_range_tuple)
@@ -290,7 +331,7 @@ DEMCBBProblem(p::DiffEqBase.DEProblem, ic_gens::Union{Array{<:Function,1},Functi
 
 # automaticlly convert appropiate tuples to ParameterVar
 DEMCBBProblem(p::DiffEqBase.DEProblem, ic_gens::Array{<:Function,1}, N_ic::Int, pars::DEParameters, par_range_tuple::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function},Tuple{Symbol,Union{AbstractArray,Function}}}, eval_ode_func::Function, tail_frac::Number) = DEMCBBProblem(p,ic_gens, N_ic, pars, OneDimParameterVar(par_range_tuple...), eval_ode_func, tail_frac)
-DEMCBBProblem(p::DiffEqBase.DEProblem, ic_ranges::Array{<:AbstractArray,1}, pars::DEParameters, par_range_tuple::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function},Tuple{Symbol,Union{AbstractArray,Function}}}, eval_ode_func::Function, tail_frac::Number) = DEMCBBProblem(p, ic_ranges, pars, OneDimParameterVar(par_range_tuple...), eval_ode_func, tail_frac)
+DEMCBBProblem(p::DiffEqBase.DEProblem, ic_ranges::Array{T,1}, pars::DEParameters, par_range_tuple::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function},Tuple{Symbol,Union{AbstractArray,Function}}}, eval_ode_func::Function, tail_frac::Number) where T<:Union{AbstractArray, Number} = DEMCBBProblem(p, ic_ranges, pars, OneDimParameterVar(par_range_tuple...), eval_ode_func, tail_frac)
 DEMCBBProblem(p::DiffEqBase.DEProblem, ic_gens::Function, N_ic::Int, pars::DEParameters, par_range_tuple::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function},Tuple{Symbol,Union{AbstractArray,Function}}}, eval_ode_func::Function, tail_frac::Number) = DEMCBBProblem(p, ic_gens, N_ic, pars, OneDimParameterVar(par_range_tuple...), eval_ode_func, tail_frac)
 DEMCBBProblem(p::DiffEqBase.DEProblem, ic_gens::Union{Array{<:Function,1},Function}, N_ic::Int, pars::DEParameters, par_range_tuple::Union{Tuple{Symbol,Union{AbstractArray,Function} ,<:Function},Tuple{Symbol,Union{AbstractArray,Function}}}, eval_ode_func::Function) = DEMCBBProblem(p,ic_gens,N_ic,pars,OneDimParameterVar(par_range_tuple...),eval_ode_func)
 
@@ -531,7 +572,7 @@ Methods that are usually called automaticly while constructing a `DEMCBBProblem`
 * `parameters`: parameter struct of the underlying system
 * `var_par`:  `ParameterVar`, information about how the parameters are varied, see [`ParameterVar`](@ref).
 """
-function setup_ic_par_mc_problem(prob, ic_ranges::Array{T,1}, parameters::DEParameters, var_par::ParameterVar) where T <: AbstractArray
+function setup_ic_par_mc_problem(prob, ic_ranges::Array{T,1}, parameters::DEParameters, var_par::ParameterVar) where T <: Union{AbstractArray, Number}
     N_dim_ic = length(prob.u0)
     if N_dim_ic != length(ic_ranges)
         error("Number of IC arrays/ranges doesnt match system dimension")
@@ -648,7 +689,7 @@ function _repeat_check(repeat, i::Int, ic::AbstractArray, ic_gens::Array{<:Funct
         end
     end
 end
-function _repeat_check(repeat, i::Int, ic::AbstractArray, ic_gens::Array{T,1}, N_dim_ic::Int) where T<:AbstractArray
+function _repeat_check(repeat, i::Int, ic::AbstractArray, ic_gens::Array{T,1}, N_dim_ic::Int) where T<:Union{AbstractArray,Number}
     if repeat > 1
         error("Problem has to be repeated, but ICs are non-random, it would result in the same solution!")
     end
@@ -689,7 +730,7 @@ If the parameters are varied along arrays/ranges and the initial conditions are 
 * `var_par`: `ParameterVar`, either `MultiDimParameterVarArray` or `ParameterVarArray`
 """
 _ic_par_matrix(N_dim_ic::Int, N_dim::Int, ic_ranges::Array{<:AbstractArray,1}, var_par::ParameterVarArray) = _ic_par_matrix(N_dim_ic, N_dim, ic_ranges, MultiDimParameterVar(var_par))
-function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, ic_ranges::Array{T,1}, var_par::MultiDimParameterVarArray) where T <: AbstractArray
+function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, ic_ranges::Array{T,1}, var_par::Union{MultiDimParameterVarArray, MultiDimHiddenParameterVar}) where T <: AbstractArray
     N_ic_pars = zeros(Int, N_dim)
     for (i_range, ic_range) in enumerate(ic_ranges)
         N_ic_pars[i_range] = length(collect(ic_range))
@@ -809,6 +850,56 @@ function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, N_ic::Int, ic_gens::Array{T,1
     end
     (ic, par, N_mc)
 end
+
+# struct identical ics , pseudo matrix
+"""
+    mutable struct IdenticalICs{T} <: AbstractArray{T,2}
+
+Helper struct for storing identical ICs. Behaves like a NxM matrix with identical rows, but actually stores this row only once in memory.
+
+# Fields
+
+* data
+* `N::Int`, Number of ICs/rows
+"""
+mutable struct IdenticalICs{T} <: AbstractArray{T,2}
+    data::AbstractArray{T,1}
+    N::Int
+end
+Base.getindex(ics::IdenticalICs, i::Int) = ics.data
+Base.getindex(ics::IdenticalICs, i::Int, j::Int) = ics.data[j]
+Base.size(ics) = (ics.N, length(ics.data))
+Base.setindex!(ics::IdenticalICs,v,i::Int) = setindex!(ics.data,v,i)
+Base.setindex!(ics::IdenticalICs,v,i::Int, j::Int) = setindex!(ics.data,v,j)
+
+
+# for HiddenParameterVar _ic_par_matrix
+
+# TEST THIS
+_ic_par_matrix(N_dim_ic::Int, N_dim::Int, ics::AbstractArray,  var_par::HiddenParameterVar) = _ic_par_matrix(N_dim_ic, N_dim, ics, MultiDimParameterVar(var_par))
+function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, ics::AbstractArray,  var_par::MultiDimHiddenParameterVar)
+
+    N_mc = var_par[1].N_control_par * var_par[1].N_hidden_par
+
+    par = zeros(typeof(var_par[1].new_val(1)), (N_mc, length(var_par)))
+
+    par_vals = zeros(typeof(var_par[1].new_val(1)), length(var_par))
+
+    for i_par=1:length(var_par)
+        par_vals[i_par] = var_par[i_par].new_val(1)
+    end
+
+    for i=1:N_mc
+        for i_par=1:length(var_par)
+            par[i,i_par] = par_vals[i_par]
+            if (i%var_par[i_par].N_hidden_par)==0
+                par_vals[i_par] = var_par[i_par].new_val(floor(i/var_par[i_par].N_hidden_par))
+            end
+        end
+    end
+    (IdenticalICs(ics, N_mc), par, N_mc)
+end
+
 
 """
     _new_ics(i::Int, N_dim_ic::Int, ic_gens::Array{T,1}) where T<:Function
