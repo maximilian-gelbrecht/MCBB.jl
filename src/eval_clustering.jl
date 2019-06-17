@@ -256,7 +256,7 @@ end
 
 Computes the distance matrix like [`distance_matrix`](@ref) but uses memory-maped arrays. Use this if the distance matrix is too large for the memory of your computer. Same inputs as [`distance_matrix`](@ref), but with added `el_type` that determines the eltype of the saved matrix and `save_name` the name of the file on the hard disk.
 
-Due to the restriction of memory-maped arrays saving and loading distance matrices computed like this with JLD2 will only work within a single machine. A way to reload these matrices / transfer them, could be added in the future (it would be fairly straightforward to program), but was not needed so far.
+Due to the restriction of memory-maped arrays saving and loading distance matrices computed like this with JLD2 will only work within a single machine. A way to reload these matrices / transfer them, is [`reload_mmap_distance_matrix`](@ref).
 
 """
 function distance_matrix_mmap(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray; matrix_distance_func::Union{Function, Nothing}=nothing, histogram_distance_func::Union{Function, Nothing}=wasserstein_histogram_distance, relative_parameter::Bool=false, histograms::Bool=false, use_ecdf::Bool=true, k_bin::Number=1, nbin_default::Int=50, el_type=Float32, save_name="mmap-distance-matrix.bin")
@@ -368,7 +368,7 @@ function reload_mmap_distance_matrix(old_instance::DistanceMatrixHist, binary_fi
     n = read(f, Int )
     mat_elements = Mmap.mmap(f, Matrix{el_type}, (m,n))
 
-    return DistanceMatrixHist(mat_elements, old_instance.weights, old_instance.distance_func, old_instance.matrix_distance_func, old_instance.relative_parameter, old_instance.histogram_distance_func, old_instance.hist_edges, old_instance.bin_width, old_instance.use_ecdf, old_instance.k_bin)
+    return DistanceMatrixHist(mat_elements, old_instance.weights, old_instance.distance_func, old_instance.matrix_distance_func, old_instance.relative_parameter, old_instance.histogram_distance, old_instance.hist_edges, old_instance.bin_width, old_instance.ecdf, old_instance.k_bin)
 end
 
 """
