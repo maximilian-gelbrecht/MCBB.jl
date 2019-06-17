@@ -622,11 +622,6 @@ function get_measure(sol::myMCSol, i::Int, clusters::ClusteringResult, i_cluster
 
     ca = clusters.assignments
     measure = get_measure(sol, i)
-    par = parameter(prob)
-
-    if length(ParameterVar(prob)) > 1
-        par = par[:,i_par]
-    end
 
     N = sol.N_mc
 
@@ -635,6 +630,13 @@ function get_measure(sol::myMCSol, i::Int, clusters::ClusteringResult, i_cluster
     if prob==nothing
         par_ind = ones(Bool, N)
     else
+
+        par = parameter(prob)
+
+        if length(ParameterVar(prob)) > 1
+            par = par[:,i_par]
+        end
+
         par_ind = (par .> min_par) .& (par .< max_par)
     end
 
@@ -1043,12 +1045,12 @@ function cluster_membership(prob::myMCProblem, clusters::ClusteringResult, windo
             push!(minpts_list, 1)
         end
 
-        for i=1:N_cluster
-            res.counts[i] > min_members
-            push!(minpts_list, i+1)
+        for i=1:(N_cluster - 1)
+            if clusters.counts[i] > min_members
+                push!(minpts_list, i+1)
+            end
         end
-
-        memberships = getindex(memberships,[Colon() for i=1:(ndims(A)-1)]...,minpts_list)
+        memberships = getindex(memberships,[Colon() for i=1:(ndims(memberships)-1)]...,minpts_list)
     end
 
     # return
