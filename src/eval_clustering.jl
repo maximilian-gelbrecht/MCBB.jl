@@ -435,8 +435,8 @@ function _compute_hist_edges(i_meas::Int, sol::myMCSol, k_bin::Number, nbin_defa
     # we use half the freedman-draconis rule because we are calculationg the IQR and max/min from _all_ values
     #bin_width = (4 * k_bin *iqr(flat_array))/(sol.N_mc^(1/3.))
     bin_width = freedman_draconis_bin_width(data_i, sol.N_dim, k_bin)
-    minval = minimum(flat_array)
-    maxval = maximum(flat_array)
+    minval = minimum(data_i)
+    maxval = maximum(data_i)
     hist_edge = (minval-bin_width):bin_width:(maxval+bin_width)
     if length(hist_edge) > nbin_default
         @warn string("Very large number of Hist Bins at measure number ",i_meas,", calculated via IQR, there might be something fishy here, e.g. IQR=0. For now the Number of Bins is set to ", nbin_default)
