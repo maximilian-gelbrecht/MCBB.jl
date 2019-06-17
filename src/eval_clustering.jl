@@ -1060,7 +1060,7 @@ function cluster_membership(prob::myMCProblem, clusters::ClusteringResult, windo
 
     ClusterMembershipResult(parameter_mesh, memberships, flag)
 end
-cluster_membership(prob::myMCProblem, clusters::ClusteringResult, window_size::Number, window_offset::Number, normalize::Bool=true) = cluster_membership(prob, clusters, [window_size], [window_offset], normalize)
+cluster_membership(prob::myMCProblem, clusters::ClusteringResult, window_size::Number, window_offset::Number; kwargs...) = cluster_membership(prob, clusters, [window_size], [window_offset]; kwargs...)
 
 """
     ClusterMembershipResult{T,S} <: AbstractArray
