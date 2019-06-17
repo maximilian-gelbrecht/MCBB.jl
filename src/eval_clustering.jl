@@ -111,10 +111,11 @@ This is intended to be used in order to avoid symmetric configurations in larger
 * `matrix_distance_func`: The distance function between two matrices or arrays or length different from ``N_{dim}``. Used e.g. for Crosscorrelation.
 * `ecdf::Bool` if true the `histogram_distance` function gets the empirical cdfs instead of the histogram
 * `k_bin::Int`: Multiplier to increase (``k_{bin}>1``) or decrease the bin width and thus decrease or increase the number of bins. It is a multiplier to the Freedman-Draconis rule. Default: ``k_{bin}=1``
+* `nbin_default::Int`: If the IQR is very small and thus the number of bins larger than `nbin_default`, the number of bins is set back to `nbin_default` and the edges and width adjusted accordingly.
 
 Returns an instance of [`DistanceMatrix`](@ref) or [`DistanceMatrixHist`](@ref)
 """
-function distance_matrix(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray; matrix_distance_func::Union{Function, Nothing}=nothing, histogram_distance_func::Union{Function, Nothing}=wasserstein_histogram_distance, relative_parameter::Bool=false, histograms::Bool=false, use_ecdf::Bool=true, k_bin::Number=1)
+function distance_matrix(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray; matrix_distance_func::Union{Function, Nothing}=nothing, histogram_distance_func::Union{Function, Nothing}=wasserstein_histogram_distance, relative_parameter::Bool=false, histograms::Bool=false, use_ecdf::Bool=true, k_bin::Number=1, nbin_default::Int=50)
 
     N_pars = length(ParameterVar(prob))
 
@@ -134,7 +135,7 @@ function distance_matrix(sol::myMCSol, prob::myMCProblem, distance_func::Functio
         hist_edges = []
         bin_widths = []
         for i_meas=1:sol.N_meas_dim
-            hist_edge, bin_width = _compute_hist_edges(i_meas, sol, k_bin)
+            hist_edge, bin_width = _compute_hist_edges(i_meas, sol, k_bin, nbin_default)
             push!(hist_edges, hist_edge)
             push!(bin_widths, bin_width)
         end
@@ -251,14 +252,14 @@ function compute_distance(sol::myMCSol, i_meas::Int, distance_func::Function; us
 end
 
 """
-    distance_matrix_mmap(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray; matrix_distance_func::Union{Function, Nothing}=nothing, histogram_distance_func::Union{Function, Nothing}=wasserstein_histogram_distance, relative_parameter::Bool=false, histograms::Bool=false, use_ecdf::Bool=true, k_bin::Number=1, el_type=Float32, save_name="mmap-distance-matrix.bin")
+    distance_matrix_mmap(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray; matrix_distance_func::Union{Function, Nothing}=nothing, histogram_distance_func::Union{Function, Nothing}=wasserstein_histogram_distance, relative_parameter::Bool=false, histograms::Bool=false, use_ecdf::Bool=true, k_bin::Number=1, nbin_default::Int=50, el_type=Float32, save_name="mmap-distance-matrix.bin")
 
 Computes the distance matrix like [`distance_matrix`](@ref) but uses memory-maped arrays. Use this if the distance matrix is too large for the memory of your computer. Same inputs as [`distance_matrix`](@ref), but with added `el_type` that determines the eltype of the saved matrix and `save_name` the name of the file on the hard disk.
 
 Due to the restriction of memory-maped arrays saving and loading distance matrices computed like this with JLD2 will only work within a single machine. A way to reload these matrices / transfer them, could be added in the future (it would be fairly straightforward to program), but was not needed so far.
 
 """
-function distance_matrix_mmap(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray; matrix_distance_func::Union{Function, Nothing}=nothing, histogram_distance_func::Union{Function, Nothing}=wasserstein_histogram_distance, relative_parameter::Bool=false, histograms::Bool=false, use_ecdf::Bool=true, k_bin::Number=1, el_type=Float32, save_name="mmap-distance-matrix.bin")
+function distance_matrix_mmap(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray; matrix_distance_func::Union{Function, Nothing}=nothing, histogram_distance_func::Union{Function, Nothing}=wasserstein_histogram_distance, relative_parameter::Bool=false, histograms::Bool=false, use_ecdf::Bool=true, k_bin::Number=1, nbin_default::Int=50, el_type=Float32, save_name="mmap-distance-matrix.bin")
 
     N_pars = length(ParameterVar(prob))
 
@@ -347,8 +348,37 @@ function distance_matrix_mmap(sol::myMCSol, prob::myMCProblem, distance_func::Fu
 end
 distance_matrix_mmap(sol::myMCSol, prob::myMCProblem, weights::AbstractArray; kwargs...) = distance_matrix_mmap(sol, prob, (x,y)->sum(abs.(x .- y)), weights; kwargs...)
 
+"""
+    reload_mmap_distance_matrix(old_instance::AbstractDistanceMatrix, binary_file; el_type=Float32)
 
+Reloads a corrupted/old instance of `AbstractDistanceMatrix` that is using `Mmap` from the `Mmap` binary file saved at `binary_file` with eltype
+"""
+function reload_mmap_distance_matrix(old_instance::DistanceMatrix, binary_file; el_type=Float32)
+    f = open(binary_file)
+    m = read(f, Int)
+    n = read(f, Int )
+    mat_elements = Mmap.mmap(f, Matrix{el_type}, (m,n))
 
+    return DistanceMatrix(mat_elements, old_instance.weights, old_instance.distance_func, old_instance.matrix_distance_func, old_instance.relative_parameter)
+end
+
+function reload_mmap_distance_matrix(old_instance::DistanceMatrixHist, binary_file; el_type=Float32)
+    f = open(binary_file)
+    m = read(f, Int)
+    n = read(f, Int )
+    mat_elements = Mmap.mmap(f, Matrix{el_type}, (m,n))
+
+    return DistanceMatrixHist(mat_elements, old_instance.weights, old_instance.distance_func, old_instance.matrix_distance_func, old_instance.relative_parameter, old_instance.histogram_distance_func, old_instance.hist_edges, old_instance.bin_width, old_instance.use_ecdf, old_instance.k_bin)
+end
+
+"""
+    metadata!(dm::AbstractDistanceMatrix, )
+
+Sets the input [`AbstractDistanceMatrix`] matrix itself empty, thus only containing metadata. This is usefull if the matrix itself is already saved otherwise (like with Mmap).
+"""
+function metadata!(dm::AbstractDistanceMatrix)
+    dm.data = Array{eltype(dm.data)}(undef, 0, 0)
+end
 
 
 #(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray; matrix_distance_func::Union{Function, Nothing}=nothing, histogram_distance_func::Union{Function, Nothing}=nothing, relative_parameter::Bool=false, histograms::Bool=false, use_ecdf::Bool=true, k_bin::Number=1)
@@ -392,28 +422,31 @@ function _compute_hist_weights(i_meas::Int, sol::myMCSol, hist_edge::AbstractArr
 end
 
 """
-    _compute_hist_edges(i_meas::Int, sol::myMCSol, k_bin::Number)
+    _compute_hist_edges(i_meas::Int, sol::myMCSol, k_bin::Number, nbin_default::Int=50)
 
 Helper function, computes the edges of the histograms. Uses Freedman-Draconis rule. `k_bin` is an additional prefactor to the computed bin width.
+
+If the IQR is very small and thus the number of bins larger than `nbin_default`, the number of bins is set back to `nbin_default` and the edges and width adjusted accordingly.
 """
-function _compute_hist_edges(i_meas::Int, sol::myMCSol, k_bin::Number)
+function _compute_hist_edges(i_meas::Int, sol::myMCSol, k_bin::Number, nbin_default::Int=50)
 
     data_i = get_measure(sol, i_meas)
-    flat_array = collect(Iterators.flatten(data_i))
 
     # we use half the freedman-draconis rule because we are calculationg the IQR and max/min from _all_ values
     #bin_width = (4 * k_bin *iqr(flat_array))/(sol.N_mc^(1/3.))
-    bin_width = (0.5 * k_bin *iqr(flat_array))/(sol.N_dim^(1/3.))
+    bin_width = freedman_draconis_bin_width(data_i, sol.N_dim, k_bin)
     minval = minimum(flat_array)
     maxval = maximum(flat_array)
     hist_edge = (minval-bin_width):bin_width:(maxval+bin_width)
-    if length(hist_edge) > 100
-        @warn "Very large number of Hist Bins calculated via IQR, there might be something fishy here, e.g. IQR=0. For now the Number of Bins is set to 25"
-        hist_edge = range(minval - 0.1*minval, maxval + 0.1*maxval, length=25)
+    if length(hist_edge) > nbin_default
+        @warn string("Very large number of Hist Bins at measure number ",i_meas,", calculated via IQR, there might be something fishy here, e.g. IQR=0. For now the Number of Bins is set to ", nbin_default)
+        hist_edge = range(minval - 0.1*minval, maxval + 0.1*maxval, length=nbin_default)
     end
     return hist_edge, bin_width
 end
 
+freedman_draconis_bin_width(data::AbstractArray{T,1}, N_dim::Int, k_bin::Number) where T <: Number = 0.5 * k_bin *iqr(data)/N_dim^(1/3.)
+freedman_draconis_bin_width(data::AbstractArray{T,2}, N_dim::Int, k_bin::Number) where T <: Number = freedman_draconis_bin_width(collect(Iterators.flatten(data)), N_dim, k_bin)
 
 function _compute_ecdf(data::AbstractArray{T}, hist_edges::AbstractArray) where T<:Number
     N_bins = length(hist_edges) - 1
@@ -952,8 +985,8 @@ function cluster_membership(par::AbstractArray, clusters::ClusteringResult)
 end
 
 """
-    cluster_membership(prob::myMCProblem, clusters::ClusteringResult, window_size::AbstractArray, window_offset::AbstractArray, normalize::Bool=true)
-    cluster_membership(prob::myMCProblem, clusters::ClusteringResult, window_size::Number, window_offset::Number, normalize::Bool=true)
+    cluster_membership(prob::myMCProblem, clusters::ClusteringResult, window_size::AbstractArray, window_offset::AbstractArray; normalize::Bool=true, min_members::Int=0)
+    cluster_membership(prob::myMCProblem, clusters::ClusteringResult, window_size::Number, window_offset::Number; normalize::Bool=true,  min_members::Int=0)
 
 Calculates the proportion of members for each cluster within a parameter sliding window.
 
@@ -969,7 +1002,7 @@ Returns an instance [`ClusterMembershipResult`](@ref) with fields:
 
 The results can be plotted with directly with `plot(results, kwargs...)`. See [`ClusterMembershipResult`](@ref) for details on the plotting
 """
-function cluster_membership(prob::myMCProblem, clusters::ClusteringResult, window_size::AbstractArray, window_offset::AbstractArray, normalize::Bool=true)
+function cluster_membership(prob::myMCProblem, clusters::ClusteringResult, window_size::AbstractArray, window_offset::AbstractArray; normalize::Bool=true, min_members::Int=0)
 
     N_cluster = length(clusters.seeds) + 1  # plus 1 -> plus "noise cluster" / not clustered points
     ca = clusters.assignments
@@ -1002,6 +1035,20 @@ function cluster_membership(prob::myMCProblem, clusters::ClusteringResult, windo
         end
 
         parameter_mesh[ic,:] = collect(ip)
+    end
+
+    if min_members > 0
+        minpts_list = []
+        if cluster_n_noise(clusters) > min_members
+            push!(minpts_list, 1)
+        end
+
+        for i=1:N_cluster
+            res.counts[i] > min_members
+            push!(minpts_list, i+1)
+        end
+
+        memberships = getindex(memberships,[Colon() for i=1:(ndims(A)-1)]...,minpts_list)]
     end
 
     # return
@@ -1048,6 +1095,7 @@ Base.getindex(cm::ClusterMembershipResult, i::Int) = getindex(cm.data, i)
 Base.getindex(cm::ClusterMembershipResult, I...) = getindex(cm.data, I...)
 Base.setindex!(cm::ClusterMembershipResult, v, i::Int) = setindex!(cm.data, v, i)
 Base.setindex!(cm::ClusterMembershipResult, v, I::Vararg) = setindex!(cm.data, v, I)
+
 
 
 """
