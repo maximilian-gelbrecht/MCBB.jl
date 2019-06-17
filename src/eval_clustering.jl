@@ -1048,7 +1048,7 @@ function cluster_membership(prob::myMCProblem, clusters::ClusteringResult, windo
             push!(minpts_list, i+1)
         end
 
-        memberships = getindex(memberships,[Colon() for i=1:(ndims(A)-1)]...,minpts_list)]
+        memberships = getindex(memberships,[Colon() for i=1:(ndims(A)-1)]...,minpts_list)
     end
 
     # return
