@@ -725,7 +725,7 @@ struct ClusterMeasureResult
 end
 
 """
-    cluster_measures_sliding_histograms(prob::myMCProblem, sol::myMCSol, clusters::ClusteringResult, i_meas::Int, window_size::Number, window_offset::Number; k_bin::Number=1)
+    cluster_measures_sliding_histograms(prob::myMCProblem, sol::myMCSol, clusters::ClusteringResult, i_meas::Int, window_size::Number, window_offset::Number; k_bin::Number=1, normalization_mode::Symbol=:probability)
 
 Calculates for each window in the sliding window array a histogram of all results of meausure `i_meas` of all runs seperatly for each cluster.
 
@@ -737,6 +737,7 @@ Input:
 * `window_size::AbstractArray`: size of the window, number or Array with length according to the number of parameters
 * `window_offset::AbstractArray`: size of the window, number or Array with length according to the number of parameters
 * `k_bin::Number`: Bin Count Modifier. `k_bin`-times the Freedman Draconis rule is used for binning the data. Default: 1
+* `normalization_mode::Symbol`, normalization mode applied to Histograms. Directly handed over to [`normalize`](@ref).
 
 Returns an instance of [`ClusterMeasureHistogramResult`](@ref) with fields:
 * `hist_vals`: N_cluster, N_windows..., N_bins - sized array with the value of the histograms for each window
@@ -746,7 +747,7 @@ Returns an instance of [`ClusterMeasureHistogramResult`](@ref) with fields:
 Can be plotted with `plot(res::ClusterMeasureHistogramResult, kwargs...)`. See [`ClusterMeasureHistogramResult`](@ref) for details.
 
 """
-function cluster_measures_sliding_histograms(prob::myMCProblem, sol::myMCSol, clusters::ClusteringResult, i_meas::Int, window_size::AbstractArray, window_offset::AbstractArray; k_bin::Number=1)
+function cluster_measures_sliding_histograms(prob::myMCProblem, sol::myMCSol, clusters::ClusteringResult, i_meas::Int, window_size::AbstractArray, window_offset::AbstractArray; k_bin::Number=1, normalization_mode::Symbol=:probability)
 
     N_cluster = length(clusters.seeds) + 1  # plus 1 -> plus "noise cluster" / not clustered points
     ca = clusters.assignments
@@ -794,7 +795,7 @@ function cluster_measures_sliding_histograms(prob::myMCProblem, sol::myMCSol, cl
             if length(cluster_data)==0
                 hist_vals[i_cluster, ic,  :] .= NaN
             else
-                hist_i = normalize(fit(Histogram, cluster_data, hist_edges, closed=:left))
+                hist_i = normalize(fit(Histogram, cluster_data, hist_edges, closed=:left), mode=normalization_mode)
                 hist_vals[i_cluster, ic, :] = hist_i.weights
             end
         end
@@ -1072,6 +1073,7 @@ Stores the results of [`cluster_membership`](@ref) and can be used for [`Cluster
 # Fields
 * `par`: Parameter Array or Mesh
 * `data`: Cluster Membership data on `par`-Parameter grid.
+* `multidim_flag`: Is the experiment multidimensional?
 
 # Plot
     plot(cm::ClusterMembershipResult, kwargs...)
