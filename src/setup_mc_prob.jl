@@ -146,7 +146,7 @@ struct HiddenParameterVar <: AbstractHiddenParameterVar
         new(name, pars, new_par, verify_func(new_val), N_control_par, N_hidden_par)
     end
 
-    HiddenParameterVar(name::Symbol, pars::AbstractArray, new_par::Function, new_val::AbstractArray, N_hidden_par::Union{Int, Nothing}=nothing) = new(name, pars, new_par, (i)->arr[i], length(new_val), N_hidden_par)
+    HiddenParameterVar(name::Symbol, pars::AbstractArray, new_par::Function, new_val::AbstractArray, N_hidden_par::Union{Int, Nothing}=nothing) = new(name, pars, new_par, (i)->new_val[i], length(new_val), N_hidden_par)
 end
 
 function HiddenParameterVar(name::Symbol, f::Function, N::Int, new_par, new_val, N_control_par::Int, N_hidden_par::Union{Int, Nothing}=nothing)
