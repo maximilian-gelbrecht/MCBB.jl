@@ -146,7 +146,7 @@ struct HiddenParameterVar <: AbstractHiddenParameterVar
         new(name, pars, new_par, verify_func(new_val), N_control_par, N_hidden_par)
     end
 
-    HiddenParameterVar(name::Symbol, pars::AbstractArray, new_par::Function, new_val::AbstractArray, N_hidden_par::Union{Int, Nothing}=nothing) = new(name, pars, new_par, (i)->new_val[i], length(new_val), N_hidden_par)
+    HiddenParameterVar(name::Symbol, pars::AbstractArray, new_par::Function, new_val::AbstractArray, N_hidden_par::Union{Int, Nothing}=nothing) = new(name, pars, new_par, (i::Int)->new_val[i], length(new_val), N_hidden_par)
 end
 
 function HiddenParameterVar(name::Symbol, f::Function, N::Int, new_par, new_val, N_control_par::Int, N_hidden_par::Union{Int, Nothing}=nothing)
@@ -893,7 +893,7 @@ function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, ics::AbstractArray,  var_par:
         for i_par=1:length(var_par)
             par[i,i_par] = par_vals[i_par]
             if (i%var_par[i_par].N_hidden_par)==0
-                par_vals[i_par] = var_par[i_par].new_val(floor(i/var_par[i_par].N_hidden_par))
+                par_vals[i_par] = var_par[i_par].new_val(Int(floor(i/var_par[i_par].N_hidden_par)))
             end
         end
     end
