@@ -759,13 +759,13 @@ function cluster_measures_sliding_histograms(prob::myMCProblem, sol::myMCSol, cl
     measure = get_measure(sol, i_meas)
 
     # histograms common binning with freedman-draconis
-    flat_array = collect(Iterators.flatten(measure))
+
+    bin_width = freedman_draconis_bin_width(measure, sol.N_dim, k_bin)
     # we use double the freedman-draconis rule because we are calculationg the IQR
     # and max/min from _all_ values
-    bin_width = (2. *k_bin *iqr(flat_array))/(sol.N_mc^(1/3.))
-    minval = minimum(flat_array)
-    maxval = maximum(flat_array)
-    hist_edges = (minval-bin_width/2.):bin_width:(maxval+bin_width/2.)
+    minval = minimum(measure)
+    maxval = maximum(measure)
+    hist_edges = (minval-bin_width):bin_width:(maxval+bin_width)
     N_bins = length(hist_edges) - 1
 
     # these are the values
@@ -776,7 +776,6 @@ function cluster_measures_sliding_histograms(prob::myMCProblem, sol::myMCSol, cl
     for i_cluster=0:(N_cluster - 1)
         cluster_masks[i_cluster+1,:] .= (ca .== i_cluster)
     end
-
 
     for (ip,ic) in zip(Iterators.product(windows_mins...), CartesianIndices(zeros(Int,N_windows...)))
 
@@ -789,13 +788,27 @@ function cluster_measures_sliding_histograms(prob::myMCProblem, sol::myMCSol, cl
         par_ind_numbers = findall(par_ind)
         # fit histogram for each window slice
 
+
+
         for i_cluster=1:N_cluster
+
+
             cluster_ind = (par_ind .& cluster_masks[i_cluster,:])
             cluster_data = collect(Iterators.flatten(measure[cluster_ind, :]))
+
+
             if length(cluster_data)==0
                 hist_vals[i_cluster, ic,  :] .= NaN
             else
                 hist_i = normalize(fit(Histogram, cluster_data, hist_edges, closed=:left), mode=normalization_mode)
+                """
+                if ((i_cluster==2) & (ip[1] < 0.03))
+                    println(hist_i)
+                    println(fit(Histogram, cluster_data, hist_edges, closed=:left))
+                    println(cluster_data)
+                    println("----")
+                end
+                """
                 hist_vals[i_cluster, ic, :] = hist_i.weights
             end
         end
