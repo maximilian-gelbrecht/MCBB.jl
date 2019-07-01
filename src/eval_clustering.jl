@@ -1103,7 +1103,26 @@ Base.getindex(cm::ClusterMembershipResult, I...) = getindex(cm.data, I...)
 Base.setindex!(cm::ClusterMembershipResult, v, i::Int) = setindex!(cm.data, v, i)
 Base.setindex!(cm::ClusterMembershipResult, v, I::Vararg) = setindex!(cm.data, v, I)
 
+"""
+    sort!(cm::ClusterMembershipResult; ignore_first::Bool=false)
 
+Sorts `cm` inplace by the count of members of the clusters from low to high. If `ignore_first` is true, the first cluster (with DBSCAN this is the outlier cluster) is ignored while sorting and remains the first cluster.
+"""
+function Base.sort!(cm::ClusterMembershipResult; ignore_first::Bool=false)
+    tmp = copy(cm)
+    N_cluster = size(cm.data)[end]
+    Nc = zeros(N_cluster)
+    for i=1:N_cluster
+        Nc[i] = sum(getindex(cm, [Colon() for i=1:(ndims(cm)-1)]..., i))
+    end
+    if ignore_first
+        sortind = [1; (sortperm(Nc[2:end]).+1)]
+    else
+        sortind = sortperm(Nc)
+    end
+
+    cm.data = getindex(tmp, [Colon() for i=1:(ndims(cm)-1)]..., sortind)
+end
 
 """
     measure_on_parameter_sliding_window
