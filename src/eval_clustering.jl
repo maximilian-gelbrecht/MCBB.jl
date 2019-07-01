@@ -761,11 +761,14 @@ function cluster_measures_sliding_histograms(prob::myMCProblem, sol::myMCSol, cl
     # histograms common binning with freedman-draconis
 
     bin_width = freedman_draconis_bin_width(measure, sol.N_dim, k_bin)
+
     # we use double the freedman-draconis rule because we are calculationg the IQR
-    # and max/min from _all_ values
+    # and max/min from _all_ values    bin_width =
+
     minval = minimum(measure)
     maxval = maximum(measure)
     hist_edges = (minval-bin_width):bin_width:(maxval+bin_width)
+
     N_bins = length(hist_edges) - 1
 
     # these are the values
@@ -776,6 +779,7 @@ function cluster_measures_sliding_histograms(prob::myMCProblem, sol::myMCSol, cl
     for i_cluster=0:(N_cluster - 1)
         cluster_masks[i_cluster+1,:] .= (ca .== i_cluster)
     end
+
 
     for (ip,ic) in zip(Iterators.product(windows_mins...), CartesianIndices(zeros(Int,N_windows...)))
 
@@ -788,27 +792,13 @@ function cluster_measures_sliding_histograms(prob::myMCProblem, sol::myMCSol, cl
         par_ind_numbers = findall(par_ind)
         # fit histogram for each window slice
 
-
-
         for i_cluster=1:N_cluster
-
-
             cluster_ind = (par_ind .& cluster_masks[i_cluster,:])
             cluster_data = collect(Iterators.flatten(measure[cluster_ind, :]))
-
-
             if length(cluster_data)==0
                 hist_vals[i_cluster, ic,  :] .= NaN
             else
                 hist_i = normalize(fit(Histogram, cluster_data, hist_edges, closed=:left), mode=normalization_mode)
-                """
-                if ((i_cluster==2) & (ip[1] < 0.03))
-                    println(hist_i)
-                    println(fit(Histogram, cluster_data, hist_edges, closed=:left))
-                    println(cluster_data)
-                    println("----")
-                end
-                """
                 hist_vals[i_cluster, ic, :] = hist_i.weights
             end
         end
@@ -1113,7 +1103,26 @@ Base.getindex(cm::ClusterMembershipResult, I...) = getindex(cm.data, I...)
 Base.setindex!(cm::ClusterMembershipResult, v, i::Int) = setindex!(cm.data, v, i)
 Base.setindex!(cm::ClusterMembershipResult, v, I::Vararg) = setindex!(cm.data, v, I)
 
+"""
+    sort!(cm::ClusterMembershipResult; ignore_first::Bool=false)
 
+Sorts `cm` inplace by the count of members of the clusters from low to high. If `ignore_first` is true, the first cluster (with DBSCAN this is the outlier cluster) is ignored while sorting and remains the first cluster.
+"""
+function Base.sort!(cm::ClusterMembershipResult; ignore_first::Bool=false)
+    tmp = copy(cm)
+    N_cluster = size(cm.data)[end]
+    Nc = zeros(N_cluster)
+    for i=1:N_cluster
+        Nc[i] = sum(getindex(cm, [Colon() for i=1:(ndims(cm)-1)]..., i))
+    end
+    if ignore_first
+        sortind = [1; (sortperm(Nc[2:end]).+1)]
+    else
+        sortind = sortperm(Nc)
+    end
+
+    cm.data = getindex(tmp, [Colon() for i=1:(ndims(cm)-1)]..., sortind)
+end
 
 """
     measure_on_parameter_sliding_window
