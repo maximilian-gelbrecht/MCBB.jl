@@ -765,7 +765,6 @@ function cluster_measures_sliding_histograms(prob::myMCProblem, sol::myMCSol, cl
     # we use double the freedman-draconis rule because we are calculationg the IQR
     # and max/min from _all_ values    bin_width =
 
-    bin_width = (2. *k_bin *iqr(flat_array))/(sol.N_mc^(1/3.))
     minval = minimum(measure)
     maxval = maximum(measure)
     hist_edges = (minval-bin_width):bin_width:(maxval+bin_width)
