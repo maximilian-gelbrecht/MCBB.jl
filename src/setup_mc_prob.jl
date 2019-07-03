@@ -123,7 +123,9 @@ Subtype of [`ParameterVar`](@ref) that varies a lot of "hidden" parameters rando
 * `new_par::Function` function that returns new parameter instance with signature `(pars[i,:]..., name=>new_val()) -> new_parameters`
 * `new_val::Function`:: Function that returns new values for the control parameters `(i::Int)->new_val::Number`
 * `N_control_par::Int`: Number of control parameters drawn/used
-* `N_hidden_par::Int` Number of 'hidden' parameters
+* `N_hidden_par::Int`: Number of 'hidden' parameters
+* `flag_repeat_hidden_pars::Bool`: If `true` the values `pars` for the hidden parameters are repeated for every value of the control parameter. If `false`, then `N_control_par==N_hidden_par`.
+
 """
 struct HiddenParameterVar <: AbstractHiddenParameterVar
     name::Symbol
@@ -132,8 +134,9 @@ struct HiddenParameterVar <: AbstractHiddenParameterVar
     new_val::Function
     N_control_par::Int
     N_hidden_par::Int
+    flag_repeat_hidden_pars::Bool
 
-    function HiddenParameterVar(name::Symbol, pars::AbstractArray, new_par::Function, new_val::Function, N_control_par::Int, N_hidden_par::Union{Int, Nothing}=nothing)
+    function HiddenParameterVar(name::Symbol, pars::AbstractArray, new_par::Function, new_val::Function, N_control_par::Int, N_hidden_par::Union{Int, Nothing}=nothing, flag_repeat_hidden_pars::Bool=true)
         N_pars_given, N_dim = size(pars)
         if N_hidden_par == nothing
             N_hidden_par = N_pars_given
@@ -142,23 +145,30 @@ struct HiddenParameterVar <: AbstractHiddenParameterVar
         elseif N_hidden_par < N_pars_given
             @warn "Not all differend background/hidden paraemters will be used. Is this intended?"
         end
+        if flag_repeat_hidden_pars==false
+            if N_hidden_par != N_control_par
+                error("Hidden Pars are not repeated, thus N_hidden_par should be equal to N_control_par")
+            end
+        end
 
-        new(name, pars, new_par, verify_func(new_val), N_control_par, N_hidden_par)
+        new(name, pars, new_par, verify_func(new_val), N_control_par, N_hidden_par, flag_repeat_hidden_pars)
     end
 
-    HiddenParameterVar(name::Symbol, pars::AbstractArray, new_par::Function, new_val::AbstractArray, N_hidden_par::Union{Int, Nothing}=nothing) = new(name, pars, new_par, (i::Int)->new_val[i], length(new_val), N_hidden_par)
+    HiddenParameterVar(name::Symbol, pars::AbstractArray, new_par::Function, new_val::AbstractArray, N_hidden_par::Union{Int, Nothing}=nothing, flag_repeat_hidden_pars::Bool=true) = new(name, pars, new_par, (i::Int)->new_val[i], length(new_val), N_hidden_par, flag_repeat_hidden_pars)
 end
 
-function HiddenParameterVar(name::Symbol, f::Function, N::Int, new_par, new_val, N_control_par::Int, N_hidden_par::Union{Int, Nothing}=nothing)
-    p0 = f()
+function HiddenParameterVar(name::Symbol, f::Function, new_par, new_val, N_control_par::Int, N_hidden_par::Int, flag_repeat_hidden_pars::Bool=true)
+    f = verify_func(f)
+
+    p0 = f(1)
     N_pars = length(p0)
 
-    pars = zeros(eltype(p0), N, N_pars)
-    for i=1:N
-        pars[i,:] = f()
+    pars = zeros(eltype(p0), N_hidden_par, N_pars)
+    for i=1:N_hidden_par
+        pars[i,:] = f(i)
     end
 
-    return HiddenParameterVar(name, pars, new_par, new_val, N_control_par, N_hidden_par)
+    return HiddenParameterVar(name, pars, new_par, new_val, N_control_par, N_hidden_par, flag_repeat_hidden_pars)
 end
 
 (parvar::HiddenParameterVar)(i::Int; kwargs...) = parvar.new_par(parvar.pars[mod(i-1, parvar.N_hidden_par)+1,:]...; kwargs...)
@@ -879,21 +889,34 @@ Base.setindex!(ics::IdenticalICs,v,i::Int, j::Int) = setindex!(ics.data,v,j)
 _ic_par_matrix(N_dim_ic::Int, N_dim::Int, ics::AbstractArray,  var_par::HiddenParameterVar) = _ic_par_matrix(N_dim_ic, N_dim, ics, MultiDimParameterVar(var_par))
 function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, ics::AbstractArray,  var_par::MultiDimHiddenParameterVar)
 
-    N_mc = var_par[1].N_control_par * var_par[1].N_hidden_par
+    if var_par[1].flag_repeat_hidden_pars
+        N_mc = var_par[1].N_control_par * var_par[1].N_hidden_par
+    else
+        N_mc = var_par[1].N_control_par
+    end
 
     par = zeros(typeof(var_par[1].new_val(1)), (N_mc, length(var_par)))
 
     par_vals = zeros(typeof(var_par[1].new_val(1)), length(var_par))
 
-    for i_par=1:length(var_par)
-        par_vals[i_par] = var_par[i_par].new_val(1)
-    end
-
-    for i=1:N_mc
+    if var_par[1].flag_repeat_hidden_pars
         for i_par=1:length(var_par)
-            par[i,i_par] = par_vals[i_par]
-            if (i%var_par[i_par].N_hidden_par)==0
-                par_vals[i_par] = var_par[i_par].new_val(Int(floor(i/var_par[i_par].N_hidden_par)))
+            par_vals[i_par] = var_par[i_par].new_val(1)
+        end
+
+        for i=1:N_mc
+            for i_par=1:length(var_par)
+                par[i,i_par] = par_vals[i_par]
+                if (i%var_par[i_par].N_hidden_par)==0
+                    par_vals[i_par] = var_par[i_par].new_val(Int(floor(i/var_par[i_par].N_hidden_par)))
+                end
+
+            end
+        end
+    else
+        for i=1:N_mc
+            for i_par=1:length(var_par)
+                par[i,i_par] = var_par[i_par].new_val(i)
             end
         end
     end
