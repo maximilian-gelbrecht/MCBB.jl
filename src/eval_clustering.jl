@@ -759,7 +759,7 @@ function cluster_measures_sliding_histograms(prob::myMCProblem, sol::myMCSol, cl
     measure = get_measure(sol, i_meas)
 
     # histograms common binning with freedman-draconis
-    hist_edges, bin_width = _compute_hist_edges(sol, i_meas, k_bin)
+    hist_edges, bin_width = _compute_hist_edges(i_meas, sol, k_bin)
     N_bins = length(hist_edges) - 1
 
     # these are the values
