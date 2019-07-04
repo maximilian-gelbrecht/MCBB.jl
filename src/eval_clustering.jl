@@ -759,16 +759,7 @@ function cluster_measures_sliding_histograms(prob::myMCProblem, sol::myMCSol, cl
     measure = get_measure(sol, i_meas)
 
     # histograms common binning with freedman-draconis
-
-    bin_width = freedman_draconis_bin_width(measure, sol.N_dim, k_bin)
-
-    # we use double the freedman-draconis rule because we are calculationg the IQR
-    # and max/min from _all_ values    bin_width =
-
-    minval = minimum(measure)
-    maxval = maximum(measure)
-    hist_edges = (minval-bin_width):bin_width:(maxval+bin_width)
-
+    hist_edges, bin_width = _compute_hist_edges(sol, i_meas, k_bin)
     N_bins = length(hist_edges) - 1
 
     # these are the values
