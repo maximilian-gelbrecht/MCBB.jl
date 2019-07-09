@@ -246,7 +246,7 @@ end
 
 Computes a (part of the) distance matrix for only a single measure `i_meas`. Follows otherwise the same logic as [`distance_matrix`](@ref) but returns the matrix as an `Array{T,2}`.
 """
-function compute_distance(sol::myMCSol, i_meas::Int, distance_func::Function; use_histograms::Bool=false, use_ecdf::Bool=true, k_bin::Number=1; nbin::Union{Int, Nothing}=nothing)
+function compute_distance(sol::myMCSol, i_meas::Int, distance_func::Function; use_histograms::Bool=false, use_ecdf::Bool=true, k_bin::Number=1, nbin::Union{Int, Nothing}=nothing)
     D = zeros((sol.N_mc, sol.N_mc))
     if use_histograms
         hist_edge, bin_width = _compute_hist_edges(i_meas, sol, k_bin, nbin=nbin)
