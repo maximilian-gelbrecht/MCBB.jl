@@ -141,7 +141,7 @@ function distance_matrix(sol::myMCSol, prob::myMCProblem, distance_func::Functio
         hist_edges = []
         bin_widths = []
         for i_meas=1:sol.N_meas_dim
-            hist_edge, bin_width = _compute_hist_edges(i_meas, sol, k_bin, nbin_default, nbin=nbin)
+            hist_edge, bin_width = _compute_hist_edges(i_meas, sol, k_bin, nbin_default=nbin_default, nbin=nbin)
             push!(hist_edges, hist_edge)
             push!(bin_widths, bin_width)
         end
@@ -246,10 +246,10 @@ end
 
 Computes a (part of the) distance matrix for only a single measure `i_meas`. Follows otherwise the same logic as [`distance_matrix`](@ref) but returns the matrix as an `Array{T,2}`.
 """
-function compute_distance(sol::myMCSol, i_meas::Int, distance_func::Function; use_histograms::Bool=false, use_ecdf::Bool=true, k_bin::Number=1)
+function compute_distance(sol::myMCSol, i_meas::Int, distance_func::Function; use_histograms::Bool=false, use_ecdf::Bool=true, k_bin::Number=1; nbin::Union{Int, Nothing}=nothing)
     D = zeros((sol.N_mc, sol.N_mc))
     if use_histograms
-        hist_edge, bin_width = _compute_hist_edges(i_meas, sol, k_bin)
+        hist_edge, bin_width = _compute_hist_edges(i_meas, sol, k_bin, nbin=nbin)
         _compute_distance!(D, sol, i_meas, distance_func, hist_edge, bin_width, use_ecdf)
     else
         _compute_distance!(D, sol, i_meas, distance_func)
@@ -265,7 +265,7 @@ Computes the distance matrix like [`distance_matrix`](@ref) but uses memory-mape
 Due to the restriction of memory-maped arrays saving and loading distance matrices computed like this with JLD2 will only work within a single machine. A way to reload these matrices / transfer them, is [`reload_mmap_distance_matrix`](@ref).
 
 """
-function distance_matrix_mmap(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray; matrix_distance_func::Union{Function, Nothing}=nothing, histogram_distance_func::Union{Function, Nothing}=wasserstein_histogram_distance, relative_parameter::Bool=false, histograms::Bool=false, use_ecdf::Bool=true, k_bin::Number=1, nbin_default::Int=50, el_type=Float32, save_name="mmap-distance-matrix.bin")
+function distance_matrix_mmap(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray; matrix_distance_func::Union{Function, Nothing}=nothing, histogram_distance_func::Union{Function, Nothing}=wasserstein_histogram_distance, relative_parameter::Bool=false, histograms::Bool=false, use_ecdf::Bool=true, k_bin::Number=1, nbin_default::Int=50, nbin::Union{Int, Nothing}=nothing, el_type=Float32, save_name="mmap-distance-matrix.bin")
 
     N_pars = length(ParameterVar(prob))
 
@@ -285,7 +285,7 @@ function distance_matrix_mmap(sol::myMCSol, prob::myMCProblem, distance_func::Fu
         hist_edges = []
         bin_widths = []
         for i_meas=1:sol.N_meas_dim
-            hist_edge, bin_width = _compute_hist_edges(i_meas, sol, k_bin)
+            hist_edge, bin_width = _compute_hist_edges(i_meas, sol, k_bin, nbin_default=nbin_default, nbin=nbin)
             push!(hist_edges, hist_edge)
             push!(bin_widths, bin_width)
         end
@@ -434,7 +434,7 @@ Helper function, computes the edges of the histograms. Uses Freedman-Draconis ru
 
 If the IQR is very small and thus the number of bins larger than `nbin_default`, the number of bins is set back to `nbin_default` and the edges and width adjusted accordingly.
 """
-function _compute_hist_edges(i_meas::Int, sol::myMCSol, k_bin::Number, nbin_default::Int=50; nbin::Union{Int, Nothing}=nothing)
+function _compute_hist_edges(i_meas::Int, sol::myMCSol, k_bin::Number; nbin_default::Int=50, nbin::Union{Int, Nothing}=nothing)
 
     data_i = get_measure(sol, i_meas)
 
@@ -740,7 +740,7 @@ struct ClusterMeasureResult
 end
 
 """
-    cluster_measures_sliding_histograms(prob::myMCProblem, sol::myMCSol, clusters::ClusteringResult, i_meas::Int, window_size::Number, window_offset::Number; k_bin::Number=1, normalization_mode::Symbol=:probability)
+    cluster_measures_sliding_histograms(prob::myMCProblem, sol::myMCSol, clusters::ClusteringResult, i_meas::Int, window_size::Number, window_offset::Number; k_bin::Number=1, normalization_mode::Symbol=:probability, nbin::Int=nothing)
 
 Calculates for each window in the sliding window array a histogram of all results of meausure `i_meas` of all runs seperatly for each cluster.
 
@@ -753,6 +753,7 @@ Input:
 * `window_offset::AbstractArray`: size of the window, number or Array with length according to the number of parameters
 * `k_bin::Number`: Bin Count Modifier. `k_bin`-times the Freedman Draconis rule is used for binning the data. Default: 1
 * `normalization_mode::Symbol`, normalization mode applied to Histograms. Directly handed over to [`normalize`](@ref).
+* `nbin::Int`: Uses nbins for the histograms instead of the (automatic) Freedman Draconis rule
 
 Returns an instance of [`ClusterMeasureHistogramResult`](@ref) with fields:
 * `hist_vals`: N_cluster, N_windows..., N_bins - sized array with the value of the histograms for each window
@@ -774,7 +775,7 @@ function cluster_measures_sliding_histograms(prob::myMCProblem, sol::myMCSol, cl
     measure = get_measure(sol, i_meas)
 
     # histograms common binning with freedman-draconis
-    hist_edges, bin_width = _compute_hist_edges(i_meas, sol, k_bin)
+    hist_edges, bin_width = _compute_hist_edges(i_meas, sol, k_bin, nbin=nbin)
     N_bins = length(hist_edges) - 1
 
     # these are the values
