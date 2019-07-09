@@ -626,7 +626,7 @@ function define_new_problem(prob, ic::AbstractArray, par::AbstractArray, paramet
     new_problem
 end
 
-function define_new_problem(prob, ic::AbstractArray, par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::AbstractArray, var_par::HiddenParameterVar)
+function define_new_problem(prob, ic::AbstractArray, par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::AbstractArray, var_par::Union{HiddenParameterVar, MultiDimHiddenParameterVar})
     function new_problem(prob, i, repeat)
         _repeat_check(repeat, i, ic, ic_gens, N_dim_ic)
         remake(prob; u0=ic[i,:], p=var_par(i; _new_val_dict(var_par, par, N_dim_ic, i)...))
