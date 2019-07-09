@@ -112,15 +112,20 @@ This is intended to be used in order to avoid symmetric configurations in larger
 * `ecdf::Bool` if true the `histogram_distance` function gets the empirical cdfs instead of the histogram
 * `k_bin::Int`: Multiplier to increase (``k_{bin}>1``) or decrease the bin width and thus decrease or increase the number of bins. It is a multiplier to the Freedman-Draconis rule. Default: ``k_{bin}=1``
 * `nbin_default::Int`: If the IQR is very small and thus the number of bins larger than `nbin_default`, the number of bins is set back to `nbin_default` and the edges and width adjusted accordingly.
+* `nbin::Int` If specified, ingore all other histogram binning calculation and use nbin bins for the histograms.
 
 Returns an instance of [`DistanceMatrix`](@ref) or [`DistanceMatrixHist`](@ref)
 """
-function distance_matrix(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray; matrix_distance_func::Union{Function, Nothing}=nothing, histogram_distance_func::Union{Function, Nothing}=wasserstein_histogram_distance, relative_parameter::Bool=false, histograms::Bool=false, use_ecdf::Bool=true, k_bin::Number=1, nbin_default::Int=50)
+function distance_matrix(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray; matrix_distance_func::Union{Function, Nothing}=nothing, histogram_distance_func::Union{Function, Nothing}=wasserstein_histogram_distance, relative_parameter::Bool=false, histograms::Bool=false, use_ecdf::Bool=true, k_bin::Number=1, nbin_default::Int=50, nbin::Union{Int, Nothing}=nothing)
 
     N_pars = length(ParameterVar(prob))
 
     pars = parameter(prob)
     par_c = copy(pars)
+
+    if nbin != nothing
+        @warn "nbin amount specified, all usual histogram binning function will not be used"
+    end
 
     if (sol.N_meas_matrix!=0) & (matrix_distance_func==nothing)
         error("There is a matrix measure in the solution but no distance func for it.")
@@ -131,11 +136,12 @@ function distance_matrix(sol::myMCSol, prob::myMCProblem, distance_func::Functio
     end
 
     if histograms
+
         # setup histogram edges for all histograms first, to be better comparible, they should be the same across all runs/trials
         hist_edges = []
         bin_widths = []
         for i_meas=1:sol.N_meas_dim
-            hist_edge, bin_width = _compute_hist_edges(i_meas, sol, k_bin, nbin_default)
+            hist_edge, bin_width = _compute_hist_edges(i_meas, sol, k_bin, nbin_default, nbin=nbin)
             push!(hist_edges, hist_edge)
             push!(bin_widths, bin_width)
         end
@@ -428,19 +434,28 @@ Helper function, computes the edges of the histograms. Uses Freedman-Draconis ru
 
 If the IQR is very small and thus the number of bins larger than `nbin_default`, the number of bins is set back to `nbin_default` and the edges and width adjusted accordingly.
 """
-function _compute_hist_edges(i_meas::Int, sol::myMCSol, k_bin::Number, nbin_default::Int=50)
+function _compute_hist_edges(i_meas::Int, sol::myMCSol, k_bin::Number, nbin_default::Int=50; nbin::Union{Int, Nothing}=nothing)
 
     data_i = get_measure(sol, i_meas)
 
     # we use half the freedman-draconis rule because we are calculationg the IQR and max/min from _all_ values
     #bin_width = (4 * k_bin *iqr(flat_array))/(sol.N_mc^(1/3.))
-    bin_width = freedman_draconis_bin_width(data_i, sol.N_dim, k_bin)
     minval = minimum(data_i)
     maxval = maximum(data_i)
-    hist_edge = (minval-bin_width):bin_width:(maxval+bin_width)
-    if length(hist_edge) > nbin_default
-        @warn string("Very large number of Hist Bins at measure number ",i_meas,", calculated via IQR, there might be something fishy here, e.g. IQR=0. For now the Number of Bins is set to ", nbin_default)
-        hist_edge = range(minval - 0.1*minval, maxval + 0.1*maxval, length=nbin_default)
+
+    if nbin==nothing
+        bin_width = freedman_draconis_bin_width(data_i, sol.N_dim, k_bin)
+
+        hist_edge = (minval-bin_width):bin_width:(maxval+bin_width)
+        if length(hist_edge) > nbin_default
+            @warn string("Very large number of Hist Bins at measure number ",i_meas,", calculated via IQR, there might be something fishy here, e.g. IQR=0. For now the Number of Bins is set to ", nbin_default)
+            hist_edge = range(minval - 0.1*minval, maxval + 0.1*maxval, length=nbin_default)
+        end
+    else
+        @assert 1 < nbin
+
+        bin_width = (maxval - minval)/(nbin-1)
+        hist_edge = (minval-bin_width):bin_width:(maxval+bin_width)
     end
     return hist_edge, bin_width
 end
