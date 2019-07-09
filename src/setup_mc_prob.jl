@@ -185,7 +185,9 @@ The struct has the fields:
 * `Function`: function that returns a new parameter struct given keyword arguments of _all_ parameters that should be varied. signature: `(old_par; Dict(name_1=>new_val_1, name_2=>new_val_2, ...)) = new_par`
 * `N`: Number of parameters that are varied.
 
-Internally there are two different types, `MultiDimParameterVarFunc` and `MultiDimParameterVarArray`. The only difference is what type of ParameterVar they store. The different types are needed for dispatching on them in the routines that setups `DEMCBBProblem`
+Internally there are two different main types, `MultiDimParameterVarFunc` and `MultiDimParameterVarArray`. The only difference is what type of ParameterVar they store. The different types are needed for dispatching on them in the routines that setups `DEMCBBProblem`
+
+For Hidden Parameter Varition (see [`HiddenParameterVar`](@ref)) there is `MultiDimHiddenParameterVar`. It always takes the hidden parameters from the first HiddenParameterVar it is initialized with.
 
 # Initialization
 * `MultiDimParameterVar(data::Array{ParameterVarFunc,1}, func::Function)`
@@ -215,7 +217,7 @@ end
 
 (parvar::MultiDimParameterVarArray)(old_par::DEParameters; kwargs...) = parvar.new_par(old_par; kwargs...)
 (parvar::MultiDimParameterVarFunc)(old_par::DEParameters; kwargs...) = parvar.new_par(old_par; kwargs...)
-(parvar::MultiDimHiddenParameterVar)(i::Int; kwargs...) = parvar.new_par(parvar.pars[i,:]...; kwargs...)
+(parvar::MultiDimHiddenParameterVar)(i::Int; kwargs...) = parvar.new_par(parvar[1].pars[i,:]...; kwargs...)
 
 
 
