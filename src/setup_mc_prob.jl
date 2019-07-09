@@ -260,14 +260,14 @@ abstract type MCBBProblem <: myMCProblem end
 """
     DEMCBBProblem
 
-Differential Equations Monte Carlo Basin Bifurcation Problem: Main type for the sample based bifurcation/stablity analysis based on `MonteCarloProblem` from DifferentialEquations. This struct holds information about the underlying differential equation and the parameters and initial conditions its supposed to be solved for. Many points from the initial conditions - parameter space are sampled. When solved the solutions is evaluated seperatly for each dimension and certain statistical measures like mean or standard deviation are saved.
+Differential Equations Monte Carlo Basin Bifurcation Problem: Main type for the sample based bifurcation/stablity analysis based on `EnsembleProblem` from DifferentialEquations. This struct holds information about the underlying differential equation and the parameters and initial conditions its supposed to be solved for. Many points from the initial conditions - parameter space are sampled. When solved the solutions is evaluated seperatly for each dimension and certain statistical measures like mean or standard deviation are saved.
 
 The struct has several different constructors following below.
 
 Note that its supertypes are `MCBBProblem` and `myMCProblem`, but not any of the DifferentialEquations abstract problem types.
 
 The struct has the following fields:
-* `p`: `MonteCarloProblem` to be solved, part of DifferentialEquations
+* `p`: `EnsembleProblem` to be solved, part of DifferentialEquations
 * `N_mc`: Number of (Monte Carlo) runs to be solved
 * `rel_transient_time`: Only after this time (relative to the total integration time) the solutions are evaluated
 * `ic`: (``N_{mc} \\times (N_{dim_{ic}} + N_{par})``)-Matrix containing initial conditions for each run.
@@ -289,7 +289,7 @@ Setup a DEMCBBProblem with _randomized_ initial conditions (and parameters).
 * `N_ic`: Number of trials to be computed, if parameter variation is varied by an array/range, `N_ic` is the number of initial conditions for each parameter value. Each parameter step then has the same `N_ic` idential initial conditions.
 * `pars`: parameter struct of the underlying system
 * `par_range_tuple`:  `ParameterVar`, information about how the parameters are varied, see [`ParameterVar`](@ref). Its also possible to hand over an appropiate tuple that will be automaticly converted to a `ParameterVar` type. A tuple of (First: name of the parameter as a symbol, Second: AbstractArray or Function that contains all parameters for the experiment or a function that generates parameter values. The function has to be format (oldvalue) -> (newvalue), Third: OPTIONAL: a function that maps (old_parameter_instance; (par_range[1],new_parameter_value)) -> new_parameter_instance. Default is 'reconstruct' from @with_kw/Parameters.jl is used) For examples see [`Basic Usage`](@ref).
-* `eval_ode_func`: Evaluation function for the MonteCarloProblem with the signature `(sol,i)->(results, repeat)`. There are many premade functions for this purpose in this library, most of them called `eval_ode_run`, see also [`eval_ode_run`](@ref)
+* `eval_ode_func`: Evaluation function for the EnsembleProblem with the signature `(sol,i)->(results, repeat)`. There are many premade functions for this purpose in this library, most of them called `eval_ode_run`, see also [`eval_ode_run`](@ref)
 * `tail_frac`: Only after this time (relative to the total integration time) the solutions are evaluated
 
 ## Non-randomized initial conditions
@@ -313,10 +313,10 @@ but replace the `ic_ranges` argument, with an array `ics` that contains the cons
 
 It is also possible to initialize the type directly with its fields with
 
-    DEMCBBProblem(p::MonteCarloProblem, N_mc::Int64, rel_transient_time::Float64, ic::AbstractArray, par::AbstractArray, par_range_tuple::ParameterVar)
+    DEMCBBProblem(p::EnsembleProblem, N_mc::Int64, rel_transient_time::Float64, ic::AbstractArray, par::AbstractArray, par_range_tuple::ParameterVar)
 """
 struct DEMCBBProblem <: MCBBProblem
-    p::MonteCarloProblem
+    p::EnsembleProblem
     N_mc::Int64
     rel_transient_time::Float64
     ic::AbstractArray
@@ -325,18 +325,18 @@ struct DEMCBBProblem <: MCBBProblem
 
     function DEMCBBProblem(p::DiffEqBase.DEProblem, ic_gens::Array{<:Function,1}, N_ic::Int, pars::DEParameters, par_range_tuple::ParameterVar, eval_ode_func::Function, tail_frac::Number)
         (ic_coupling_problem, ic, par, N_mc) = setup_ic_par_mc_problem(p, ic_gens, N_ic, pars, par_range_tuple)
-        mcp = MonteCarloProblem(p, prob_func=ic_coupling_problem, output_func=eval_ode_func)
+        mcp = EnsembleProblem(p, prob_func=ic_coupling_problem, output_func=eval_ode_func)
         new(mcp, N_mc, tail_frac, ic, par, par_range_tuple)
     end
 
     function DEMCBBProblem(p::DiffEqBase.DEProblem, ic_ranges::Array{T,1}, pars::DEParameters, par_range_tuple::ParameterVar, eval_ode_func::Function, tail_frac::Number) where T <: Union{AbstractArray, Number}
         (ic_coupling_problem, ic, par, N_mc) = setup_ic_par_mc_problem(p, ic_ranges, pars, par_range_tuple)
-        mcp = MonteCarloProblem(p, prob_func=ic_coupling_problem, output_func=eval_ode_func)
+        mcp = EnsembleProblem(p, prob_func=ic_coupling_problem, output_func=eval_ode_func)
         new(mcp, N_mc, tail_frac, ic, par, par_range_tuple)
     end
 
     # Direct Constructor
-    DEMCBBProblem(p::MonteCarloProblem, N_mc::Int64, rel_transient_time::Float64, ic::AbstractArray, par::AbstractArray, par_range_tuple::ParameterVar) = new(p, N_mc, rel_transient_time, ic, par, par_range_tuple)
+    DEMCBBProblem(p::EnsembleProblem, N_mc::Int64, rel_transient_time::Float64, ic::AbstractArray, par::AbstractArray, par_range_tuple::ParameterVar) = new(p, N_mc, rel_transient_time, ic, par, par_range_tuple)
 end
 DEMCBBProblem(p::DiffEqBase.DEProblem, ic_gens::Function, N_ic::Int, pars::DEParameters, par_range_tuple::ParameterVar, eval_ode_func::Function, tail_frac::Number) = DEMCBBProblem(p, [ic_gens], N_ic, pars, par_range_tuple, eval_ode_func, tail_frac)
 DEMCBBProblem(p::DiffEqBase.DEProblem, ic_gens::Union{Array{<:Function,1},Function}, N_ic::Int, pars::DEParameters, par_range_tuple::ParameterVar, eval_ode_func::Function) = DEMCBBProblem(p,ic_gens,N_ic,pars,par_range_tuple,eval_ode_func, 0.9)
@@ -387,7 +387,7 @@ abstract type MCBBSol <: myMCSol end
 Type that stores the solutions of a DEMCBBProblem. Is returned by the corresponding `solve` routine.
 
 Its fields are:
-* `sol`: MonteCarloSolution (see DifferentialEquations)
+* `sol`: EnsembleSolution (see DifferentialEquations)
 * `N_mc`: number of solutions saved / Monte Carlo trials runs
 * `N_t`: number of time steps for each solutions
 * `N_dim`: sytem dimension
@@ -399,7 +399,7 @@ Its fields are:
 Note, in case `N_dim==1` => `N_meas_global == 0` and `N_meas_dim == N_meas`
 """
 struct DEMCBBSol <: MCBBSol
-    sol::MonteCarloSolution
+    sol::EnsembleSolution
     N_mc::Int
     N_t::Int
     N_dim::Int
@@ -563,7 +563,7 @@ normalize(sol::DEMCBBSol) = normalize(sol, 1:sol.N_meas)
 """
     setup_ic_par_mc_problem
 
-Methods that are usually called automaticly while constructing a `DEMCBBProblem`. These methods setup the initial conditions - parameter matrix and the problem function for the `MonteCarloProblem`.
+Methods that are usually called automaticly while constructing a `DEMCBBProblem`. These methods setup the initial conditions - parameter matrix and the problem function for the `EnsembleProblem`.
 
 
 # Initial Condtions set with Arrays or Ranges
@@ -611,7 +611,7 @@ setup_ic_par_mc_problem(prob, ic_gens::Function, N_ic::Int, parameters::DEParame
 """
     define_new_problem(prob, ic::Abstract, par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, ic_gens::AbstractArray, var_par::ParameterVar)
 
-Returns the functions that returns new DifferentialEquations problems needed for `MonteCarloProblem`.
+Returns the functions that returns new DifferentialEquations problems needed for `EnsembleProblem`.
 
 * `prob`: A Problem from DifferentialEquations, currently supported are `DiscreteProblem`, `ODEProblem`, `SDEProblem`, `DDEProblem` the base problem one is interested in.
 * `ic`: (``N_{mc} \\times N_{dim_{ic}}``)-Matrix containing initial conditions for each run.
@@ -678,7 +678,7 @@ end
 
 Checks if the problem has to be repeated, if so, it generates new ICs.
 
-* `repeat`: Boolean, returns from `MonteCarloProblem`
+* `repeat`: Boolean, returns from `EnsembleProblem`
 * `ic`: (``N_{mc} \\times N_{dim_{ic}}``)-Matrix containing initial conditions for each run.
 * `ic_gens`: Array of functions or arrays/ranges that contain/generate the ICs.
 """
@@ -952,29 +952,25 @@ end
 """
     solve(prob::DEMCBBProblem, alg=nothing, N_t=400::Int, parallel_type=:parfor; flag_check_inf_nan=true, custom_solve::Union{Function,Nothing}=nothing, kwargs...)
 
-Custom solve for the `DEMCBBProblem`. Solves the `MonteCarloProblem`, but saves and evaluates only after transient at a constant step size, the results are sorted by parameter value.
+Custom solve for the `DEMCBBProblem`. Solves the `EnsembleProblem`, but saves and evaluates only after transient at a constant step size, the results are sorted by parameter value.
 
-* `prob`: `MonteCarloProblem` of type defined in this library
+* `prob`: `EnsembleProblem` of type defined in this library
 * `alg`: Algorithm to use, same as for `solve()` from DifferentialEquations.jl
 * `N_t`: Number of timesteps to be saved
-* `parallel_type`: Which form of parallelism should be used? Same as for `MonteCarloProblem` from DifferentialEquations.jl
+* `parallel_type`: Which form of parallelism should be used? Same as for `EnsembleProblem` from DifferentialEquations.jl
 * `flag_check_inf_nan`: Does a check if any of the results are `NaN` or `inf`
 * `custom_solve`:: Function/Nothing, custom solve function
 """
-function solve(prob::DEMCBBProblem, alg=nothing, N_t=400::Int, parallel_type=:parfor; flag_check_inf_nan=true, custom_solve::Union{Function,Nothing}=nothing, sort_results=true, kwargs...)
+function solve(prob::DEMCBBProblem, alg=nothing, N_t=400::Int, parallel_type=EnsembleDistributed(); flag_check_inf_nan=true, custom_solve::Union{Function,Nothing}=nothing, sort_results=true, kwargs...)
     t_save = collect(tsave_array(prob.p.prob, N_t, prob.rel_transient_time))
 
     if custom_solve!=nothing
         sol = custom_solve(prob, t_save)
         solve_i_command = nothing
-    elseif alg!=nothing
-        sol = solve(prob.p, alg, num_monte=prob.N_mc, dense=false, save_everystep=false, saveat=t_save, savestart=false, parallel_type=parallel_type; kwargs...)
-        solve_i_command = (prob_i) -> solve(prob_i, alg=alg, dense=false, save_everystep=false, saveat_t_save, savestart=false; kwargs...)
     else
-        sol = solve(prob.p, num_monte=prob.N_mc, dense=false, save_everystep=false, saveat=t_save, savestart=false, parallel_type=parallel_type; kwargs...)
-        solve_i_command = (prob_i) -> solve(prob_i, dense=false, save_everystep=false, saveat=t_save, savestart=false; kwargs...)
+        sol = solve(prob.p, alg, parallel_type, trajectories=prob.N_mc, dense=false, save_everystep=false, saveat=t_save, savestart=false, parallel_type=parallel_type; kwargs...)
+        solve_i_command = (prob_i) -> solve(prob_i, alg=alg, dense=false, save_everystep=false, saveat_t_save, savestart=false; kwargs...)
     end
-
 
     ___, N_dim = size(prob.ic)
 

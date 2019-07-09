@@ -14,7 +14,7 @@ Introduces a Problem type for Bifurcation analysis. It sets up a DEProblem, solv
 * `p`: Base DifferentialEquations Problem
 * `par_range`: Description of how the parameter should be changed, `ParameterVar` OR a tuple of (First: name of the parameter as a symbol, Second: AbstractArray or Function that contains all parameters for the experiment or a function that generates parameter values. The function has to be format `(oldvalue) -> (newvalue)`, Third: OPTIONAL: a function that maps `(old_parameter_instance; (par_range[1],new_parameter_value)) -> new_parameter_instance`. Default is 'reconstruct' from @with_kw/Parameters.jl is used)
 * `N`: OPTIONAL, Only needed if parameter variation is given a function to generate new parameter values. If so, `N` is the total number of parameters and thus DEProblems to be solved
-* `eval_ode_run`: function, same as for `MonteCarloProblems`
+* `eval_ode_run`: function, same as for `EnsembleProblems`
 * `ic_bounds`: Bounds for the IC that should not be exceeded
 * `par_bounds`: Bounds for the parameter that should not be exceeded
 * `hard_bounds`: If a bound is reached: if true, stops the iteration, false continous with (upper/lower bound as IC)
@@ -54,7 +54,7 @@ parameter(prob::ContinuationProblem) = prob.par
 Solution object that is returned by `solve(prob::ContinuationProblem,...)`.
 
 Fields are:
-* `sol`: Array of Arrays, analogously to `MonteCarloSolution`
+* `sol`: Array of Arrays, analogously to `EnsembleSolution`
 * `par`: Array, parameters of all runs
 * `N_mc`: Number of runs / DEProblems solved
 * `N_meas`: number of measures used, ``N_{meas} = N_{meas_{dim}} + N_{meas_{global}}``

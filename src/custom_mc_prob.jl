@@ -70,11 +70,11 @@ Base.Matrix(sol::CustomSolution) = sol.sol
 """
     CustomMonteCarloProblem
 
-Structure similar to `DifferentialEquations`'s `MonteCarloProblem` but for problems that can not be solved with `DifferentialEquations`. The fields emululate those of `MonteCarloProblem`:
+Structure similar to `DifferentialEquations`'s `MonteCarloProblem` but for problems that can not be solved with `DifferentialEquations`. The fields emululate those of `EnsembleProblem`:
 
 * `prob::CustomProblem`: The base problem that should be solved
-* `prob_func::Function`: same as for `MonteCarloProblem`: A function `(prob, i, repeat) -> new_problem` that returns the i-th problem that should be solved
-* `eval_func::Function`: same as for `MonteCarloProblem`: A function `(sol, i) -> (results, repeat)` that evaluated the i-th solution
+* `prob_func::Function`: same as for `EnsembleProblem`: A function `(prob, i, repeat) -> new_problem` that returns the i-th problem that should be solved
+* `eval_func::Function`: same as for `EnsembleProblem`: A function `(sol, i) -> (results, repeat)` that evaluated the i-th solution
 """
 struct CustomMonteCarloProblem
     prob::CustomProblem
@@ -153,7 +153,7 @@ struct CustomMCBBProblem <: MCBBProblem
     end
 
     # Direct Constructor
-    CustomMCBBProblem(p::MonteCarloProblem, N_mc::Int64, rel_transient_time::Float64, ic::AbstractArray, par::AbstractArray, par_range_tuple::ParameterVar) = new(p, N_mc, rel_transient_time, ic, par, par_range_tuple)
+    CustomMCBBProblem(p::CustomMonteCarloProblem, N_mc::Int64, rel_transient_time::Float64, ic::AbstractArray, par::AbstractArray, par_range_tuple::ParameterVar) = new(p, N_mc, rel_transient_time, ic, par, par_range_tuple)
 end
 CustomMCBBProblem(p::CustomProblem, ic_gens::Function, N_ic::Int, pars::DEParameters, par_range_tuple::ParameterVar, eval_ode_func::Function, tail_frac::Number) = CustomMCBBProblem(p, [ic_gens], N_ic, pars, par_range_tuple, eval_ode_func, tail_frac)
 CustomMCBBProblem(p::CustomProblem, ic_gens::Union{Array{<:Function,1},Function}, N_ic::Int, pars::DEParameters, par_range_tuple::ParameterVar, eval_ode_func::Function) = CustomMCBBProblem(p,ic_gens,N_ic,pars,par_range_tuple,eval_ode_func, 0.9)
