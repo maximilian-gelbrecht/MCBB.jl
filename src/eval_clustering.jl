@@ -33,7 +33,7 @@ mutable struct DistanceMatrix{T,S} <: AbstractDistanceMatrix{T}
     data::AbstractArray{T,2}
     weights::AbstractArray{S,1}
     distance_func::Function
-    matrix_eval_funcs::Union{Function, Nothing}
+    matrix_distance_func::Union{Function, Nothing}
     relative_parameter::Bool
 end
 _distance_func(D::DistanceMatrix) = D.distance_func
