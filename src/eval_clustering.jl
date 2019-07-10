@@ -309,7 +309,7 @@ function distance_matrix_mmap(sol::myMCSol, prob::myMCProblem, distance_func::Fu
                 hist_weights = _compute_hist_weights(i_meas, sol, hist_edges[i_meas], use_ecdf)
                 _compute_distance!(row_elements, i, sol, i_meas, histogram_distance_func, hist_edges[i_meas], hist_weights, bin_widths[i_meas], weights[i_meas])
             else
-                _compute_distance!(row_elemts, i, sol, i_meas, distance_func, weights[i_meas])
+                _compute_distance!(row_elements, i, sol, i_meas, distance_func, weights[i_meas])
             end
         end
 
