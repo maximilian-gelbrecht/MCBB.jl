@@ -479,6 +479,14 @@ function sort!(prob::MCBBProblem, i::Int=1)
     end
     prob.ic[:,:] = prob.ic[sortind,:]
     prob.par[:,:] = prob.par[sortind,:]
+
+    if (prob.par_var <: HiddenParameterVar)
+        prob.par_var.pars[:,:] = prob.par_var.pars[sortind,:]
+    elseif prob.par_var <: MultiDimHiddenParameterVar
+        for i=1:length(prob.par_var)
+            prob.par_var[i].pars[:,:] = prob.par_var.pars[sortind, :]
+        end
+    end
 end
 
 """

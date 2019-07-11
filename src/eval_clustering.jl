@@ -813,7 +813,7 @@ function cluster_measures_sliding_histograms(prob::myMCProblem, sol::myMCSol, cl
     _multidim = (N_par > 1) ? true : false
     ClusterMeasureHistogramResult(hist_vals, windows_mins, collect(hist_edges[1:end-1]) .+ (bin_width/2.), _multidim)
 end
-cluster_measures_sliding_histograms(prob::myMCProblem, sol::myMCSol, clusters::ClusteringResult, i_meas::Int, window_size::Number, window_offset::Number; k_bin::Number=1) = cluster_measures_sliding_histograms(prob, sol, clusters, i_meas, [window_size], [window_offset], k_bin=k_bin)
+cluster_measures_sliding_histograms(prob::myMCProblem, sol::myMCSol, clusters::ClusteringResult, i_meas::Int, window_size::Number, window_offset::Number; kwargs...) = cluster_measures_sliding_histograms(prob, sol, clusters, i_meas, [window_size], [window_offset]; kwargs...)
 
 """
     ClusterMeasureHistogramResult
