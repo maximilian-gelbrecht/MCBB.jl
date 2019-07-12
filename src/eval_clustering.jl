@@ -585,12 +585,19 @@ end
 Returns the mean of each measure for each cluster.
 """
 function cluster_means(sol::myMCSol, clusters::ClusteringResult)
+    if length(clusters.counts) == 0
+        @warn "No clusters found"
+        return false
+    end
+
     N_cluster = length(clusters.seeds)+1 # plus 1 -> plus "noise cluster" / not clustered points
     N_dim = sol.N_dim
     mean_measures = zeros((N_cluster,sol.N_meas_dim,N_dim))
+
+    cluster_counts = [cluster_n_noise(clusters); clusters.counts]
     for i_sol=1:sol.N_mc
         for i_meas=1:sol.N_meas_dim
-            mean_measures[clusters.assignments[i_sol]+1,i_meas,:] += sol.sol[i_sol][i_meas] / clusters.counts[clusters.assignments[i_sol]]
+            mean_measures[clusters.assignments[i_sol]+1,i_meas,:] += sol.sol[i_sol][i_meas] / cluster_counts[clusters.assignments[i_sol]+1]
         end
     end
     mean_measures
