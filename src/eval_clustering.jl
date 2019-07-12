@@ -590,10 +590,10 @@ function cluster_means(sol::myMCSol, clusters::ClusteringResult)
     mean_measures = zeros((N_cluster,sol.N_meas_dim,N_dim))
     for i_sol=1:sol.N_mc
         for i_meas=1:sol.N_meas_dim
-            mean_measures[clusters.assignments[i_sol]+1,i_meas,:] += sol.sol[i_sol][i_meas]
+            mean_measures[clusters.assignments[i_sol]+1,i_meas,:] += sol.sol[i_sol][i_meas] / clusters.counts[clusters.assignments[i_sol]]
         end
     end
-    mean_measures ./ sol.N_mc
+    mean_measures
 end
 
 """
