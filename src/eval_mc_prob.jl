@@ -142,7 +142,7 @@ function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Abstract
         end
     end
 
-    dim_measures = [zeros(Float64, N_dim) for i=1:N_dim_measures]
+    dim_measures = [zeros(Float64, length(state_filter)) for i=1:N_dim_measures]
     matrix_measures = []
     global_measures = zeros(Float64, N_dim_global_measures)
     # per dimension measures
