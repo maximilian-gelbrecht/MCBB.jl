@@ -991,8 +991,8 @@ function solve(prob::DEMCBBProblem, alg=nothing, N_t=400::Int, parallel_type=:pa
 
 
     ___, N_dim = size(prob.ic)
-
-    mysol = DEMCBBSol(sol, prob.N_mc, N_t, length(prob.p.prob.u0), get_measure_dimensions(sol, N_dim)..., solve_i_command)
+    #length(prob.p.prob.u0)
+    mysol = DEMCBBSol(sol, prob.N_mc, N_t, length(sol[1][1]), get_measure_dimensions(sol, N_dim)..., solve_i_command)
 
     if flag_check_inf_nan
         inf_nan = check_inf_nan(mysol)
@@ -1008,7 +1008,7 @@ end
 solve_euler_inf(prob::DEMCBBProblem, t_save::AbstractArray; dt=0.1) = solve(prob.p, alg=Euler(), dt=dt, num_monte=prob.N_mc, parallel_type=:parfor, dense=false, saveat=t_save, tstops=t_save, savestart=false, save_everystep=false)
 
 """
-    get_measure_dimensions(sol)
+    get_measure_dimensions(sol, N_dim)
 
 Returns the number of measures of `sol` as a tuple `(N_meas_total, N_meas_dim, N_meas_global)`
 """
@@ -1019,9 +1019,10 @@ function get_measure_dimensions(sol, N_dim)
     N_meas_global = 0
     N_meas_matrix = 0
 
+    N_dim_loc = length(sol1[1])
     for i=1:length(sol1)
         if typeof(sol1[i]) <: AbstractArray
-            if length(sol1[i])==N_dim
+            if length(sol1[i])==N_dim_loc
                 N_meas_dim += 1
             else
                 N_meas_matrix += 1
