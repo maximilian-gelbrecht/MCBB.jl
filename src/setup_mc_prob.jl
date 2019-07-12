@@ -390,7 +390,7 @@ Its fields are:
 * `sol`: MonteCarloSolution (see DifferentialEquations)
 * `N_mc`: number of solutions saved / Monte Carlo trials runs
 * `N_t`: number of time steps for each solutions
-* `N_dim`: sytem dimension
+* `N_dim`: dimension measured with per dimension measures. if no state_filter was applied this is equal to the sytem dimension
 * `N_meas`: number of measures used, ``N_{meas} = N_{meas_{dim}} + N_{meas_{global}}
 * `N_meas_dim`: number of measures that are evalauted for every dimension seperatly
 * `N_meas_global`: number of measures that are evalauted globally
@@ -992,7 +992,7 @@ function solve(prob::DEMCBBProblem, alg=nothing, N_t=400::Int, parallel_type=:pa
 
     ___, N_dim = size(prob.ic)
     #length(prob.p.prob.u0)
-    mysol = DEMCBBSol(sol, prob.N_mc, N_t, length(sol[1][1]), get_measure_dimensions(sol, N_dim)..., solve_i_command)
+    mysol = DEMCBBSol(sol, prob.N_mc, N_t, length(sol[1][1]), get_measure_dimensions(sol, length(sol[1][1]))..., solve_i_command)
 
     if flag_check_inf_nan
         inf_nan = check_inf_nan(mysol)
@@ -1019,10 +1019,9 @@ function get_measure_dimensions(sol, N_dim)
     N_meas_global = 0
     N_meas_matrix = 0
 
-    N_dim_loc = length(sol1[1])
     for i=1:length(sol1)
         if typeof(sol1[i]) <: AbstractArray
-            if length(sol1[i])==N_dim_loc
+            if length(sol1[i])==N_dim
                 N_meas_dim += 1
             else
                 N_meas_matrix += 1
