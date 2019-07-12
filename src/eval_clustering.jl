@@ -434,17 +434,15 @@ Helper function, computes the edges of the histograms. Uses Freedman-Draconis ru
 
 If the IQR is very small and thus the number of bins larger than `nbin_default`, the number of bins is set back to `nbin_default` and the edges and width adjusted accordingly.
 """
-function _compute_hist_edges(i_meas::Int, sol::myMCSol, k_bin::Number; nbin_default::Int=50, nbin::Union{Int, Nothing}=nothing)
-
-    data_i = get_measure(sol, i_meas)
-
+_compute_hist_edges(i_meas::Int, sol::myMCSol, k_bin::Number; kwargs...) = _compute_hist_edges(get_measure(sol, i_meas), i_meas, sol.N_dim, k_bin; kwargs...)
+function _compute_hist_edges(data::AbstractArray, i_meas::Int, N_dim::Int, k_bin::Number; nbin_default::Int=50, nbin::Union{Int, Nothing}=nothing)
     # we use half the freedman-draconis rule because we are calculationg the IQR and max/min from _all_ values
     #bin_width = (4 * k_bin *iqr(flat_array))/(sol.N_mc^(1/3.))
-    minval = minimum(data_i)
-    maxval = maximum(data_i)
+    minval = minimum(data)
+    maxval = maximum(data)
 
     if nbin==nothing
-        bin_width = freedman_draconis_bin_width(data_i, sol.N_dim, k_bin)
+        bin_width = freedman_draconis_bin_width(data, N_dim, k_bin)
 
         hist_edge = (minval-bin_width):bin_width:(maxval+bin_width)
         if length(hist_edge) > nbin_default
@@ -751,9 +749,12 @@ Input:
 * `i_meas::Int`: index of the measure to be analyzed
 * `window_size::AbstractArray`: size of the window, number or Array with length according to the number of parameters
 * `window_offset::AbstractArray`: size of the window, number or Array with length according to the number of parameters
+
+Keyword arguments
 * `k_bin::Number`: Bin Count Modifier. `k_bin`-times the Freedman Draconis rule is used for binning the data. Default: 1
 * `normalization_mode::Symbol`, normalization mode applied to Histograms. Directly handed over to [`normalize`](@ref).
 * `nbin::Int`: Uses nbins for the histograms instead of the (automatic) Freedman Draconis rule
+* `state_filter::AbstractArray`: Only use these system dimension as the basis for the computation, default: all. Attention: if the evalation function already used a state_filter this will be refering only to the system dimension that were measured.
 
 Returns an instance of [`ClusterMeasureHistogramResult`](@ref) with fields:
 * `hist_vals`: N_cluster, N_windows..., N_bins - sized array with the value of the histograms for each window
@@ -763,7 +764,7 @@ Returns an instance of [`ClusterMeasureHistogramResult`](@ref) with fields:
 Can be plotted with `plot(res::ClusterMeasureHistogramResult, kwargs...)`. See [`ClusterMeasureHistogramResult`](@ref) for details.
 
 """
-function cluster_measures_sliding_histograms(prob::myMCProblem, sol::myMCSol, clusters::ClusteringResult, i_meas::Int, window_size::AbstractArray, window_offset::AbstractArray; k_bin::Number=1, normalization_mode::Symbol=:probability, nbin::Union{Int, Nothing}=nothing)
+function cluster_measures_sliding_histograms(prob::myMCProblem, sol::myMCSol, clusters::ClusteringResult, i_meas::Int, window_size::AbstractArray, window_offset::AbstractArray; state_filter::Union{AbstractArray, Nothing}=nothing, k_bin::Number=1, normalization_mode::Symbol=:probability, nbin::Union{Int, Nothing}=nothing)
 
     N_cluster = length(clusters.seeds) + 1  # plus 1 -> plus "noise cluster" / not clustered points
     ca = clusters.assignments
@@ -772,10 +773,10 @@ function cluster_measures_sliding_histograms(prob::myMCProblem, sol::myMCSol, cl
 
     N_windows, windows_mins = _sliding_window_parameter(prob, window_size, window_offset)
 
-    measure = get_measure(sol, i_meas)
+    measure = get_measure(sol, i_meas, state_filter=state_filter)
 
     # histograms common binning with freedman-draconis
-    hist_edges, bin_width = _compute_hist_edges(i_meas, sol, k_bin, nbin=nbin)
+    hist_edges, bin_width = _compute_hist_edges(measure, i_meas, sol.N_dim, k_bin, nbin=nbin)
     N_bins = length(hist_edges) - 1
 
     # these are the values

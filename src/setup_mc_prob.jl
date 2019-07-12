@@ -508,15 +508,21 @@ function show_results(sol::DEMCBBSol, prob::DEMCBBProblem, min_par::Number, max_
 end
 
 """
-    get_measure(sol::MCBBSol, k::Int)
+    get_measure(sol::MCBBSol, k::Int; state_filter::Union{AbstractArray, Nothing}=nothing)
 
-Return the results for the `k`-th measure as an array.
+Return the results for the `k`-th measure as an array. `State_filter` filters the system dimensions, e.g. if `state_filter==1:10` only the first measurements from the first 10 system dimensions are returned. Default: all. This works only for the per dimenension measures of course. Attention: if the evalation function already used a state_filter this will be refering only to the system dimension that were measured.
+
 """
-function get_measure(sol::MCBBSol, k::Int)
+function get_measure(sol::MCBBSol, k::Int; state_filter::Union{AbstractArray{T,1}, Nothing}=nothing) where T<:Int
+
+    if state_filter == nothing
+        state_filter = 1:sol.N_dim
+    end
+
     if k <=  sol.N_meas_dim
-        arr = zeros(eltype(sol.sol[1][k]),(sol.N_mc,sol.N_dim))
+        arr = zeros(eltype(sol.sol[1][k]),(sol.N_mc,length(state_filter)))
         for i=1:sol.N_mc
-            arr[i,:] = sol.sol[i][k]
+            arr[i,:] = sol.sol[i][k][state_filter]
         end
     elseif k <= sol.N_meas_dim + sol.N_meas_matrix
         arr = zeros(eltype(sol.sol[1][k]),(sol.N_mc, size(sol.sol[1][k])...))
