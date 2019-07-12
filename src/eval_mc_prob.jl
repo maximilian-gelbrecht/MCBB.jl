@@ -146,7 +146,7 @@ function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Abstract
     matrix_measures = []
     global_measures = zeros(Float64, N_dim_global_measures)
     # per dimension measures
-    for i_dim in state_filter
+    for (ii, i_dim) in enumerate(state_filter)
         sol_i = sol[i_dim,2:end]
         if cyclic_setback
             _cyclic_setback!(sol_i)
@@ -157,13 +157,13 @@ function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Abstract
                 # collect previous measures
                 past_measures = zeros(i_meas-1)
                 for j_meas=1:(i_meas-1)
-                    past_measures[j_meas] = dim_measures[j_meas][i_dim]
+                    past_measures[j_meas] = dim_measures[j_meas][ii]
                 end
-                dim_measures[i_meas][i_dim] = eval_funcs[i_meas](sol_i, past_measures)
+                dim_measures[i_meas][ii] = eval_funcs[i_meas](sol_i, past_measures)
             end
         else
             for i_meas=1:N_dim_measures
-                dim_measures[i_meas][i_dim] = eval_funcs[i_meas](sol_i)
+                dim_measures[i_meas][ii] = eval_funcs[i_meas](sol_i)
             end
         end
     end
