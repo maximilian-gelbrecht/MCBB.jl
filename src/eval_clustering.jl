@@ -113,6 +113,7 @@ This is intended to be used in order to avoid symmetric configurations in larger
 * `k_bin::Int`: Multiplier to increase (``k_{bin}>1``) or decrease the bin width and thus decrease or increase the number of bins. It is a multiplier to the Freedman-Draconis rule. Default: ``k_{bin}=1``
 * `nbin_default::Int`: If the IQR is very small and thus the number of bins larger than `nbin_default`, the number of bins is set back to `nbin_default` and the edges and width adjusted accordingly.
 * `nbin::Int` If specified, ingore all other histogram binning calculation and use nbin bins for the histograms.
+* `hist_edges::AbstractArray`: If specified ignore all other histogram binning calculations and use this array as the edges of the histogram (has to have one more element than bins, hence all edges)
 
 Returns an instance of [`DistanceMatrix`](@ref) or [`DistanceMatrixHist`](@ref)
 """
@@ -126,6 +127,8 @@ function distance_matrix(sol::myMCSol, prob::myMCProblem, distance_func::Functio
     if nbin != nothing
         @warn "nbin amount specified, all usual histogram binning function will not be used"
     end
+
+
 
     if (sol.N_meas_matrix!=0) & (matrix_distance_func==nothing)
         error("There is a matrix measure in the solution but no distance func for it.")
@@ -435,13 +438,15 @@ Helper function, computes the edges of the histograms. Uses Freedman-Draconis ru
 If the IQR is very small and thus the number of bins larger than `nbin_default`, the number of bins is set back to `nbin_default` and the edges and width adjusted accordingly.
 """
 _compute_hist_edges(i_meas::Int, sol::myMCSol, k_bin::Number; kwargs...) = _compute_hist_edges(get_measure(sol, i_meas), i_meas, sol.N_dim, k_bin; kwargs...)
-function _compute_hist_edges(data::AbstractArray, i_meas::Int, N_dim::Int, k_bin::Number; nbin_default::Int=50, nbin::Union{Int, Nothing}=nothing)
-    # we use half the freedman-draconis rule because we are calculationg the IQR and max/min from _all_ values
-    #bin_width = (4 * k_bin *iqr(flat_array))/(sol.N_mc^(1/3.))
+function _compute_hist_edges(data::AbstractArray, i_meas::Int, N_dim::Int, k_bin::Number; nbin_default::Int=50, nbin::Union{Int, Nothing}=nothing, hist_edges::Union{AbstractRange, Nothing}=nothing)
+    if (hist_edges!=nothing) & (nbin!=nothing)
+        error("Hist_edges and nbin in kwargs. Please choose only one.")
+    end
+
     minval = minimum(data)
     maxval = maximum(data)
 
-    if nbin==nothing
+    if (nbin==nothing) & (hist_edges==nothing)
         bin_width = freedman_draconis_bin_width(data, N_dim, k_bin)
 
         if bin_width==0
@@ -455,11 +460,14 @@ function _compute_hist_edges(data::AbstractArray, i_meas::Int, N_dim::Int, k_bin
                 hist_edge = range(minval - 0.1*minval, maxval + 0.1*maxval, length=nbin_default)
             end
         end
-    else
+    elseif nbin!=nothing
         @assert 1 < nbin
 
         bin_width = (maxval - minval)/(nbin-1)
         hist_edge = (minval-bin_width):bin_width:(maxval+bin_width)
+    elseif hist_edges!=nothing
+        hist_edge = hist_edges
+        bin_width = hist_edges[2] - hist_edges[1]
     end
     return hist_edge, bin_width
 end
@@ -751,7 +759,7 @@ struct ClusterMeasureResult
 end
 
 """
-    cluster_measures_sliding_histograms(prob::myMCProblem, sol::myMCSol, clusters::ClusteringResult, i_meas::Int, window_size::Number, window_offset::Number; k_bin::Number=1, normalization_mode::Symbol=:probability, nbin::Int=nothing)
+    cluster_measures_sliding_histograms(prob::myMCProblem, sol::myMCSol, clusters::ClusteringResult, i_meas::Int, window_size::Number, window_offset::Number; kwargs...)
 
 Calculates for each window in the sliding window array a histogram of all results of meausure `i_meas` of all runs seperatly for each cluster.
 
@@ -767,6 +775,7 @@ Keyword arguments
 * `k_bin::Number`: Bin Count Modifier. `k_bin`-times the Freedman Draconis rule is used for binning the data. Default: 1
 * `normalization_mode::Symbol`, normalization mode applied to Histograms. Directly handed over to [`normalize`](@ref).
 * `nbin::Int`: Uses nbins for the histograms instead of the (automatic) Freedman Draconis rule
+* `hist_edges::AbstractRange`: Uses theses edges for the histograms.
 * `state_filter::AbstractArray`: Only use these system dimension as the basis for the computation, default: all. Attention: if the evalation function already used a state_filter this will be refering only to the system dimension that were measured.
 
 Returns an instance of [`ClusterMeasureHistogramResult`](@ref) with fields:
@@ -777,7 +786,7 @@ Returns an instance of [`ClusterMeasureHistogramResult`](@ref) with fields:
 Can be plotted with `plot(res::ClusterMeasureHistogramResult, kwargs...)`. See [`ClusterMeasureHistogramResult`](@ref) for details.
 
 """
-function cluster_measures_sliding_histograms(prob::myMCProblem, sol::myMCSol, clusters::ClusteringResult, i_meas::Int, window_size::AbstractArray, window_offset::AbstractArray; state_filter::Union{AbstractArray, Nothing}=nothing, k_bin::Number=1, normalization_mode::Symbol=:probability, nbin::Union{Int, Nothing}=nothing)
+function cluster_measures_sliding_histograms(prob::myMCProblem, sol::myMCSol, clusters::ClusteringResult, i_meas::Int, window_size::AbstractArray, window_offset::AbstractArray; state_filter::Union{AbstractArray, Nothing}=nothing, k_bin::Number=1, normalization_mode::Symbol=:probability, nbin::Union{Int, Nothing}=nothing, hist_edges::Union{AbstractRange, Nothing}=nothing)
 
     N_cluster = length(clusters.seeds) + 1  # plus 1 -> plus "noise cluster" / not clustered points
     ca = clusters.assignments
@@ -789,7 +798,7 @@ function cluster_measures_sliding_histograms(prob::myMCProblem, sol::myMCSol, cl
     measure = get_measure(sol, i_meas, state_filter=state_filter)
 
     # histograms common binning with freedman-draconis
-    hist_edges, bin_width = _compute_hist_edges(measure, i_meas, sol.N_dim, k_bin, nbin=nbin)
+    hist_edges, bin_width = _compute_hist_edges(measure, i_meas, sol.N_dim, k_bin, nbin=nbin, hist_edges=hist_edges)
     N_bins = length(hist_edges) - 1
 
     # these are the values
