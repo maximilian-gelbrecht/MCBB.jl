@@ -83,4 +83,32 @@ res = cluster_measures(ko_emcp, ko_sol, db_res, 0.2, 0.05);
 res_hist =cluster_measures_sliding_histograms(ko_emcp, ko_sol, db_res, 1, 0.2, 0.05);
 cisc = ClusterICSpaces(ko_emcp, ko_sol, db_res)
 
+function eval_ode_run_filter(sol, i)
+    N_dim = length(sol.prob.u0)
+    state_filter = collect(2:5)
+    eval_funcs = [mean, std]
+    matrix_eval_funcs = [correlation_ecdf]
+    global_eval_funcs = [(x)->sum(x)]
+    eval_ode_run(sol, i, state_filter, eval_funcs, matrix_eval_funcs, global_eval_funcs)
+end
+
+ko_emcp = DEMCBBProblem(rp, ic_ranges, N_ics, pars, (:K, k_range), eval_ode_run_filter, tail_frac)
+ko_sol = solve(ko_emcp)
+
+D = distance_matrix(ko_sol, ko_emcp, [1.,0.5,1.,1.,1], histograms=true, matrix_distance_func=wasserstein_histogram_distance);
+
+db_eps = 1
+db_res = dbscan(D,db_eps,k)
+cluster_meas = cluster_means(ko_sol,db_res);
+cluster_n = cluster_n_noise(db_res);
+cluster_members = cluster_membership(ko_emcp,db_res,0.2,0.05);
+res = cluster_measures(ko_emcp, ko_sol, db_res, 0.2, 0.05);
+res_hist =cluster_measures_sliding_histograms(ko_emcp, ko_sol, db_res, 1, 0.2, 0.05, state_filter=1:2);
+cisc = ClusterICSpaces(ko_emcp, ko_sol, db_res)
+
+
+
+
+
+
 true
