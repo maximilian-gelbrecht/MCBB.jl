@@ -128,6 +128,10 @@ function distance_matrix(sol::myMCSol, prob::myMCProblem, distance_func::Functio
         @warn "nbin amount specified, all usual histogram binning function will not be used"
     end
 
+    if bin_edges == nothing
+        bin_edges = [nothing for i=1:sol.N_meas_dim]
+    end
+
     if (sol.N_meas_matrix!=0) & (matrix_distance_func==nothing)
         error("There is a matrix measure in the solution but no distance func for it.")
     end
@@ -275,6 +279,10 @@ function distance_matrix_mmap(sol::myMCSol, prob::myMCProblem, distance_func::Fu
 
     if (sol.N_meas_matrix!=0) & (matrix_distance_func==nothing)
         error("There is a matrix measure in the solution but no distance func for it.")
+    end
+
+    if bin_edges == nothing
+        bin_edges = [nothing for i=1:sol.N_meas_dim]
     end
 
     if relative_parameter
