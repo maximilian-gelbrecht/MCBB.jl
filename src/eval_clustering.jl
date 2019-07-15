@@ -113,11 +113,11 @@ This is intended to be used in order to avoid symmetric configurations in larger
 * `k_bin::Int`: Multiplier to increase (``k_{bin}>1``) or decrease the bin width and thus decrease or increase the number of bins. It is a multiplier to the Freedman-Draconis rule. Default: ``k_{bin}=1``
 * `nbin_default::Int`: If the IQR is very small and thus the number of bins larger than `nbin_default`, the number of bins is set back to `nbin_default` and the edges and width adjusted accordingly.
 * `nbin::Int` If specified, ingore all other histogram binning calculation and use nbin bins for the histograms.
-* `bin_edges::AbstractRange`: If specified ignore all other histogram binning calculations and use this array as the edges of the histogram (has to have one more element than bins, hence all edges)
+* `bin_edges::AbstractArray`: If specified ignore all other histogram binning calculations and use this as the edges of the histogram (has to have one more element than bins, hence all edges). Needs to be an Array with as many elements as measures, if one wants automatic binning for one observables, this element of the array has to be `nothing`. E.g.: `[1:1:10, nothing, 2:0.5:5]`.
 
 Returns an instance of [`DistanceMatrix`](@ref) or [`DistanceMatrixHist`](@ref)
 """
-function distance_matrix(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray; matrix_distance_func::Union{Function, Nothing}=nothing, histogram_distance_func::Union{Function, Nothing}=wasserstein_histogram_distance, relative_parameter::Bool=false, histograms::Bool=false, use_ecdf::Bool=true, k_bin::Number=1, nbin_default::Int=50, nbin::Union{Int, Nothing}=nothing, bin_edges::Union{AbstractRange, Nothing}=nothing)
+function distance_matrix(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray; matrix_distance_func::Union{Function, Nothing}=nothing, histogram_distance_func::Union{Function, Nothing}=wasserstein_histogram_distance, relative_parameter::Bool=false, histograms::Bool=false, use_ecdf::Bool=true, k_bin::Number=1, nbin_default::Int=50, nbin::Union{Int, Nothing}=nothing, bin_edges::Union{AbstractArray, Nothing}=nothing)
 
     N_pars = length(ParameterVar(prob))
 
@@ -127,8 +127,6 @@ function distance_matrix(sol::myMCSol, prob::myMCProblem, distance_func::Functio
     if nbin != nothing
         @warn "nbin amount specified, all usual histogram binning function will not be used"
     end
-
-
 
     if (sol.N_meas_matrix!=0) & (matrix_distance_func==nothing)
         error("There is a matrix measure in the solution but no distance func for it.")
@@ -144,7 +142,7 @@ function distance_matrix(sol::myMCSol, prob::myMCProblem, distance_func::Functio
         hist_edges = []
         bin_widths = []
         for i_meas=1:sol.N_meas_dim
-            hist_edge, bin_width = _compute_hist_edges(i_meas, sol, k_bin, nbin_default=nbin_default, nbin=nbin, bin_edges=bin_edges)
+            hist_edge, bin_width = _compute_hist_edges(i_meas, sol, k_bin, nbin_default=nbin_default, nbin=nbin, bin_edges=bin_edges[i_meas])
             push!(hist_edges, hist_edge)
             push!(bin_widths, bin_width)
         end
@@ -268,7 +266,7 @@ Computes the distance matrix like [`distance_matrix`](@ref) but uses memory-mape
 Due to the restriction of memory-maped arrays saving and loading distance matrices computed like this with JLD2 will only work within a single machine. A way to reload these matrices / transfer them, is [`reload_mmap_distance_matrix`](@ref).
 
 """
-function distance_matrix_mmap(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray; matrix_distance_func::Union{Function, Nothing}=nothing, histogram_distance_func::Union{Function, Nothing}=wasserstein_histogram_distance, relative_parameter::Bool=false, histograms::Bool=false, use_ecdf::Bool=true, k_bin::Number=1, nbin_default::Int=50, nbin::Union{Int, Nothing}=nothing, bin_edges::Union{AbstractRange, Union}=nothing, el_type=Float32, save_name="mmap-distance-matrix.bin")
+function distance_matrix_mmap(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray; matrix_distance_func::Union{Function, Nothing}=nothing, histogram_distance_func::Union{Function, Nothing}=wasserstein_histogram_distance, relative_parameter::Bool=false, histograms::Bool=false, use_ecdf::Bool=true, k_bin::Number=1, nbin_default::Int=50, nbin::Union{Int, Nothing}=nothing, bin_edges::Union{AbstractArray, Nothing}=nothing, el_type=Float32, save_name="mmap-distance-matrix.bin")
 
     N_pars = length(ParameterVar(prob))
 
@@ -288,7 +286,7 @@ function distance_matrix_mmap(sol::myMCSol, prob::myMCProblem, distance_func::Fu
         hist_edges = []
         bin_widths = []
         for i_meas=1:sol.N_meas_dim
-            hist_edge, bin_width = _compute_hist_edges(i_meas, sol, k_bin, nbin_default=nbin_default, nbin=nbin, bin_edges=bin_edges)
+            hist_edge, bin_width = _compute_hist_edges(i_meas, sol, k_bin, nbin_default=nbin_default, nbin=nbin, bin_edges=bin_edges[i_meas])
             push!(hist_edges, hist_edge)
             push!(bin_widths, bin_width)
         end
