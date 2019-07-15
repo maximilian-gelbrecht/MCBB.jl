@@ -458,14 +458,14 @@ function _compute_hist_edges(data::AbstractArray, i_meas::Int, N_dim::Int, k_bin
         if bin_width==0
             @warn string("Bin Width at measure number ",i_meas,", calculated via IQR is 0. For now the Number of Bins is set to ", nbin_default)
             hist_edge = range(minval - 0.1*minval, maxval + 0.1*maxval, length=nbin_default)
-            bin_width = hist_edges[2] - hist_edges[1]
+            bin_width = hist_edge[2] - hist_edge[1]
         else
 
             hist_edge = (minval-bin_width):bin_width:(maxval+bin_width)
             if length(hist_edge) > nbin_default
                 @warn string("Very large number of Hist Bins at measure number ",i_meas,", calculated via IQR, there might be something fishy here, e.g. IQR=0. For now the Number of Bins is set to ", nbin_default)
                 hist_edge = range(minval - 0.1*minval, maxval + 0.1*maxval, length=nbin_default)
-                bin_width = hist_edges[2] - hist_edges[1]
+                bin_width = hist_edge[2] - hist_edge[1]
             end
         end
     elseif nbin!=nothing
