@@ -1129,15 +1129,15 @@ The order of the labels for the legend is reversed.
 
 * `plot_index`: Range or Array with the indices of the clusters to be plotted. Default: all.
 """
-mutable struct ClusterMembershipResult{T,N} <: AbstractArray{T,N}
+mutable struct ClusterMembershipResult
     par::AbstractArray
-    data::AbstractArray{T,N}
+    data::AbstractArray
     multidim_flag::Bool
 end
 
 Base.size(cm::ClusterMembershipResult) = size(cm.data)
-Base.getindex(cm::ClusterMembershipResult, i::Int) = getindex(cm.data, i)
-Base.getindex(cm::ClusterMembershipResult, I...) = getindex(cm.data, I...)
+Base.getindex(cm::ClusterMembershipResult, i::Int) = ClusterMembershipResult(cm.par, cm.data[:,i:i], cm.multidim_flag)
+Base.getindex(cm::ClusterMembershipResult, I::AbstractArray) = ClusterMembershipResult(cm.par, cm.data[:,I], cm.multidim_flag)
 Base.setindex!(cm::ClusterMembershipResult, v, i::Int) = setindex!(cm.data, v, i)
 Base.setindex!(cm::ClusterMembershipResult, v, I::Vararg) = setindex!(cm.data, v, I)
 
