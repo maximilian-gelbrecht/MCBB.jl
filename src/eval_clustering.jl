@@ -1163,6 +1163,16 @@ function Base.sort!(cm::ClusterMembershipResult; ignore_first::Bool=false)
 end
 
 """
+    Base.sum(cm::ClusterMembershipResult, indices::AbstractArray{Int,1})
+
+Returns a `ClusterMembershipResult` with all `indices` clusters summed together.
+"""
+Base.sum(cm::ClusterMembershipResult, indices::AbstractArray{Int,1}) = ClusterMembershipResult(cm.par, reshape(sum([cm.data[:,i] for i in indices]),:,1), cm.multidim_flag)
+
+end
+
+
+"""
     measure_on_parameter_sliding_window
 
 Does calculate measures (per cluster) on parameter sliding windows. This routine is called by `cluster_membership` and `cluster_measures` but can also be used for plotting measures on the parameter grid manually.
