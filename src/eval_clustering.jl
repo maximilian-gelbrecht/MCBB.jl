@@ -1167,8 +1167,12 @@ end
 
 Returns a `ClusterMembershipResult` with all `indices` clusters summed together.
 """
-Base.sum(cm::ClusterMembershipResult, indices::AbstractArray{Int,1}) = ClusterMembershipResult(cm.par, reshape(sum([cm.data[:,i] for i in indices]),:,1), cm.multidim_flag)
-
+function Base.sum(cm::ClusterMembershipResult, indices::AbstractArray{Int,1})
+    if cm.multidim_flag
+        return ClusterMembershipResult(cm.par, reshape(sum([cm.data[:,:,i] for i in indices]),:,1), cm.multidim_flag)
+    else
+        return ClusterMembershipResult(cm.par, reshape(sum([cm.data[:,i] for i in indices]),:,1), cm.multidim_flag)
+    end
 end
 
 
