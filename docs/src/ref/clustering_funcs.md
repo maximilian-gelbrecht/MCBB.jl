@@ -2,10 +2,12 @@
 
 ```@docs
 distance_matrix
+MCBB.distance_matrix_mmap
 compute_distance
 AbstractDistanceMatrix
 DistanceMatrix
 DistanceMatrixHist
+MCBB.metadata!(dm::AbstractDistanceMatrix)
 wasserstein_histogram_distance
 ecdf_hist
 cluster_distance

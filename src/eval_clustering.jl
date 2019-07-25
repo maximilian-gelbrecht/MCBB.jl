@@ -860,11 +860,7 @@ Stores results of [`cluster_measures_sliding_histograms`](@ref).
 
 # Plot
 
-Can be plotted with `plot(res::ClusterMeasureHistogramResult, kwargs...)`
-
-## Additional kwargs
-
-* `plot_index`: Range or Array or Number with the indices of the clusters to be plotted. Default: all.
+Can be plotted with `plot(res::ClusterMeasureHistogramResult, i, kwargs...)`. With `i` being the number of the cluster.
 """
 struct ClusterMeasureHistogramResult
     hist_vals
@@ -1044,7 +1040,7 @@ Returns an instance [`ClusterMembershipResult`](@ref) with fields:
 * `par`: the center value of the sliding windows, in case multiple parameter are being varied, it is a meshgrid.
 * `data`: members of the clusters on the parameter grid
 
-The results can be plotted with directly with `plot(results, kwargs...)`. See [`ClusterMembershipResult`](@ref) for details on the plotting
+The results can be plotted with directly with `plot(results, kwargs...)`. See [`ClusterMembershipResult`](@ref) for details on the plotting and operationg on this type.
 """
 function cluster_membership(prob::myMCProblem, clusters::ClusteringResult, window_size::AbstractArray, window_offset::AbstractArray; normalize::Bool=true, min_members::Int=0)
 
@@ -1107,7 +1103,7 @@ end
 cluster_membership(prob::myMCProblem, clusters::ClusteringResult, window_size::Number, window_offset::Number; kwargs...) = cluster_membership(prob, clusters, [window_size], [window_offset]; kwargs...)
 
 """
-    ClusterMembershipResult{T,S} <: AbstractArray
+    ClusterMembershipResult{T,S}
 
 Stores the results of [`cluster_membership`](@ref) and can be used for [`ClusterMembershipPlot`](@ref).
 
@@ -1128,6 +1124,11 @@ The order of the labels for the legend is reversed.
 ## Additional Kwargs
 
 * `plot_index`: Range or Array with the indices of the clusters to be plotted. Default: all.
+
+# Additonal operation defined
+    * can be indexed
+    * can be sorted, [`Base.sort!(cm::ClusterMembershipResult; ignore_first::Bool)`](@ref)
+    * can be summed, [`Base.sum(cm::ClusterMembershipResult, indices::AbstractArray{Int,1})`](@ref)
 """
 mutable struct ClusterMembershipResult
     par::AbstractArray

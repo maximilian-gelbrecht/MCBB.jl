@@ -115,7 +115,7 @@ abstract type AbstractHiddenParameterVar <: OneDimParameterVar end
 """
     struct HiddenParameterVar <: ParameterVar
 
-Subtype of [`ParameterVar`](@ref) that varies a lot of "hidden" parameters randomly and one control parameter.
+Subtype of [`ParameterVar`](@ref) that varies a lot of "hidden"/"background" parameters randomly and one control parameter. If multiple control parameters need to varied, [`MultiDimHiddenParameterVar`](@ref) has to be used.
 
 # Fields
 * `name::Symbol`
@@ -126,6 +126,13 @@ Subtype of [`ParameterVar`](@ref) that varies a lot of "hidden" parameters rando
 * `N_hidden_par::Int`: Number of 'hidden' parameters
 * `flag_repeat_hidden_pars::Bool`: If `true` the values `pars` for the hidden parameters are repeated for every value of the control parameter. If `false`, then `N_control_par==N_hidden_par`.
 
+# Initialization
+
+    HiddenParameterVar(name::Symbol, pars::AbstractArray, new_par::Function, new_val::Function, N_control_par::Int, N_hidden_par::Union{Int, Nothing}=nothing, flag_repeat_hidden_pars::Bool=true)
+
+    HiddenParameterVar(name::Symbol, f::Function, new_par, new_val, N_control_par::Int, N_hidden_par::Int, flag_repeat_hidden_pars::Bool=true)
+
+    * `f` : Is the function that returns the hidden parameters. Signature `(i)->pars[i,:]` or `()->pars[i,:]`. 
 """
 struct HiddenParameterVar <: AbstractHiddenParameterVar
     name::Symbol
