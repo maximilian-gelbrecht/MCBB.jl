@@ -30,7 +30,7 @@ ic_dist = Uniform(-pi,pi)
 kdist = Uniform(0,5)
 ic_ranges = ()->rand(ic_dist)
 N_ics = 6000
-K_range = (i)->rand(kdist)
+K_range = ()->rand(kdist)
 pars = kuramoto_network_parameters(K, w_i_par, N, A)
 
 # base problem
@@ -47,8 +47,9 @@ function eval_ode_run_kura(sol, i)
     N_dim = length(sol.prob.u0)
     state_filter = collect(1:N_dim)
     eval_funcs = [empirical_1D_KL_divergence_hist]
+    matrix_eval_funcs = []
     global_eval_funcs = [k_order_parameter]
-    eval_ode_run(sol, i, state_filter, eval_funcs, global_eval_funcs, cyclic_setback=true)
+    eval_ode_run(sol, i, state_filter, eval_funcs, matrix_eval_funcs, global_eval_funcs, cyclic_setback=true)
 end
 
 tail_frac = 0.9 #

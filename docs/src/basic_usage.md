@@ -74,7 +74,7 @@ median(KNN_dist_relative(D))
 db_eps = 0.65
 db_res = dbscan(D,db_eps,4)
 cluster_members = cluster_membership(log_emcp,db_res,0.005,0.001);
-plot(cluster_members[1],cluster_members[2],legend=false)
+plot(cluster_members)
 ```
 ![Logistic Map Membership Diagram](img/logmap_member.png)
 
@@ -82,7 +82,7 @@ For more details, see [`DEMCBBProblem`](@ref) and the other references linked in
 
 ## Kuramoto Network
 
-Next, we will investage the onset of synchronization in system of first order Kuramoto oscillators on an Erdos-Renyi random network. We set up the initial conditions and parameters similar to the first example:
+Next, we will investigate the onset of synchronization in system of first order Kuramoto oscillators on an Erdos-Renyi random network. We set up the initial conditions and parameters similar to the first example:
 
 ```julia
 N = 20
@@ -98,7 +98,7 @@ ic_dist = Uniform(-pi,pi)
 kdist = Uniform(0,5)
 ic_ranges = ()->rand(ic_dist)
 N_ics = 3000
-K_range = (i)->rand(kdist)
+K_range = ()->rand(kdist)
 pars = kuramoto_network_parameters(K, w_i_par, N, A)
 
 rp = ODEProblem(kuramoto_network, ic, (0.,1000.), pars)
@@ -116,8 +116,9 @@ function eval_ode_run_kura(sol, i)
     N_dim = length(sol.prob.u0)
     state_filter = collect(1:N_dim)
     eval_funcs = [mean, std]
+    matrix_eval_funcs = []
     global_eval_funcs = [k_order_parameter]
-    eval_ode_run(sol, i, state_filter, eval_funcs, global_eval_funcs, cyclic_setback=true)
+    eval_ode_run(sol, i, state_filter, eval_funcs, matrix_eval_funcs, global_eval_funcs, cyclic_setback=true)
 end
 
 It is also possible to track measures that return matrices or arrays of different size from the 1-d length-`N` arrays, like cross-correlation or covariance with the `matrix_eval_funcs` keyword. See [`eval_ode_run`](@ref) for a detailed reference.
@@ -132,15 +133,11 @@ kosol = solve(ko_mcp)
 and solve and analyze it. In this case we set the weight of the order parameter to zero as we only want to have it as a comparison for our results.
 
 ```julia
-D_k = distance_matrix(kosol, ko_mcp, [1.,0.75,0,1.]); # no weight on the order_parameter and kl div
+D_k = distance_matrix(kosol, ko_mcp, [1.,0.75,0,1.], histograms=true); # no weight on the order_parameter and kl div
 db_eps = 110 # we found that value by scanning manually
 db_res = dbscan(D_k,db_eps,4)
 cluster_members = cluster_membership(ko_mcp,db_res,0.2,0.05);
-ax = subplot(111)
-lp = plot(cluster_members[1],cluster_members[2])
-legend(lp, ("Noise Cluster","Cluster 1", "Cluster2"))
-ax[:spines]["top"][:set_visible](false)
-ax[:spines]["right"][:set_visible](false);
+plot(cluster_members)
 ```
 ![Kuramoto Membership Diagram](img/kuramoto_member.png)
 
@@ -172,7 +169,7 @@ The clustering is based on the distance matrix. Its calculation is performed wit
 * Directly compute the difference between the individual values of the measures with a suitable norm. This is the default option (with an L1-norm used)
 * For each measure first compute a histogram or empirical CDF for each run and compare these with each other. For this purpose the keyword `histograms=true` needs to be set. This is recommended when investigating systems with many (more or less) identical subparts such as oscillator networks and the specific position/number of a single oscillator is not important. The default measure to compare the histograms is the 1-Wasserstein distance.
 
-The distance functions return elements of type [`DistanceMatrix`](@ref) or [`DistanceMatrixHist`](@ref). They behave just like regular arrays (and are in fact subtypes of `AbstractArray`) but also hold additional information about how the distance was computed. This can be espacially useful when using the histogram method. 
+The distance functions return elements of type [`DistanceMatrix`](@ref) or [`DistanceMatrixHist`](@ref). They behave just like regular arrays (and are in fact subtypes of `AbstractArray`) but also hold additional information about how the distance was computed. This can be espacially useful when using the histogram method.
 
 ## Clustering
 
@@ -204,6 +201,10 @@ struct roessler_pars <: DEParameters
 end
 ```
 works as the parameter type. See [`DEParameters`](@ref) and subsequent doc strings for a list of all pre-made functions and parameters.
+
+### Varying hidden/background parameters
+
+It is also possible to investigate setups that have many hidden/background parameters and one/two control parameters. The hidden/background parameters are then treated similar to initial conditions and are randomly generated for each control parameter. See [`HiddenParameterVar`](@ref) and [`DEMCBBProblem`](@ref) for more infos.
 
 ## Tips & Tricks
 

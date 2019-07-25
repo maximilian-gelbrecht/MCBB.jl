@@ -13,6 +13,8 @@ cluster_means(sol::myMCSol, clusters::DbscanResult)
 cluster_membership(par::AbstractArray, clusters::DbscanResult)
 cluster_membership(prob::myMCProblem, clusters::DbscanResult, window_size::AbstractArray, window_offset::AbstractArray, normalize::Bool=true)
 MCBB.ClusterMembershipResult
+Base.sort!(cm::ClusterMembershipResult; ignore_first::Bool)
+Base.sum(cm::ClusterMembershipResult, indices::AbstractArray{Int,1})
 get_trajectory
 cluster_measure_mean
 cluster_measure_std

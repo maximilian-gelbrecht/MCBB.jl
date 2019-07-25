@@ -33,30 +33,33 @@ if cluster
 else
     using Plots
 end
-@everywhere using LightGraphs
 using JLD2, FileIO, Clustering, StatsBase, Parameters
-@everywhere using DifferentialEquations
-@everywhere using Distributions
-@everywhere using MCBB
 
-@everywhere N = 40
-@everywhere K = 0.5
-@everywhere nd = Normal(0.5, 0.1) # distribution for eigenfrequencies # mean = 0.5Hz, std = 0.1Hz
-@everywhere w_i_par = rand(nd,N)
+@everywhere begin
+    using LightGraphs
+    using DifferentialEquations
+    using Distributions
+    using MCBB
 
-@everywhere net = erdos_renyi(N, 0.2)
-@everywhere A = adjacency_matrix(net)
+    N = 40
+    K = 0.5
+    nd = Normal(0.5, 0.1) # distribution for eigenfrequencies # mean = 0.5Hz, std = 0.1Hz
+    w_i_par = rand(nd,N)
 
-@everywhere ic = zeros(N)
-@everywhere ic_dist = Uniform(-pi,pi)
-@everywhere kdist = Uniform(0,8)
-@everywhere ic_ranges = ()->rand(ic_dist)
-@everywhere N_ics = 10000
-@everywhere K_range = ()->rand(kdist)
-@everywhere pars = kuramoto_network_parameters(K, w_i_par, N, A)
-@everywhere rp = ODEProblem(kuramoto_network, ic, (0.,2000.), pars)
+    net = erdos_renyi(N, 0.2)
+    A = adjacency_matrix(net)
 
-@everywhere tail_frac = 0.9
+    ic = zeros(N)
+    ic_dist = Uniform(-pi,pi)
+    kdist = Uniform(0,8)
+    ic_ranges = ()->rand(ic_dist)
+    N_ics = 10000
+    K_range = ()->rand(kdist)
+    pars = kuramoto_network_parameters(K, w_i_par, N, A)
+    rp = ODEProblem(kuramoto_network, ic, (0.,2000.), pars)
+
+    tail_frac = 0.9
+end
 
 @everywhere function eval_ode_run_kuramoto(sol, i)
     (N_dim, __) = size(sol)
@@ -79,7 +82,7 @@ else
     db_res = dbscan(D,db_eps,k)
     cluster_members = cluster_membership(ko_mcp,db_res,0.2,0.05);
 
-    plot(cluster_members[1],cluster_members[2])
+    plot(cluster_members)
     savefig("kura-membership")
 end
 ```
@@ -114,4 +117,4 @@ The `module load ...` commands are for loading `julia` on the HPC that I use, th
 
 ## Various Tips & Tricks
 
-* At least on some HPCs such a script can fail after any julia library updates when the packages are not precompiled yet. Just run the script again or force a precompilation from an interactive session. 
+* At least on some HPCs such a script can fail after any julia library updates when the packages are not precompiled yet. Just run the script again or force a precompilation from an interactive session.

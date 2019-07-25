@@ -51,8 +51,7 @@ function eval_ode_run_kura(sol, i)
     (N_dim, __) = size(sol)
     state_filter = collect(1:N_dim)
     eval_funcs = [mean, std]
-    global_eval_funcs = []
-    eval_ode_run(sol, i, state_filter, eval_funcs, global_eval_funcs, cyclic_setback=true)
+    eval_ode_run(sol, i, state_filter, eval_funcs, cyclic_setback=true)
 end
 
 tail_frac = 0.9 #
