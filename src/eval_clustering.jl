@@ -1148,7 +1148,7 @@ Base.setindex!(cm::ClusterMembershipResult, v, I::Vararg) = setindex!(cm.data, v
 Sorts `cm` inplace by the count of members of the clusters from low to high. If `ignore_first` is true, the first cluster (with DBSCAN this is the outlier cluster) is ignored while sorting and remains the first cluster.
 """
 function Base.sort!(cm::ClusterMembershipResult; ignore_first::Bool=false)
-    tmp = copy(cm)
+    tmp = deepcopy(cm)
     N_cluster = size(cm.data)[end]
     Nc = zeros(N_cluster)
     for i=1:N_cluster
