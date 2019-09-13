@@ -8,6 +8,8 @@ import Clustering._dbs_expand_cluster
 
 using SparseArrays
 
+abstract type AbstractNonzeroSparseMatrix{T,S} <: AbstractSparseMatrix{T,S} end
+
 """
     NonzeroSparseMatrix{T,S,V}
 
