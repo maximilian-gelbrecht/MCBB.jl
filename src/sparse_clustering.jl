@@ -4,7 +4,7 @@ using Clustering
 import Clustering.dbscan
 import Clustering._dbscan
 import Clustering._dbs_region_query
-import Clustering._dbs_expand_cluster
+import Clustering._dbs_expand_cluster!
 
 using SparseArrays
 
