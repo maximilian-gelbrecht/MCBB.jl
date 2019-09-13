@@ -74,4 +74,6 @@ include("bif_analysis.jl")
 include("custom_mc_prob.jl")
 include("bbclustering.jl")
 include("plots.jl")
+
+include("sparse_clustering.jl")
 end
