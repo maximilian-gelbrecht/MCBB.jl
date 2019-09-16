@@ -30,7 +30,7 @@ So far, this is a very minimal implementation that only supports the very basic 
 NonzeroSparseMatrix(data::AbstractArray{T,2}, condition, default_value::Number) where T<:Number
 
 * `data`: Input data, mmap or regular dense array
-* `condition`: Function `(data[i,j]->true/false)` that sets which elements are saved. Saves memory as it does not use a full BitArray index matrix.  
+* `condition`: Function `(data[i,j]->true/false)` that sets which elements are saved. Saves memory as it does not use a full BitArray index matrix.
 * `default_value`: default value that replaces the zero from regular sparse matrices.
 
 """
@@ -45,7 +45,7 @@ function NonzeroSparseMatrix(data::AbstractArray{T,2}, indices::BitArray{2}, def
     NonzeroSparseMatrix(spmat, default_value)
 end
 
-function NonzeroSparseMatrix(data::AbstractArray{T,2}, condition::<:Function, default_value::Number) where T<:Number
+function NonzeroSparseMatrix(data::AbstractArray{T,2}, condition, default_value::Number) where T<:Number
     spmat = spzeros(T, size(data)...)
 
     for i=1:size(data,1)
