@@ -6,6 +6,8 @@ import Clustering._dbscan
 import Clustering._dbs_region_query
 import Clustering._dbs_expand_cluster!
 
+
+# missing: sparse routine for distgance matrix
 using SparseArrays
 
 abstract type AbstractNonzeroSparseMatrix{T,S} <: AbstractSparseMatrix{T,S} end
@@ -31,12 +33,8 @@ struct NonzeroSparseMatrix{Tv,Ti<:Integer,S} <: AbstractNonzeroSparseMatrix{Tv,T
 end
 
 function NonzeroSparseMatrix(data::AbstractArray{T,2}, indices::BitArray{2}, default_value::Number) where T<:Number
-
     spmat = spzeros(T, size(data)...)
-
-    nonsparse = .!indices
-
-    spmat[nonsparse] .= data[nonsparse] .- T(default_value)
+    spmat[indices] .= data[indices] .- T(default_value)
     NonzeroSparseMatrix(spmat, default_value)
 end
 
