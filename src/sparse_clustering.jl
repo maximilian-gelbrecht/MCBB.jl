@@ -24,8 +24,15 @@ So far, this is a very minimal implementation that only supports the very basic 
     NonzeroSparseMatrix(data::AbstractArray{T,2}, indices::BitArray{2}, default_value::Number) where T<:Number
 
 * `data`: Input data, mmap or regular dense array
-* `indices`: of the elements that are not saved / are the default value
+* `indices`: of the elements that are saved / are not the default value
 * `default_value`: default value that replaces the zero from regular sparse matrices.
+
+NonzeroSparseMatrix(data::AbstractArray{T,2}, condition, default_value::Number) where T<:Number
+
+* `data`: Input data, mmap or regular dense array
+* `condition`: Function `(data[i,j]->true/false)` that sets which elements are saved. Saves memory as it does not use a full BitArray index matrix.  
+* `default_value`: default value that replaces the zero from regular sparse matrices.
+
 """
 struct NonzeroSparseMatrix{Tv,Ti<:Integer,S} <: AbstractNonzeroSparseMatrix{Tv,Ti}
     spmat::AbstractSparseMatrix{Tv,Ti}
@@ -36,6 +43,18 @@ function NonzeroSparseMatrix(data::AbstractArray{T,2}, indices::BitArray{2}, def
     spmat = spzeros(T, size(data)...)
     spmat[indices] .= data[indices] .- T(default_value)
     NonzeroSparseMatrix(spmat, default_value)
+end
+
+function NonzeroSparseMatrix(data::AbstractArray{T,2}, condition::<:Function, default_value::Number) where T<:Number
+    spmat = spzeros(T, size(data)...)
+
+    for i=1:size(data,1)
+        for j=1:size(data,2)
+            if condition(data[i,j])
+                spmat[i,j] = data[i,j] - T(default_value)
+            end
+        end
+    end
 end
 
 Base.getindex(mat::NonzeroSparseMatrix, I...) = Base.getindex(mat.spmat, I...) .+ mat.value
