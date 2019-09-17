@@ -487,6 +487,7 @@ function distance_matrix_sparse(sol::myMCSol, prob::myMCProblem, distance_func::
 
                 if (ii==1) & (jj==3)
                     println(hist_edges[i_meas])
+                    println(dfuncs[i_meas](1,3,i_meas))
                     println(d_val)
                 end
                 if d_val > sparse_threshold
