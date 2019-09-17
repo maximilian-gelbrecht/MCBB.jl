@@ -447,10 +447,10 @@ function distance_matrix_sparse(sol::myMCSol, prob::myMCProblem, distance_func::
     sparse_threshold = el_type(sparse_threshold)
     if histograms
         function dfunc(i,j,i_meas)
-            hweights = zeros(Float32, (2, length(hist_edge)-1))
+            hweights = zeros(Float32, (2, length(hist_edges[i_meas])-1))
             hweights[1,:] = fit(Histogram, sol.sol[i][i_meas], hist_edges[i_meas], closed=:left).weights
             hweights[2,:] = fit(Histogram, sol.sol[j][i_meas], hist_edges[i_meas], closed=:left).weights
-            if ecdf
+            if use_ecdf
                 for ii in 1:2
                     hweights[ii,:] = ecdf_hist(hweights[ii,:])
                 end
@@ -540,12 +540,12 @@ end
 
 Helper function, computes histogram weights from measures for measure `i_meas`.
 """
-function _compute_hist_weights(i_meas::Int, sol::myMCSol, hist_edge::AbstractArray, ecdf::Bool)
+function _compute_hist_weights(i_meas::Int, sol::myMCSol, hist_edge::AbstractArray, use_ecdf::Bool)
     weights = zeros(Float32, (sol.N_mc, length(hist_edge)-1))
     for i=1:sol.N_mc
         weights[i,:] = fit(Histogram, sol.sol[i][i_meas], hist_edge, closed=:left).weights
     end
-    if ecdf
+    if use_ecdf
         for i=1:sol.N_mc
             weights[i,:] = ecdf_hist(weights[i,:])
         end
