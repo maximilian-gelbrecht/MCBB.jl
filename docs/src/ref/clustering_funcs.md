@@ -4,6 +4,7 @@
 distance_matrix
 MCBB.distance_matrix_mmap
 compute_distance
+MCBB.distance_matrix_sparse
 AbstractDistanceMatrix
 DistanceMatrix
 DistanceMatrixHist

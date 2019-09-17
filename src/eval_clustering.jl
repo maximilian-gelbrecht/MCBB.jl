@@ -1,7 +1,7 @@
 ###########
 ##### Results Evaluation functions
 ###########
-using Distributions, Clustering, StatsBase
+using Distributions, Clustering, StatsBase, SparseArrays
 import Mmap
 import Clustering.dbscan
 #using PairwiseListMatrices
@@ -393,6 +393,122 @@ Sets the input [`AbstractDistanceMatrix`] matrix itself empty, thus only contain
 """
 function metadata!(dm::AbstractDistanceMatrix)
     dm.data = Array{eltype(dm.data)}(undef, 0, 0)
+end
+
+"""
+    distance_matrix_sparse(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray; matrix_distance_func::Union{Function, Nothing}=nothing, histogram_distance_func::Union{Function, Nothing}=wasserstein_histogram_distance, relative_parameter::Bool=false, histograms::Bool=false, use_ecdf::Bool=true, k_bin::Number=1, nbin_default::Int=50, nbin::Union{Int, Nothing}=nothing, bin_edges::Union{AbstractArray, Nothing}=nothing, sparse_threshold::Number=Inf, el_type=Float32, check_inf_nan::Bool=true)
+
+Computes the distance matrix sparse. Same arguments as [`distance_matrix`](@ref) with extra arguments
+
+    * `sparse_threshold`: Only distances smaller than this value are saved
+    * `check_inf_nan`: Only performs the Inf/NaN check if true.
+
+"""
+function distance_matrix_sparse(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray; matrix_distance_func::Union{Function, Nothing}=nothing, histogram_distance_func::Union{Function, Nothing}=wasserstein_histogram_distance, relative_parameter::Bool=false, histograms::Bool=false, use_ecdf::Bool=true, k_bin::Number=1, nbin_default::Int=50, nbin::Union{Int, Nothing}=nothing, bin_edges::Union{AbstractArray, Nothing}=nothing, sparse_threshold::Number=Inf, el_type=Float32, check_inf_nan::Bool=true)
+
+    N_pars = length(ParameterVar(prob))
+
+    pars = parameter(prob)
+    par_c = copy(pars)
+
+    if nbin != nothing
+        @warn "nbin amount specified, all usual histogram binning function will not be used"
+    end
+
+    if bin_edges == nothing
+        bin_edges = [nothing for i=1:sol.N_meas_dim]
+    end
+
+    if (sol.N_meas_matrix!=0) & (matrix_distance_func==nothing)
+        error("There is a matrix measure in the solution but no distance func for it.")
+    end
+
+    if relative_parameter
+        par_c = _relative_parameter(prob)
+    end
+
+    if histograms
+
+        # setup histogram edges for all histograms first, to be better comparible, they should be the same across all runs/trials
+        hist_edges = []
+        bin_widths = []
+        for i_meas=1:sol.N_meas_dim
+            hist_edge, bin_width = _compute_hist_edges(i_meas, sol, k_bin, nbin_default=nbin_default, nbin=nbin, bin_edges=bin_edges[i_meas])
+            push!(hist_edges, hist_edge)
+            push!(bin_widths, bin_width)
+        end
+
+        if histogram_distance_func == nothing
+            error("Histogram method chosen, but no histogram_distance_func given.")
+        end
+    end
+
+    mat_elements = spzeros(el_type, sol.N_mc, sol.N_mc)
+    sparse_threshold = el_type(sparse_threshold)
+    if histograms
+        function dfunc(i,j,i_meas)
+            hweights = zeros(Float32, (2, length(hist_edge)-1))
+            hweights[1,:] = fit(Histogram, sol.sol[1][i_meas], hist_edge, closed=:left).weights
+            hweights[2,:] = fit(Histogram, sol.sol[2][i_meas], hist_edge, closed=:left).weights
+            if ecdf
+                for ii in 1:2
+                    hweights[ii,:] = ecdf_hist(hweights[ii,:])
+                end
+            end
+            weights[i_meas] * histogram_distance_func(hweights[1,:], hweights[2,:], bin_width)
+        end
+    else
+        dfunc(i,j,i_meas) = weights[i_meas] * distance_func(sol.sol[i][i_meas], sol.sol[j][i_meas])
+    end
+
+    dfuncs = []
+    for i_meas=1:sol.N_meas_dim
+        push!(dfuncs, (i,j) -> dfunc(i,j,i_meas))
+    end
+    for i_meas=sol.N_meas_dim+1:sol.N_meas_dim+sol.N_meas_matrix
+        push!(dfuncs, (i,j) -> weights[i_meas]*matrix_distance_func(sol.sol[i][i_meas], sol.sol[j][i_meas]))
+    end
+    for i_meas=sol.N_meas_dim+sol.N_meas_matrix+1:sol.N_meas
+        push!(dfuncs, (i,j) -> weights[i_meas] * distance_func(sol.sol[i][i_meas], sol.sol[j][i_meas]))
+    end
+
+    for i=1:sol.N_mc
+        for j=i:sol.N_mc
+            d_val = el_type(0.)
+            d_val_sparse = true
+            for i_meas=1:sol.N_meas
+                d_val += dfuncs[i_meas](i,j)
+
+                if d_val > sparse_threshold
+                    d_val_sparse = false
+                    break
+                end
+            end
+
+            if d_val_sparse
+                mat_elements[i,j] = d_val - sparse_threshold
+            end
+        end
+    end
+
+    mat_elements += transpose(mat_elements)
+
+    if check_inf_nan
+        if sum(isnan.(mat_elements))>0
+            @warn "There are some elements NaN in the distance matrix"
+        end
+        if sum(isinf.(mat_elements))>0
+            @warn "There are some elements Inf in the distance matrix"
+        end
+    end
+
+    mat_elements = NonzeroSparseMatrix(mat_elements, sparse_threshold)
+
+    if histograms
+        return DistanceMatrixHist(mat_elements, weights, distance_func, matrix_distance_func, relative_parameter, histogram_distance_func, hist_edges, bin_widths, use_ecdf, k_bin)
+    else
+        return DistanceMatrix(mat_elements, weights, distance_func, matrix_distance_func, relative_parameter)
+    end
 end
 
 
