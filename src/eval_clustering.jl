@@ -476,9 +476,15 @@ function distance_matrix_sparse(sol::myMCSol, prob::myMCProblem, distance_func::
         for j=i+1:sol.N_mc
             d_val = el_type(0.)
             d_val_sparse = true
+            if (i==1) & (j==3)
+                println(d_val)
+            end
             for i_meas=1:sol.N_meas
                 d_val += dfuncs[i_meas](i,j)
 
+                if (i==1) & (j==3)
+                    println(d_val)
+                end
                 if d_val > sparse_threshold
                     d_val_sparse = false
                     break
@@ -490,9 +496,11 @@ function distance_matrix_sparse(sol::myMCSol, prob::myMCProblem, distance_func::
             end
         end
     end
-
+    println("///")
+    println(mat_elements[1,3])
     mat_elements += (transpose(mat_elements) + spdiagm(0=>-1*sparse_threshold*ones(sol.N_mc)))
-
+    println("///")
+    println(mat_elements[1,3])
     if check_inf_nan
         if sum(isnan.(mat_elements))>0
             @warn "There are some elements NaN in the distance matrix"
@@ -503,7 +511,8 @@ function distance_matrix_sparse(sol::myMCSol, prob::myMCProblem, distance_func::
     end
 
     mat_elements = NonzeroSparseMatrix(mat_elements, sparse_threshold)
-
+    println("///")
+    println(mat_elements[1,3])
     if histograms
         return DistanceMatrixHist(mat_elements, weights, distance_func, matrix_distance_func, relative_parameter, histogram_distance_func, hist_edges, bin_widths, use_ecdf, k_bin)
     else
