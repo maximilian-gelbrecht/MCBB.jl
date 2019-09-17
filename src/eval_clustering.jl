@@ -448,8 +448,8 @@ function distance_matrix_sparse(sol::myMCSol, prob::myMCProblem, distance_func::
     if histograms
         function dfunc(i,j,i_meas)
             hweights = zeros(Float32, (2, length(hist_edge)-1))
-            hweights[1,:] = fit(Histogram, sol.sol[1][i_meas], hist_edge, closed=:left).weights
-            hweights[2,:] = fit(Histogram, sol.sol[2][i_meas], hist_edge, closed=:left).weights
+            hweights[1,:] = fit(Histogram, sol.sol[1][i_meas], hist_edges[i_meas], closed=:left).weights
+            hweights[2,:] = fit(Histogram, sol.sol[2][i_meas], hist_edges[i_meas], closed=:left).weights
             if ecdf
                 for ii in 1:2
                     hweights[ii,:] = ecdf_hist(hweights[ii,:])
@@ -469,11 +469,11 @@ function distance_matrix_sparse(sol::myMCSol, prob::myMCProblem, distance_func::
         push!(dfuncs, (i,j) -> weights[i_meas]*matrix_distance_func(sol.sol[i][i_meas], sol.sol[j][i_meas]))
     end
     for i_meas=sol.N_meas_dim+sol.N_meas_matrix+1:sol.N_meas
-        push!(dfuncs, (i,j) -> weights[i_meas] * distance_func(sol.sol[i][i_meas], sol.sol[j][i_meas]))
+        push!(dfuncs, (i,j) -> weights[i_meas]*distance_func(sol.sol[i][i_meas], sol.sol[j][i_meas]))
     end
 
     for i=1:sol.N_mc
-        for j=i:sol.N_mc
+        for j=i+1:sol.N_mc
             d_val = el_type(0.)
             d_val_sparse = true
             for i_meas=1:sol.N_meas
@@ -491,7 +491,7 @@ function distance_matrix_sparse(sol::myMCSol, prob::myMCProblem, distance_func::
         end
     end
 
-    mat_elements += transpose(mat_elements)
+    mat_elements += (transpose(mat_elements) + spdiagm(0=>-1*sparse_threshold*ones(sol.N_mc))
 
     if check_inf_nan
         if sum(isnan.(mat_elements))>0
@@ -510,6 +510,7 @@ function distance_matrix_sparse(sol::myMCSol, prob::myMCProblem, distance_func::
         return DistanceMatrix(mat_elements, weights, distance_func, matrix_distance_func, relative_parameter)
     end
 end
+distance_matrix_sparse(sol::myMCSol, prob::myMCProblem, weights::AbstractArray; kwargs...) = distance_matrix_sparse(sol, prob, (x,y)->sum(abs.(x .- y)), weights; kwargs...)
 
 
 #(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray; matrix_distance_func::Union{Function, Nothing}=nothing, histogram_distance_func::Union{Function, Nothing}=nothing, relative_parameter::Bool=false, histograms::Bool=false, use_ecdf::Bool=true, k_bin::Number=1)
