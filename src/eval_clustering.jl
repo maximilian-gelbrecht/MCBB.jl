@@ -446,6 +446,7 @@ function distance_matrix_sparse(sol::myMCSol, prob::myMCProblem, distance_func::
     mat_elements = spzeros(el_type, sol.N_mc, sol.N_mc)
     sparse_threshold = el_type(sparse_threshold)
     if histograms
+        println("1")
         function dfunc(i,j,i_meas)
             hweights = zeros(Float32, (2, length(hist_edges[i_meas])-1))
             println(hist_edges[i_meas])
@@ -459,18 +460,19 @@ function distance_matrix_sparse(sol::myMCSol, prob::myMCProblem, distance_func::
             weights[i_meas] * histogram_distance_func(hweights[1,:], hweights[2,:], bin_widths[i_meas])
         end
     else
+        println("2")
         dfunc(i,j,i_meas) = weights[i_meas] * distance_func(sol.sol[i][i_meas], sol.sol[j][i_meas])
     end
 
     dfuncs = []
     for i_meas=1:sol.N_meas_dim
-        push!(dfuncs, (i,j) -> dfunc(i,j,i_meas))
+        push!(dfuncs, (i,j,i_m) -> dfunc(i,j,i_m))
     end
     for i_meas=sol.N_meas_dim+1:sol.N_meas_dim+sol.N_meas_matrix
-        push!(dfuncs, (i,j) -> weights[i_meas]*matrix_distance_func(sol.sol[i][i_meas], sol.sol[j][i_meas]))
+        push!(dfuncs, (i,j,i_m) -> weights[i_m]*matrix_distance_func(sol.sol[i][i_m], sol.sol[j][i_m]))
     end
     for i_meas=sol.N_meas_dim+sol.N_meas_matrix+1:sol.N_meas
-        push!(dfuncs, (i,j) -> weights[i_meas]*distance_func(sol.sol[i][i_meas], sol.sol[j][i_meas]))
+        push!(dfuncs, (i,j,i_m) -> weights[i_m]*distance_func(sol.sol[i][i_m], sol.sol[j][i_m]))
     end
 
     for i=1:sol.N_mc
@@ -481,7 +483,7 @@ function distance_matrix_sparse(sol::myMCSol, prob::myMCProblem, distance_func::
                 println(d_val)
             end
             for i_meas=1:sol.N_meas
-                d_val += dfuncs[i_meas](i,j)
+                d_val += dfuncs[i_meas](i,j,i_meas)
 
                 if (i==1) & (j==3)
                     println(d_val)
