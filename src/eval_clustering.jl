@@ -464,6 +464,10 @@ function distance_matrix_sparse(sol::myMCSol, prob::myMCProblem, distance_func::
         dfunc(i,j,i_meas) = weights[i_meas] * distance_func(sol.sol[i][i_meas], sol.sol[j][i_meas])
     end
 
+    println(dfunc(1,3,1))
+    println(dfunc(1,3,2))
+
+
     dfuncs = []
     for i_meas=1:sol.N_meas_dim
         push!(dfuncs, (i,j,i_m) -> dfunc(i,j,i_m))
