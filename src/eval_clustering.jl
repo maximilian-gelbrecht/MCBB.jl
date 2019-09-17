@@ -448,8 +448,8 @@ function distance_matrix_sparse(sol::myMCSol, prob::myMCProblem, distance_func::
     if histograms
         function dfunc(i,j,i_meas)
             hweights = zeros(Float32, (2, length(hist_edge)-1))
-            hweights[1,:] = fit(Histogram, sol.sol[1][i_meas], hist_edges[i_meas], closed=:left).weights
-            hweights[2,:] = fit(Histogram, sol.sol[2][i_meas], hist_edges[i_meas], closed=:left).weights
+            hweights[1,:] = fit(Histogram, sol.sol[i][i_meas], hist_edges[i_meas], closed=:left).weights
+            hweights[2,:] = fit(Histogram, sol.sol[j][i_meas], hist_edges[i_meas], closed=:left).weights
             if ecdf
                 for ii in 1:2
                     hweights[ii,:] = ecdf_hist(hweights[ii,:])
