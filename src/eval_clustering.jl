@@ -449,7 +449,6 @@ function distance_matrix_sparse(sol::myMCSol, prob::myMCProblem, distance_func::
         println("1")
         function dfunc(i,j,i_meas)
             hweights = zeros(Float32, (2, length(hist_edges[i_meas])-1))
-            println(hist_edges[i_meas])
             hweights[1,:] = fit(Histogram, sol.sol[i][i_meas], hist_edges[i_meas], closed=:left).weights
             hweights[2,:] = fit(Histogram, sol.sol[j][i_meas], hist_edges[i_meas], closed=:left).weights
             if use_ecdf
@@ -475,17 +474,18 @@ function distance_matrix_sparse(sol::myMCSol, prob::myMCProblem, distance_func::
         push!(dfuncs, (i,j,i_m) -> weights[i_m]*distance_func(sol.sol[i][i_m], sol.sol[j][i_m]))
     end
 
-    for i=1:sol.N_mc
-        for j=i+1:sol.N_mc
+    for ii=1:sol.N_mc
+        for jj=i+1:sol.N_mc
             d_val = el_type(0.)
             d_val_sparse = true
-            if (i==1) & (j==3)
+            if (ii==1) & (jj==3)
                 println(d_val)
             end
             for i_meas=1:sol.N_meas
-                d_val += dfuncs[i_meas](i,j,i_meas)
+                d_val += dfuncs[i_meas](ii,jj,i_meas)
 
-                if (i==1) & (j==3)
+                if (ii==1) & (jj==3)
+                    println(hist_edges[i_meas])
                     println(d_val)
                 end
                 if d_val > sparse_threshold
@@ -495,7 +495,7 @@ function distance_matrix_sparse(sol::myMCSol, prob::myMCProblem, distance_func::
             end
 
             if d_val_sparse
-                mat_elements[i,j] = d_val - sparse_threshold
+                mat_elements[ii,jj] = d_val - sparse_threshold
             end
         end
     end
