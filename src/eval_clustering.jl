@@ -455,7 +455,7 @@ function distance_matrix_sparse(sol::myMCSol, prob::myMCProblem, distance_func::
                     hweights[ii,:] = ecdf_hist(hweights[ii,:])
                 end
             end
-            weights[i_meas] * histogram_distance_func(hweights[1,:], hweights[2,:], bin_width)
+            weights[i_meas] * histogram_distance_func(hweights[1,:], hweights[2,:], bin_widths[i_meas])
         end
     else
         dfunc(i,j,i_meas) = weights[i_meas] * distance_func(sol.sol[i][i_meas], sol.sol[j][i_meas])
