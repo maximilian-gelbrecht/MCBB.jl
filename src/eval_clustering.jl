@@ -491,7 +491,7 @@ function distance_matrix_sparse(sol::myMCSol, prob::myMCProblem, distance_func::
         end
     end
 
-    mat_elements += (transpose(mat_elements) + spdiagm(0=>-1*sparse_threshold*ones(sol.N_mc))
+    mat_elements += (transpose(mat_elements) + spdiagm(0=>-1*sparse_threshold*ones(sol.N_mc)))
 
     if check_inf_nan
         if sum(isnan.(mat_elements))>0
