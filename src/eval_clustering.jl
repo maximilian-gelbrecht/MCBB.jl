@@ -475,7 +475,7 @@ function distance_matrix_sparse(sol::myMCSol, prob::myMCProblem, distance_func::
     end
 
     for ii=1:sol.N_mc
-        for jj=i+1:sol.N_mc
+        for jj=ii+1:sol.N_mc
             d_val = el_type(0.)
             d_val_sparse = true
             if (ii==1) & (jj==3)
