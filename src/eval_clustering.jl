@@ -447,6 +447,7 @@ function distance_matrix_sparse(sol::myMCSol, prob::myMCProblem, distance_func::
     sparse_threshold = el_type(sparse_threshold)
     if histograms
         function dfunc(i1,i2,i_measure)
+            println("1")
             hweights = zeros(Float32, (2, length(hist_edges[i_measure])-1))
             hweights[1,:] = fit(Histogram, sol.sol[i1][i_measure], hist_edges[i_measure], closed=:left).weights
             hweights[2,:] = fit(Histogram, sol.sol[i2][i_measure], hist_edges[i_measure], closed=:left).weights
@@ -458,7 +459,10 @@ function distance_matrix_sparse(sol::myMCSol, prob::myMCProblem, distance_func::
             weights[i_measure] * histogram_distance_func(hweights[1,:], hweights[2,:], bin_widths[i_measure])
         end
     else
-        dfunc(i1,i2,i_measure) = weights[i_measure] * distance_func(sol.sol[i1][i_measure], sol.sol[i2][i_measure])
+        function dfunc(i1,i2,i_measure)
+            println("2")
+            weights[i_measure] * distance_func(sol.sol[i1][i_measure], sol.sol[i2][i_measure])
+        end
     end
 
     println(dfunc(1,3,1))
@@ -521,7 +525,7 @@ function distance_matrix_sparse(sol::myMCSol, prob::myMCProblem, distance_func::
                     println(bin_widths[i_meas])
                     println(weights[i_meas])
                     println(histogram_distance_func(hweights[1,:], hweights[2,:], bin_widths[1]))
-                    println(weights[i_meas]*histogram_distance_func(hweights[1,:], hweights[2,:], bin_widths[i-meas]))
+                    println(weights[i_meas]*histogram_distance_func(hweights[1,:], hweights[2,:], bin_widths[i_meas]))
                     println("-----")
 
                 end
