@@ -90,7 +90,7 @@ function dbscan(D::AbstractNonzeroSparseMatrix, eps::Real, minpts::Int)
     minpts >= 1 || throw(ArgumentError("minpts must be positive integer ($minpts given)."))
 
     # invoke core algorithm
-    _dbscan(D, convert(T, eps), minpts, 1:n)
+    _dbscan(D, convert(eltype(D), eps), minpts, 1:n)
 end
 
 function _dbscan(D::AbstractNonzeroSparseMatrix, eps::T, minpts::Int, visitseq::AbstractVector{Int}) where T<:Real
