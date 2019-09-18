@@ -458,20 +458,27 @@ function distance_matrix_sparse(sol::myMCSol, prob::myMCProblem, distance_func::
             weights[i_meas] * histogram_distance_func(hweights[1,:], hweights[2,:], bin_widths[i_meas])
         end
     else
-        println("2")
         dfunc(i,j,i_meas) = weights[i_meas] * distance_func(sol.sol[i][i_meas], sol.sol[j][i_meas])
     end
 
     println(dfunc(1,3,1))
     println(dfunc(1,3,2))
-
+    println("----")
     i_meas = 1
     hweights = zeros(Float32, (2, length(hist_edges[i_meas])-1))
     hweights[1,:] = fit(Histogram, sol.sol[1][i_meas], hist_edges[i_meas], closed=:left).weights
     hweights[2,:] = fit(Histogram, sol.sol[3][i_meas], hist_edges[i_meas], closed=:left).weights
+    if use_ecdf
+        for ii in 1:2
+            hweights[ii,:] = ecdf_hist(hweights[ii,:])
+        end
+    end
 
     println(hweights)
     println(bin_widths[1])
+    println(weights[1])
+    println(histogram_distance_func(hweights[1,:], hweights[2,:], bin_widths[1]))
+    println("-----")
 
     dfuncs = []
     for i_meas=1:sol.N_meas_dim
