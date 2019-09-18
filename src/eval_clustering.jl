@@ -446,19 +446,19 @@ function distance_matrix_sparse(sol::myMCSol, prob::myMCProblem, distance_func::
     mat_elements = spzeros(el_type, sol.N_mc, sol.N_mc)
     sparse_threshold = el_type(sparse_threshold)
     if histograms
-        function dfunc(i,j,i_meas)
-            hweights = zeros(Float32, (2, length(hist_edges[i_meas])-1))
-            hweights[1,:] = fit(Histogram, sol.sol[i][i_meas], hist_edges[i_meas], closed=:left).weights
-            hweights[2,:] = fit(Histogram, sol.sol[j][i_meas], hist_edges[i_meas], closed=:left).weights
+        function dfunc(i1,i2,i_measure)
+            hweights = zeros(Float32, (2, length(hist_edges[i_measure])-1))
+            hweights[1,:] = fit(Histogram, sol.sol[i1][i_measure], hist_edges[i_measure], closed=:left).weights
+            hweights[2,:] = fit(Histogram, sol.sol[i2][i_measure], hist_edges[i_measure], closed=:left).weights
             if use_ecdf
                 for ii in 1:2
                     hweights[ii,:] = ecdf_hist(hweights[ii,:])
                 end
             end
-            weights[i_meas] * histogram_distance_func(hweights[1,:], hweights[2,:], bin_widths[i_meas])
+            weights[i_measure] * histogram_distance_func(hweights[1,:], hweights[2,:], bin_widths[i_measure])
         end
     else
-        dfunc(i,j,i_meas) = weights[i_meas] * distance_func(sol.sol[i][i_meas], sol.sol[j][i_meas])
+        dfunc(i1,i2,i_measure) = weights[i_measure] * distance_func(sol.sol[i1][i_measure], sol.sol[i2][i_measure])
     end
 
     println(dfunc(1,3,1))
@@ -478,6 +478,7 @@ function distance_matrix_sparse(sol::myMCSol, prob::myMCProblem, distance_func::
     println(bin_widths[1])
     println(weights[1])
     println(histogram_distance_func(hweights[1,:], hweights[2,:], bin_widths[1]))
+    println(weights[1]*histogram_distance_func(hweights[1,:], hweights[2,:], bin_widths[1]))
     println("-----")
 
     dfuncs = []
@@ -505,6 +506,24 @@ function distance_matrix_sparse(sol::myMCSol, prob::myMCProblem, distance_func::
                     println(hist_edges[i_meas])
                     println(dfuncs[i_meas](1,3,i_meas))
                     println(d_val)
+
+                    println("----")
+                    hweights = zeros(Float32, (2, length(hist_edges[i_meas])-1))
+                    hweights[1,:] = fit(Histogram, sol.sol[ii][i_meas], hist_edges[i_meas], closed=:left).weights
+                    hweights[2,:] = fit(Histogram, sol.sol[jj][i_meas], hist_edges[i_meas], closed=:left).weights
+                    if use_ecdf
+                        for ii in 1:2
+                            hweights[ii,:] = ecdf_hist(hweights[ii,:])
+                        end
+                    end
+
+                    println(hweights)
+                    println(bin_widths[i_meas])
+                    println(weights[i_meas])
+                    println(histogram_distance_func(hweights[1,:], hweights[2,:], bin_widths[1]))
+                    println(weights[i_meas]*histogram_distance_func(hweights[1,:], hweights[2,:], bin_widths[i-meas]))
+                    println("-----")
+
                 end
                 if d_val > sparse_threshold
                     d_val_sparse = false
