@@ -404,7 +404,7 @@ Computes the distance matrix sparse. Same arguments as [`distance_matrix`](@ref)
     * `check_inf_nan`: Only performs the Inf/NaN check if true.
 
 """
-function distance_matrix_sparse(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray; matrix_distance_func::Union{Function, Nothing}=nothing, histogram_distance_func::Union{Function, Nothing}=wasserstein_histogram_distance, relative_parameter::Bool=false, histograms::Bool=false, use_ecdf::Bool=true, k_bin::Number=1, nbin_default::Int=50, nbin::Union{Int, Nothing}=nothing, bin_edges::Union{AbstractArray, Nothing}=nothing, sparse_threshold::Number=Inf, el_type=Float32, check_inf_nan::Bool=true)
+function distance_matrix_sparse(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray; matrix_distance_func::Union{Function, Nothing}=nothing, histogram_distance_func::Union{Function, Nothing}=wasserstein_histogram_distance, relative_parameter::Bool=false, histograms::Bool=false, use_ecdf::Bool=true, k_bin::Number=1, nbin_default::Int=50, nbin::Union{Int, Nothing}=nothing, bin_edges::Union{AbstractArray, Nothing}=nothing, sparse_threshold::Number=Inf, el_type=Float32, check_inf_nan::Bool=true, verbose=false)
 
     N_pars = length(ParameterVar(prob))
 
@@ -480,6 +480,13 @@ function distance_matrix_sparse(sol::myMCSol, prob::myMCProblem, distance_func::
     end
 
     for ii=1:sol.N_mc
+
+        if verbose
+            if (ii%1000)==0
+                println(string(ii,"/",sol.N_mc))
+            end
+        end
+
         for jj=ii+1:sol.N_mc
             d_val = el_type(0.)
             d_val_sparse = true
