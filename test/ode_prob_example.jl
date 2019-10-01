@@ -97,6 +97,8 @@ ko_sol = solve(ko_emcp)
 
 D = distance_matrix(ko_sol, ko_emcp, [1.,0.5,1.,1.,1], histograms=true, matrix_distance_func=wasserstein_histogram_distance);
 
+D_sparse = MCBB.distance_matrix_sparse(ko_sol, ko_emcp, [1.,0.5,1.,1.,1], histograms=true, matrix_distance_func=wasserstein_histogram_distance, sparse_threshold=1.)
+
 db_eps = 1
 db_res = dbscan(D,db_eps,k)
 cluster_meas = cluster_means(ko_sol,db_res);

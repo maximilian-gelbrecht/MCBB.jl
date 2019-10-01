@@ -446,21 +446,15 @@ function distance_matrix_sparse(sol::myMCSol, prob::myMCProblem, distance_func::
     mat_elements = spzeros(el_type, sol.N_mc, sol.N_mc)
     sparse_threshold = el_type(sparse_threshold)
     if histograms
-        function dfunc_hist(i1,i2,i_measure)
-            hweights = zeros(Float32, (2, length(hist_edges[i_measure])-1))
-            hweights[1,:] = fit(Histogram, sol.sol[i1][i_measure], hist_edges[i_measure], closed=:left).weights
-            hweights[2,:] = fit(Histogram, sol.sol[i2][i_measure], hist_edges[i_measure], closed=:left).weights
-            if use_ecdf
-                for ii in 1:2
-                    hweights[ii,:] = ecdf_hist(hweights[ii,:])
-                end
-            end
-            weights[i_measure] * histogram_distance_func(hweights[1,:], hweights[2,:], bin_widths[i_measure])
+        hist_weights = []
+        for i_meas = 1:sol.N_meas_dim
+            push!(hist_weights, _compute_hist_weights(i_meas, sol, hist_edges[i_meas], use_ecdf))
         end
+        #println(size(hist_weights))
+        #println(hist_weights)
+        dfunc_hist(i1,i2,i_measure) = weights[i_measure] * histogram_distance_func(hist_weights[i_measure][i1,:], hist_weights[i_measure][i2,:], bin_widths[i_measure])
     else
-        function dfunc_norm(i1,i2,i_measure)
-            weights[i_measure] * distance_func(sol.sol[i1][i_measure], sol.sol[i2][i_measure])
-        end
+        dfunc_norm(i1,i2,i_measure) = weights[i_measure] * distance_func(sol.sol[i1][i_measure], sol.sol[i2][i_measure])
     end
 
     dfuncs = []
