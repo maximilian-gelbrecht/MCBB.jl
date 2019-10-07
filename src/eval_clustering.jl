@@ -96,6 +96,10 @@ The distance matrix is then computed given a suitable histogram distance functio
 
 This is intended to be used in order to avoid symmetric configurations in larger systems to be distinguished from each other. Example: Given a system with 10 identical oscillators. Given this distance calculation a state where oscillator 1-5 are synchronized and 6-10 are not syncronized would be in the same cluster as a state where oscillator 6-10 are synchronized and 1-5 are not synchronized. If you don't want this kind of behaviour, use the regular `distance_matrix` function.
 
+# Sparse and memory mapped options
+
+There are seperate routines for computing very large matrices, using either memory maped arrays (see [`distance_matrix_mmap`](@ref)) or sparse arrays (see [`distance_matrix_sparse`](@ref)).
+
 # Arguments
 
 * `sol`: solution
@@ -442,72 +446,65 @@ function distance_matrix_sparse(sol::myMCSol, prob::myMCProblem, distance_func::
             error("Histogram method chosen, but no histogram_distance_func given.")
         end
     end
-
     mat_elements = spzeros(el_type, sol.N_mc, sol.N_mc)
+
     sparse_threshold = el_type(sparse_threshold)
     if histograms
         hist_weights = []
         for i_meas = 1:sol.N_meas_dim
             push!(hist_weights, _compute_hist_weights(i_meas, sol, hist_edges[i_meas], use_ecdf))
         end
-        #println(size(hist_weights))
-        #println(hist_weights)
-        dfunc_hist(i1,i2,i_measure) = weights[i_measure] * histogram_distance_func(hist_weights[i_measure][i1,:], hist_weights[i_measure][i2,:], bin_widths[i_measure])
-    else
-        dfunc_norm(i1,i2,i_measure) = weights[i_measure] * distance_func(sol.sol[i1][i_measure], sol.sol[i2][i_measure])
     end
 
-    dfuncs = []
-    for i_meas=1:sol.N_meas_dim
-        if histograms
-            push!(dfuncs, (i,j,i_m) -> dfunc_hist(i,j,i_m))
-        else
-            push!(dfuncs, (i,j,i_m) -> dfunc_norm(i,j,i_m))
-        end
-
-    end
-    for i_meas=sol.N_meas_dim+1:sol.N_meas_dim+sol.N_meas_matrix
-        push!(dfuncs, (i,j,i_m) -> weights[i_m]*matrix_distance_func(sol.sol[i][i_m], sol.sol[j][i_m]))
-    end
-    for i_meas=sol.N_meas_dim+sol.N_meas_matrix+1:sol.N_meas
-        push!(dfuncs, (i,j,i_m) -> weights[i_m]*distance_func(sol.sol[i][i_m], sol.sol[j][i_m]))
-    end
-
-    for ii=1:sol.N_mc
-
+    #mat_elements = zeros((sol.N_mc, sol.N_mc))
+    for i=1:sol.N_mc
         if verbose
-            if (ii%1000)==0
-                println(string(ii,"/",sol.N_mc))
+            if (i%1000)==0
+                println(string(i,"/",sol.N_mc))
             end
         end
 
-        for jj=ii+1:sol.N_mc
-            d_val = el_type(0.)
-            d_val_sparse = true
+        col_elements = zeros(el_type, sol.N_mc)
 
-            for i_meas=1:sol.N_meas
-                d_val += dfuncs[i_meas](ii,jj,i_meas)
-
-                if d_val > sparse_threshold
-                    d_val_sparse = false
-                    break
-                end
-            end
-
-            if d_val_sparse
-                mat_elements[ii,jj] = d_val - sparse_threshold
+        for i_meas = 1:sol.N_meas_dim
+            if histograms
+                _compute_distance!(col_elements, i, sol, i_meas, histogram_distance_func, hist_edges[i_meas], hist_weights[i_meas], bin_widths[i_meas], weights[i_meas])
+            else
+                _compute_distance!(col_elements, i, sol, i_meas, distance_func, weights[i_meas])
             end
         end
-    end
-    mat_elements += (transpose(mat_elements) + spdiagm(0=>-1*sparse_threshold*ones(sol.N_mc)))
 
-    if check_inf_nan
-        if sum(isnan.(mat_elements))>0
-            @warn "There are some elements NaN in the distance matrix"
+
+
+        for i_meas = sol.N_meas_dim+1:sol.N_meas_dim+sol.N_meas_matrix
+            _compute_distance!(col_elements, i, sol, i_meas, matrix_distance_func, weights[i_meas])
         end
-        if sum(isinf.(mat_elements))>0
-            @warn "There are some elements Inf in the distance matrix"
+
+        for i_meas = sol.N_meas_dim+sol.N_meas_matrix+1:sol.N_meas
+            _compute_distance!(col_elements, i, sol, i_meas, distance_func, weights[i_meas])
         end
+
+        for i_par=1:N_pars
+            for j=1:sol.N_mc
+                col_elements[j] += weights[sol.N_meas+i_par]*distance_func(par_c[i,i_par], par_c[j,i_par])
+            end
+        end
+        if check_inf_nan
+            if sum(isnan.(col_elements))>0
+                @warn "There are some elements NaN in the distance matrix"
+            end
+            if sum(isinf.(col_elements))>0
+                @warn "There are some elements Inf in the distance matrix"
+            end
+        end
+
+        nonsparse_elements_ind = col_elements .< sparse_threshold
+
+        inds = findall(nonsparse_elements_ind)
+
+        col_elements = sparse(ones(length(inds)),inds,col_elements[nonsparse_elements_ind] .- sparse_threshold,1,sol.N_mc)  # sparse seems to be faster than sparsevec
+
+        mat_elements[:,i] = col_elements[1,:]
     end
 
     mat_elements = NonzeroSparseMatrix(mat_elements, sparse_threshold)
@@ -519,7 +516,6 @@ function distance_matrix_sparse(sol::myMCSol, prob::myMCProblem, distance_func::
     end
 end
 distance_matrix_sparse(sol::myMCSol, prob::myMCProblem, weights::AbstractArray; kwargs...) = distance_matrix_sparse(sol, prob, (x,y)->sum(abs.(x .- y)), weights; kwargs...)
-
 
 #(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray; matrix_distance_func::Union{Function, Nothing}=nothing, histogram_distance_func::Union{Function, Nothing}=nothing, relative_parameter::Bool=false, histograms::Bool=false, use_ecdf::Bool=true, k_bin::Number=1)
 

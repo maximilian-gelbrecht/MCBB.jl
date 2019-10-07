@@ -55,7 +55,7 @@ export cluster_distance
 
 export AbstractDistanceMatrix, DistanceMatrix, DistanceMatrixHist
 export ClusterMembershipResult, ClusterMeasureResult, ClusterMeasureHistogramResult
-
+export distance_matrix_sparse, distance_matrix_mmap
 export NonzeroSparseMatrix
 # Contains example systems
 include("systems.jl")

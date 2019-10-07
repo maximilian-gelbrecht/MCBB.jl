@@ -46,16 +46,27 @@ function NonzeroSparseMatrix(data::AbstractArray{T,2}, indices::BitArray{2}, def
 end
 
 function NonzeroSparseMatrix(data::AbstractArray{T,2}, condition, default_value::Number) where T<:Number
-    spmat = spzeros(T, size(data)...)
+    #spmat = spzeros(T, size(data)...)
+
+    cond_matrix = condition.(data)
+    N = sum(cond_matrix)
+    I = zeros(T, N)
+    J = zeros(T, N)
+    V = zeros(T, N)
+    ii = 1
     defval = T(default_value)
     for i=1:size(data,1)
         for j=1:size(data,2)
-            if condition(data[i,j])
-                spmat[i,j] = data[i,j] - defval
+            if cond_matrix[i,j]
+                I[ii] = i
+                J[ii] = j
+                V[ii] = data[i,j] - defval
+                ii += 1
             end
         end
     end
-    NonzeroSparseMatrix(spmat, defval)
+
+    NonzeroSparseMatrix(sparse(I,J,V,size(data)...), defval)
 end
 
 Base.getindex(mat::NonzeroSparseMatrix, I...) = Base.getindex(mat.spmat, I...) .+ mat.value
