@@ -9,11 +9,11 @@ import Distributions, StatsBase
 """
     eval_ode_run
 
-Evaluation functions for the `MonteCarloProblem`. Given a set of measures the solution `sol` is evaluated seperatly per dimension. An additional set of global measures take in the complete solution and return a single number or a matrix. Handing over this function to `DEMCBBProblem` (and thus also to `MonteCarloProblem`) the expected signature is `(sol, i::Int) -> (results, repeat::Bool)`. Here, there are several more general versions that can be adjusted to the experiment.
+Evaluation functions for the `EnsembleProblem`. Given a set of measures the solution `sol` is evaluated seperatly per dimension. An additional set of global measures take in the complete solution and return a single number or a matrix. Handing over this function to `DEMCBBProblem` (and thus also to `EnsembleProblem`) the expected signature is `(sol, i::Int) -> (results, repeat::Bool)`. Here, there are several more general versions that can be adjusted to the experiment.
 
     eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:Function,1}, matrix_eval_funcs::Union{AbstractArray, Nothing}=nothing, global_eval_funcs::Union{AbstractArray, Nothing}=nothing; failure_handling::Symbol=:None, cyclic_setback::Bool=false, replace_inf=nothing)
 
-* `sol`: solution of one of the MonteCarloProblem runs, should have only timesteps with constant time intervals between them
+* `sol`: solution of one of the EnsembleProblem runs, should have only timesteps with constant time intervals between them
 * `i`: Int, number of iteration/run
 * `state_filter`: Array with indicies of all dimensions (of the solutions) that should be evaluated
 * `eval_funcs`: Array of functions that should be applied to every dimension of the solution. Signature: `(sol::AbstractArray) -> measure` or `(sol::AbstractArray, previous_results::AbstractArray) -> measure` depending on the value of `flag_past_measures`.
@@ -181,7 +181,7 @@ function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Abstract
     (tuple(dim_measures..., matrix_measures..., global_measures...),false)
 end
 
-# MonteCarloProblem needs a function with only (sol, i) as inputs and this way the default of all dimensions beeing evaluated is easier to handle than with an optional/keyword argument
+# EnsembleProblem needs a function with only (sol, i) as inputs and this way the default of all dimensions beeing evaluated is easier to handle than with an optional/keyword argument
 function eval_ode_run(sol, i)
     N_dim = length(sol.prob.u0)
     state_filter = collect(1:N_dim)
@@ -200,7 +200,7 @@ function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:
 
     meas_1 = eval_ode_run(sol, i, state_filter, eval_funcs, global_eval_funcs, matrix_eval_funcs; failure_handling=failure_handling, cyclic_setback=cyclic_setback, flag_past_measures=flag_past_measures)
 
-    # we define a new MonteCarloProblem, so that we can reuse all the other old code. it has only three problems to solve, (p - eps, p, p+eps) for a relativly short integration time.
+    # we define a new EnsembleProblem, so that we can reuse all the other old code. it has only three problems to solve, (p - eps, p, p+eps) for a relativly short integration time.
     ic = zeros(eltype(sol),3,N_dim)
     par = zeros(typeof(par_var.new_val(1)),3,1)
     # new IC is end point of last solution
@@ -227,7 +227,7 @@ function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:
     #new_tspan = probi.tspan
     new_prob(baseprob, i, repeat) = remake(baseprob, u0=ic[i,:], tspan=new_tspan, p=par_var.new_par(probi.p; Dict(par_var.name => par[i,1])...))
 
-    mcp = MonteCarloProblem(probi, prob_func=new_prob, output_func=(sol,i)->eval_ode_run(sol, i, state_filter, eval_funcs, global_eval_funcs, matrix_eval_funcs; failure_handling=failure_handling, cyclic_setback=cyclic_setback, flag_past_measures=flag_past_measures))
+    mcp = EnsembleProblem(probi, prob_func=new_prob, output_func=(sol,i)->eval_ode_run(sol, i, state_filter, eval_funcs, global_eval_funcs, matrix_eval_funcs; failure_handling=failure_handling, cyclic_setback=cyclic_setback, flag_past_measures=flag_past_measures))
     bamcp = DEMCBBProblem(mcp, 3, 0.1, ic, par, par_var) # 3 problems and no transient time
     if alg==nothing
         mcpsol = solve(bamcp, N_t=N_t, parallel_type=:none, kwargs...)

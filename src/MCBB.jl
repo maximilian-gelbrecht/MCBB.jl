@@ -44,7 +44,7 @@ export solve_euler_inf, tsave_array
 export measure_on_parameter_sliding_window
 export ParameterVar, ParameterVarArray, ParameterVarFunc, OneDimParameterVar, MultiDimParameterVar, MultiDimParameterVarFunc, MultiDimParameterVarArray
 export MCBBProblem, MCBBSol
-export CustomProblem, CustomSolution, CustomMonteCarloProblem, CustomMCBBSolution, CustomMCBBProblem
+export CustomProblem, CustomSolution, CustomEnsembleProblem, CustomMCBBSolution, CustomMCBBProblem
 export get_trajectory
 export cluster_measures_sliding_histograms
 export distance_matrix_histogram, wasserstein_histogram_distance, ecdf_hist
@@ -60,10 +60,10 @@ export NonzeroSparseMatrix
 # Contains example systems
 include("systems.jl")
 
-# all functions and methods needed to help you setup MonteCarloProblems over the combined initial conditions - parameter space
+# all functions and methods needed to help you setup EnsembleProblems over the combined initial conditions - parameter space
 include("setup_mc_prob.jl")
 
-# all function needed to evaluate the solutions of the MonteCarloProblem
+# all function needed to evaluate the solutions of the EnsembleProblem
 include("eval_mc_prob.jl")
 
 # all function and needed needed to evaluate (DBSCAN)-clustering
