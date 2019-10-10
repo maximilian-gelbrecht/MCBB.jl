@@ -94,7 +94,7 @@ function NonzeroSparseMatrix(data::AbstractArray{T,2}, condition, default_value:
         end
     end
 
-    NonzeroSparseMatrix(sparse(I,J,V,size(data)...), defval)
+    NonzeroSparseMatrix(sparse(I[1:(ii-1)],J[1:(ii-1)],V[1:(ii-1)],size(data)...), defval)
 end
 
 
