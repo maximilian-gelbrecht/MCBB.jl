@@ -45,29 +45,59 @@ function NonzeroSparseMatrix(data::AbstractArray{T,2}, indices::BitArray{2}, def
     NonzeroSparseMatrix(spmat, T(default_value))
 end
 
-function NonzeroSparseMatrix(data::AbstractArray{T,2}, condition, default_value::Number) where T<:Number
+function NonzeroSparseMatrix(data::AbstractArray{T,2}, condition, default_value::Number; lo_mem::Bool=false, density=0.2) where T<:Number
     #spmat = spzeros(T, size(data)...)
-
-    cond_matrix = condition.(data)
-    N = sum(cond_matrix)
-    I = zeros(T, N)
-    J = zeros(T, N)
-    V = zeros(T, N)
-    ii = 1
     defval = T(default_value)
-    for i=1:size(data,1)
-        for j=1:size(data,2)
-            if cond_matrix[i,j]
-                I[ii] = i
-                J[ii] = j
-                V[ii] = data[i,j] - defval
-                ii += 1
+    ii = 1
+
+    if lo_mem==false
+        cond_matrix = condition.(data)
+        N = sum(cond_matrix)
+        I = zeros(T, N)
+        J = zeros(T, N)
+        V = zeros(T, N)
+        for i=1:size(data,1)
+            for j=1:size(data,2)
+                if cond_matrix[i,j]
+                    I[ii] = i
+                    J[ii] = j
+                    V[ii] = data[i,j] - defval
+                    ii += 1
+                end
+            end
+        end
+    else
+        Nx, __ = size(data)
+        N_guess = Int(round(0.2 * Nx))
+        N_add = Int(round(N_guess/2))
+
+        I = zeros(T, N_guess)
+        J = zeros(T, N_guess)
+        V = zeros(T, N_guess)
+
+        for i=1:size(data, 1)
+            for j=1:size(data, 2)
+                if condition(data[i,j])
+                    I[ii] = i
+                    J[ii] = j
+                    V[ii] = data[i,j] - defval
+                    ii += 1
+
+                    if ii > N_guess
+                        I = [I; zeros(T, N_add)]
+                        J = [J; zeros(T, N_add)]
+                        V = [V; zeros(T, N_add)]
+                        N_guess += N_add
+                    end
+                end
             end
         end
     end
 
     NonzeroSparseMatrix(sparse(I,J,V,size(data)...), defval)
 end
+
+
 
 Base.getindex(mat::NonzeroSparseMatrix, I...) = Base.getindex(mat.spmat, I...) .+ mat.value
 Base.getindex(mat::NonzeroSparseMatrix, i::Int) = Base.getindex(mat.spmat, i::Int) .+ mat.value
