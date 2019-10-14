@@ -20,3 +20,7 @@ pages = [
         ]
     ]
     )
+
+deploydocs(
+    repo = "github.com/maximilian-gelbrecht/MCBB.jl.git",
+    )
