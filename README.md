@@ -1,6 +1,11 @@
 Library and Script with Example to explore High Dimensional Bifurcations with sample and clustering based methods using Julia language.
 
-It uses Julia 1.x (and is not backwards compatible to Julia < v0.7)
+It uses Julia 1.x (CI/CD test with Julia 1.2).
+It is not backwards compatible to Julia < v0.7
+
+[![Build Status](https://travis-ci.com/maximilian-gelbrecht/MCBB.jl.svg?branch=master)](https://travis-ci.com/maximilian-gelbrecht/MCBB.jl/branches)
+[![doc dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://maximilian-gelbrecht.github.io/MCBB.jl/dev)
+(https://maximilian-gelbrecht.github.io/MCBB.jl/dev/)
 
 # NEWS
 
@@ -8,11 +13,12 @@ Moved to GitHub. Some things still need to be updated accordingly.
 
 # Paper
 
-A paper describing the article can found in the arXiv. If you use this package, please always cite this paper.
+A paper describing the article was just submitted to the arXiv (Link will follow). If you use this package, please always cite this paper.
 
 # Documentation
 
-The documentation can be found at
+The documentation can be found at [![doc dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://maximilian-gelbrecht.github.io/MCBB.jl/dev)
+(https://maximilian-gelbrecht.github.io/MCBB.jl/dev/)
 
 # Install
 
@@ -26,7 +32,7 @@ pkg> up
 ```
 can help, otherwise (and if you want to contribute) you can manually clone it:
 ```
-$ git clone git@gitlab.pik-potsdam.de:maxgelbr/MCBB.git
+$ git clone
 $ cd MCBB
 pkg> dev /path/to/package
 ```
