@@ -44,7 +44,7 @@ export solve_euler_inf, tsave_array
 export measure_on_parameter_sliding_window
 export ParameterVar, ParameterVarArray, ParameterVarFunc, OneDimParameterVar, MultiDimParameterVar, MultiDimParameterVarFunc, MultiDimParameterVarArray
 export MCBBProblem, MCBBSol
-export CustomProblem, CustomSolution, CustomEnsembleProblem, CustomMCBBSolution, CustomMCBBProblem
+export CustomProblem, CustomSolution, CustomMonteCarloProblem, CustomMCBBSolution, CustomMCBBProblem
 export get_trajectory
 export cluster_measures_sliding_histograms
 export distance_matrix_histogram, wasserstein_histogram_distance, ecdf_hist

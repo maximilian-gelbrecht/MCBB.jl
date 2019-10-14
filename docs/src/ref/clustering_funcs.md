@@ -3,7 +3,7 @@
 ```@docs
 distance_matrix
 MCBB.distance_matrix_mmap
-compute_distance
+MCBB.compute_distance
 MCBB.distance_matrix_sparse
 AbstractDistanceMatrix
 DistanceMatrix
@@ -13,8 +13,7 @@ wasserstein_histogram_distance
 ecdf_hist
 cluster_distance
 cluster_means(sol::myMCSol, clusters::DbscanResult)
-cluster_membership(par::AbstractArray, clusters::DbscanResult)
-cluster_membership(prob::myMCProblem, clusters::DbscanResult, window_size::AbstractArray, window_offset::AbstractArray, normalize::Bool=true)
+cluster_membership
 MCBB.ClusterMembershipResult
 Base.sort!(cm::ClusterMembershipResult; ignore_first::Bool)
 Base.sum(cm::ClusterMembershipResult, indices::AbstractArray{Int,1})

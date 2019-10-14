@@ -2,5 +2,5 @@
 
 ```@docs
 bbcluster
-BBClusterResult
+MCBB.BBClusterResult
 ```

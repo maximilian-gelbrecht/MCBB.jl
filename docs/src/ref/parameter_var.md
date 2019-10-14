@@ -5,7 +5,7 @@ ParameterVar
 ParameterVarArray
 ParameterVarFunc
 MultiDimParameterVar
-HiddenParameterVar
+MCBB.HiddenParameterVar
 Base.getindex(parvar::MultiDimParameterVar, i::Int)
 Base.length(parvar::MultiDimParameterVar)
 ParameterVar(prob::myMCProblem)

@@ -6,6 +6,14 @@ It uses Julia 1.x (and is not backwards compatible to Julia < v0.7)
 
 Moved to GitHub. Some things still need to be updated accordingly.
 
+# Paper
+
+A paper describing the article can found in the arXiv. If you use this package, please always cite this paper.
+
+# Documentation
+
+The documentation can be found at
+
 # Install
 
 In `Pkg` shell doing:
@@ -29,26 +37,10 @@ Then, you can test the installation with
 pkg> test MCBB
 ```
 
+The package will be added to the Julia registry soon.
+
 # Updates
 
 ```
 pkg> update MCBB
 ```
-
-# Built the documentation
-
-There's a nice documentation that's not yet hosted (due to GitLab pages not being available at PIK-Gitlab). You can build it yourself, though! Assuming you downloaded the package (with e.g. `git clone ...`):
-
-```
-$ /path/to/julia1.0/binary /path/to/package/MCBB/docs/make.jl
-```
-The documentation then gets built in `/path/to/package/MCBB/docs/build`. You need a local webserver for hyperlinks to work:
-```
-$ cd /path/to/package/MCBB/docs/build/
-$ python3 -m http.server --bind localhost
-```
-Afterwards in your browser go to `localhost:8000`.
-
-# TO-DO
-
-* Plot Recipes: So far, there are not yet plot recipes for everything

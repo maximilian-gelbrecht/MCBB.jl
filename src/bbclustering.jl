@@ -2,6 +2,12 @@
 # the code is based on the DBSCAN code from Clustering.jl
 import Clustering.ClusteringResult
 
+"""
+    BBClusterResult <: ClusteringResult
+
+Contains the solutions of the [`bbcluster`](@ref). Has the fields  `seeds`, `assignments` and `counts`. 
+
+"""
 mutable struct BBClusterResult <: ClusteringResult
     seeds::Vector{Int}          # starting points of clusters, size (k,)
     assignments::Vector{Int}    # assignments, size (n,)
