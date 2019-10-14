@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Running it on a HPC · MCBB</title><link href="https://cdnjs.cloudflare.com/ajax/libs/normalize/4.2.0/normalize.min.css" rel="stylesheet" type="text/css"/><link href="https://fonts.googleapis.com/css?family=Lato|Roboto+Mono" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.6.3/css/font-awesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.2.0/require.min.js" data-main="../assets/documenter.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link href="../assets/documenter.css" rel="stylesheet" type="text/css"/></head><body><nav class="toc"><h1>MCBB</h1><select id="version-selector" onChange="window.location.href=this.value" style="visibility: hidden"></select><form class="search" id="search-form" action="../search/"><input id="search-query" name="q" type="text" placeholder="Search docs"/></form><ul><li><a class="toctext" href="../">Home</a></li><li><span class="toctext">Manual</span><ul><li><a class="toctext" href="../basic_usage/">Basic Usage</a></li><li><a class="toctext" href="../introspective_features/">Introspective Features</a></li><li class="current"><a class="toctext" href>Running it on a HPC</a><ul class="internal"><li><a class="toctext" href="#Julia-Script-(hpc_example.jl)-1">Julia Script (hpc_example.jl)</a></li><li><a class="toctext" href="#Slurm-Script-1">Slurm Script</a></li><li><a class="toctext" href="#Various-Tips-and-Tricks-1">Various Tips &amp; Tricks</a></li></ul></li><li><a class="toctext" href="../multidim_parameters/">Multidimensional Parameter Setups</a></li><li><a class="toctext" href="../custom_problems/">Custom Problem</a></li><li><a class="toctext" href="../continuation/">Continuation</a></li></ul></li><li><span class="toctext">Reference</span><ul><li><a class="toctext" href="../ref/problem_types/">Problem Types</a></li><li><a class="toctext" href="../ref/parameter_var/">ParameterVar</a></li><li><a class="toctext" href="../ref/evaluation_funcs/">Evaluation Functions</a></li><li><a class="toctext" href="../ref/clustering_funcs/">Clustering Functions</a></li><li><a class="toctext" href="../ref/continuation/">Continuation</a></li><li><a class="toctext" href="../ref/systems/">Systems</a></li><li><a class="toctext" href="../ref/custom_problem/">Custom Problems</a></li></ul></li></ul></nav><article id="docs"><header><nav><ul><li>Manual</li><li><a href>Running it on a HPC</a></li></ul><a class="edit-page" href="https://github.com/maximilian-gelbrecht/MCBB.jl/blob/master/docs/src/hpc.md"><span class="fa"></span> Edit on GitHub</a></nav><hr/><div id="topbar"><span>Running it on a HPC</span><a class="fa fa-bars" href="#"></a></div></header><h1><a class="nav-anchor" id="Running-it-on-a-HPC-1" href="#Running-it-on-a-HPC-1">Running it on a HPC</a></h1><p>The heavy-lifting in terms of parallelization is done by <code>MonteCarloProblem</code>/<code>solve</code> from DifferentialEquations, however we have to make most parts of the setup known to all processes with <code>@everywhere</code> and have a submit script.</p><p>Below, you will find an example of a script running a Kuramoto network and saving the results. Typically, (due to memory constraints) I would recommend to only solve the <a href="../ref/problem_types/#MCBB.DEMCBBProblem"><code>DEMCBBProblem</code></a> on the HPC, then save the solutions and do the remaining calculations (distance matrix and clustering) on your own PC.</p><p>For saving and loading data, I used <code>JLD2</code>. It needs all functions and variables in scope while loading objects that were used during the computation of the object. That&#39;s why I work with only one script that is used on both the remote and local, depending on whether the variable <code>cluster</code> is <code>true</code> or <code>false</code>.</p><h2><a class="nav-anchor" id="Julia-Script-(hpc_example.jl)-1" href="#Julia-Script-(hpc_example.jl)-1">Julia Script (hpc_example.jl)</a></h2><p>The Julia script is similar to the examples shown in the other guides in this documentation. Running Julia code in parallel on a HPC needs the <code>ClusterManagers</code> package to add the processes that are allocated by the regular Slurm script. If you are running this in parallel without a batch system, change <code>addprocs(ClusterManagers(...))</code> to <code>addprocs(...)</code>.</p><ul><li>For usage on the HPC set <code>cluster=true</code></li><li>For usage on your PC (to evaluate the results) set <code>cluster=false</code></li></ul><p>The script needs to be called with an command line argument that specifies the amount of processes that should be initiated, e.g.</p><pre><code class="language-bash">$ julia hpc_example.jl 4</code></pre><p>for starting it with 4 processes. In the SLURM script this is done with the environment variable <code>SLURM_NTASKS</code>.</p><p><em>DISCLAIMER</em>: In theory, not all of these <code>@everywhere</code>-commands should be needed, but somehow it was not working for me without them. The scripts below are tested on a HPC running SLURM for resource allocation.</p><pre><code class="language-julia">cluster = true
+using Distributed
+
+if cluster
+    using ClusterManagers
+    N_tasks = parse(Int, ARGS[1])
+    N_worker = N_tasks
+    addprocs(SlurmManager(N_worker))
+else
+    using Plots
+end
+using JLD2, FileIO, Clustering, StatsBase, Parameters
+
+@everywhere begin
+    using LightGraphs
+    using DifferentialEquations
+    using Distributions
+    using MCBB
+
+    N = 40
+    K = 0.5
+    nd = Normal(0.5, 0.1) # distribution for eigenfrequencies # mean = 0.5Hz, std = 0.1Hz
+    w_i_par = rand(nd,N)
+
+    net = erdos_renyi(N, 0.2)
+    A = adjacency_matrix(net)
+
+    ic = zeros(N)
+    ic_dist = Uniform(-pi,pi)
+    kdist = Uniform(0,8)
+    ic_ranges = ()-&gt;rand(ic_dist)
+    N_ics = 10000
+    K_range = ()-&gt;rand(kdist)
+    pars = kuramoto_network_parameters(K, w_i_par, N, A)
+    rp = ODEProblem(kuramoto_network, ic, (0.,2000.), pars)
+
+    tail_frac = 0.9
+end
+
+@everywhere function eval_ode_run_kuramoto(sol, i)
+    (N_dim, __) = size(sol)
+    state_filter = collect(1:N)
+    eval_funcs = [empirical_1D_KL_divergence_hist]
+    global_eval_funcs = []
+    eval_ode_run(sol, i, state_filter, eval_funcs, global_eval_funcs, cyclic_setback=true)
+end
+
+if cluster
+    ko_mcp = DEMCBBProblem(rp, ic_ranges, N_ics, pars, (:K, K_range), eval_ode_run_kuramoto, tail_frac)
+    kosol = solve(ko_mcp)
+    @save &quot;kuramoto_sol.jld2&quot; kosol ko_mcp
+else
+    @load &quot;kuramoto_sol.jld2&quot; kosol ko_mcp
+
+    D = @time distance_matrix(kosol, parameter(ko_mcp), [1,0.75,0.5,1]);
+    k = 4
+    db_eps = median((KNN_dist_relative(D)))
+    db_res = dbscan(D,db_eps,k)
+    cluster_members = cluster_membership(ko_mcp,db_res,0.2,0.05);
+
+    plot(cluster_members)
+    savefig(&quot;kura-membership&quot;)
+end</code></pre><h2><a class="nav-anchor" id="Slurm-Script-1" href="#Slurm-Script-1">Slurm Script</a></h2><pre><code class="language-bash">#!/bin/bash
+
+#SBATCH --qos=short
+#SBATCH --job-name=MCBB-test
+#SBATCH --account=YOURACCOUNT
+#SBATCH --output=MCBB-test-%j-%N.out
+#SBATCH --error=MCBB-test-%j-%N.err
+#SBATCH --nodes=4
+#SBATCH --ntasks-per-node=8
+#SBATCH --workdir=YOUR/WORK/DIR
+#SBATCH --mail-type=END
+#SBATCH --mail-user=YOUR@MAIL.ADDRESS
+
+echo &quot;------------------------------------------------------------&quot;
+echo &quot;SLURM JOB ID: $SLURM_JOBID&quot;
+echo &quot;$SLURM_NTASKS tasks&quot;
+echo &quot;------------------------------------------------------------&quot;
+
+module load julia/1.0.2
+module load hpc/2015
+julia /path/to/the/script/hpc_example.jl $SLURM_NTASKS</code></pre><p>The <code>module load ...</code> commands are for loading <code>julia</code> on the HPC that I use, there might be different kind of setups for your HPC.</p><h2><a class="nav-anchor" id="Various-Tips-and-Tricks-1" href="#Various-Tips-and-Tricks-1">Various Tips &amp; Tricks</a></h2><ul><li>At least on some HPCs such a script can fail after any julia library updates when the packages are not precompiled yet. Just run the script again or force a precompilation from an interactive session.</li></ul><footer><hr/><a class="previous" href="../introspective_features/"><span class="direction">Previous</span><span class="title">Introspective Features</span></a><a class="next" href="../multidim_parameters/"><span class="direction">Next</span><span class="title">Multidimensional Parameter Setups</span></a></footer></article></body></html>
