@@ -5,7 +5,7 @@ It is not backwards compatible to Julia < v0.7
 
 [![Build Status](https://travis-ci.com/maximilian-gelbrecht/MCBB.jl.svg?branch=master)](https://travis-ci.com/maximilian-gelbrecht/MCBB.jl/branches)
 [![doc dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://maximilian-gelbrecht.github.io/MCBB.jl/dev)
-(https://maximilian-gelbrecht.github.io/MCBB.jl/dev/)
+
 
 # NEWS
 
@@ -18,13 +18,14 @@ A paper describing the article was just submitted to the arXiv (Link will follow
 # Documentation
 
 The documentation can be found at [![doc dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://maximilian-gelbrecht.github.io/MCBB.jl/dev)
-(https://maximilian-gelbrecht.github.io/MCBB.jl/dev/)
+
 
 # Install
 
 In `Pkg` shell doing:
 ```
-pkg> add git@gitlab.pik-potsdam.de:maxgelbr/MCBB.git
+pkg> add https://github.com/maximilian-gelbrecht/MCBB.jl.git
+
 ```
 should work, if you encounter any problem updating all packages with
 ```
@@ -32,7 +33,7 @@ pkg> up
 ```
 can help, otherwise (and if you want to contribute) you can manually clone it:
 ```
-$ git clone
+$ git clone https://github.com/maximilian-gelbrecht/MCBB.jl.git
 $ cd MCBB
 pkg> dev /path/to/package
 ```
