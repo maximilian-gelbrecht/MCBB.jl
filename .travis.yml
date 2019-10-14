@@ -16,7 +16,6 @@ script: # the default script is equivalent to the following
   - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
   - julia --project -e 'using Pkg; Pkg.build(); Pkg.test(; coverage=true)';
   - julia -e 'using Pkg; Pkg.add("Coverage"); using Coverage; Coveralls.submit(Coveralls.process_folder())';
-<<<<<<< HEAD
 #  - julia -e 'using Pkg; Pkg.add("Coverage"); using Coverage; Codecov.submit(Codecov.process_folder())';
 
 jobs:
@@ -29,7 +28,3 @@ jobs:
                                     Pkg.develop(PackageSpec(path=pwd()))'
         - julia --project=docs/ docs/make.jl
       after_success: skip
-=======
-  - julia -e 'using Pkg; Pkg.add("Documenter")' &&
-  julia docs/make.jl
->>>>>>> 67771664e3ce222f91c3ff1f3c4da6a981734818
