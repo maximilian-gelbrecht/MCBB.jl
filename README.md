@@ -1,12 +1,10 @@
 Library and Script with Example to explore High Dimensional Bifurcations with sample and clustering based methods using Julia language.
 
-It uses Julia 1.0/1.1 (and is not backwards compatible to Julia < v0.7)
+It uses Julia 1.x (and is not backwards compatible to Julia < v0.7)
 
 # NEWS
 
-Most plots and cluster evaluation function have been rewritten to include plot recipes for easier plotting.
-
-Check out the documentation for detailed info, at `?cluster_membership`, `?MCBB.ClusterMembershipResult`, `?cluster_measures_sliding_histograms`, `?MCBB.ClusterMeasuresHistogramResult`, `?cluster_measures`, `?MCBB.ClusterMeasureResult`. 
+Moved to GitHub. Some things still need to be updated accordingly.
 
 # Install
 
