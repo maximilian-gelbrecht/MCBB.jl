@@ -11,7 +11,10 @@ using Clustering
 using DifferentialEquations
 using Distributions
 using StatsBase
-using PyPlot
+using Plots
+using Random
+import PyPlot
+Random.Random.seed!(13423);
 ```
 
 ## Logistic Map
@@ -32,7 +35,7 @@ N_ic = 5000;
 ```
 The parameters of our systems are supposed to be structs whose supertype is `DEParameters`, e.g. `struct my_par <: DEParameters end`. In this case, the logistic map and its parameters are already pre-made in the library:
 ```julia
-pars = logistic_parameters(r(1));
+pars = logistic_parameters(r());
 par_var = (:r,r);
 ```
 The tuple `par_var` contains the name of the parameter field to be changed as a symbol and the function how it should be changed. This tuple will be automatically converted to a [`ParameterVar`](@ref) which also could have been constructed directly. This can be needed for more complicated setups.
@@ -55,7 +58,7 @@ log_sol = solve(log_emcp);
 ```
 Subsequently, we calculate the distance matrix and cluster the results
 ```julia
-D_log = distance_matrix(log_sol, log_emcp, [1,0.75,0.5,1.]);
+D = distance_matrix(log_sol, log_emcp, [1,0.75,0.5,1.]);
 
 ```
 In order to determine the ``\epsilon`` parameter of DBSCAN we suggest one of three possibilities:
@@ -71,7 +74,7 @@ median(KNN_dist_relative(D))
 ```
 
 ```julia
-db_eps = 0.65
+db_eps = 0.04
 db_res = dbscan(D,db_eps,4)
 cluster_members = cluster_membership(log_emcp,db_res,0.005,0.001);
 plot(cluster_members)
@@ -87,17 +90,17 @@ Next, we will investigate the onset of synchronization in system of first order 
 ```julia
 N = 20
 K = 0.5
-nd = Normal(0.5, 0.2)
+nd = Normal(0.5, 0.1)
 w_i_par = rand(nd,N) # eigenfrequencies
 
-net = erdos_renyi(N, 0.25)
+net = erdos_renyi(N, 0.2)
 A = adjacency_matrix(net)
 
 ic = zeros(N)
 ic_dist = Uniform(-pi,pi)
 kdist = Uniform(0,5)
 ic_ranges = ()->rand(ic_dist)
-N_ics = 3000
+N_ics = 5000
 K_range = ()->rand(kdist)
 pars = kuramoto_network_parameters(K, w_i_par, N, A)
 
@@ -120,10 +123,11 @@ function eval_ode_run_kura(sol, i)
     global_eval_funcs = [k_order_parameter]
     eval_ode_run(sol, i, state_filter, eval_funcs, matrix_eval_funcs, global_eval_funcs, cyclic_setback=true)
 end
+```
 
 It is also possible to track measures that return matrices or arrays of different size from the 1-d length-`N` arrays, like cross-correlation or covariance with the `matrix_eval_funcs` keyword. See [`eval_ode_run`](@ref) for a detailed reference.
 
-```
+
 We set up the `DEMCBBProblem` again with
 ```julia
 tail_frac = 0.9  
@@ -133,10 +137,10 @@ kosol = solve(ko_mcp)
 and solve and analyze it. In this case we set the weight of the order parameter to zero as we only want to have it as a comparison for our results.
 
 ```julia
-D_k = distance_matrix(kosol, ko_mcp, [1.,0.75,0,1.], histograms=true); # no weight on the order_parameter and kl div
-db_eps = 110 # we found that value by scanning manually
-db_res = dbscan(D_k,db_eps,4)
-cluster_members = cluster_membership(ko_mcp,db_res,0.2,0.05);
+D_k = distance_matrix(kosol, ko_mcp, [1.,0.5,0,1.], histograms=true, k_bin=2); # no weight on the order_parameter
+db_eps = 1.15 # we found that value by scanning manually
+db_res = dbscan(D_k,db_eps,20)
+cluster_members = cluster_membership(ko_mcp,db_res,0.1,0.025);
 plot(cluster_members)
 ```
 ![Kuramoto Membership Diagram](img/kuramoto_member.png)
@@ -144,9 +148,7 @@ plot(cluster_members)
 In this plot we see the onset of synchronization clearly as three distinctive clusters.
 We can compare this to the order parameter that we calculated:
 ```julia
-plot(parameter(ko_mcp),get_measure(kosol,4))
-xlabel("Coupling K")
-ylabel("Order Parameter R");
+plot(parameter(ko_mcp),get_measure(kosol,3), xlabel="Coupling K", ylabel="Order Parameter R")
 ```
 ![Kuramoto Order Parameter](img/output_6_0.png)
 

@@ -3,7 +3,7 @@
 
 This page showcases introspective features of the libary.
 
-The example are First Order Kuramoto Oscillators with ``\mathcal{N}(0.5,0.2)`` distributed eigenfrequencies on a Erdos Renyi random network. Subsequently the coupling is increased as the free parameter. The basic setup is identical to the previous section.
+The example are First Order Kuramoto Oscillators with ``\mathcal{N}(0.5,0.1)`` distributed eigenfrequencies on a Erdos Renyi random network. Subsequently the coupling is increased as the free parameter. The basic setup is identical to the previous section.
 
 ```julia
 using MCBB
@@ -12,29 +12,30 @@ using Clustering
 using DifferentialEquations
 using Distributions
 using StatsBase
-import PyPlot
 using Plots
+using Random
+import PyPlot
+Random.Random.seed!(13423);
 ```
 
 ```julia
 N = 20
 K = 0.5
-nd = Normal(0.5, 0.2)
-w_i_par = rand(nd,N)
+nd = Normal(0.5, 0.1)
+w_i_par = rand(nd,N) # eigenfrequencies
 
-net = erdos_renyi(N, 0.25)
+net = erdos_renyi(N, 0.2)
 A = adjacency_matrix(net)
 
 ic = zeros(N)
 ic_dist = Uniform(-pi,pi)
 kdist = Uniform(0,5)
 ic_ranges = ()->rand(ic_dist)
-N_ics = 6000
+N_ics = 5000
 K_range = ()->rand(kdist)
 pars = kuramoto_network_parameters(K, w_i_par, N, A)
 
-# base problem
-rp = ODEProblem(kuramoto_network, ic, (0.,3000.), pars)
+rp = ODEProblem(kuramoto_network, ic, (0.,1000.), pars)
 
 # we also calculate the order parameter, we won't use it for clustering, but we'll use it as a check
 function k_order_parameter(u::AbstractArray)
@@ -46,7 +47,7 @@ end
 function eval_ode_run_kura(sol, i)
     N_dim = length(sol.prob.u0)
     state_filter = collect(1:N_dim)
-    eval_funcs = [empirical_1D_KL_divergence_hist]
+    eval_funcs = [mean, std]
     matrix_eval_funcs = []
     global_eval_funcs = [k_order_parameter]
     eval_ode_run(sol, i, state_filter, eval_funcs, matrix_eval_funcs, global_eval_funcs, cyclic_setback=true)
@@ -63,10 +64,10 @@ The results are sorted by parameter value, [`show_results`](@ref) shows only res
 ## Cluster Membership
 
 ```julia
-D_k = distance_matrix(kosol, ko_mcp, [1.,0.75,0.,0,1.]); # no weight on the order_parameter and kl div
-db_eps = 110 # we found that value by scanning manually
-db_res = dbscan(D_k,db_eps,4)
-cluster_members = cluster_membership(ko_mcp,db_res,0.2,0.05);
+D_k = distance_matrix(kosol, ko_mcp, [1.,0.5,0,1.], histograms=true, k_bin=2); # no weight on the order_parameter db_eps = 110 # we found that value by scanning manually
+db_eps = 1.15# we found that value by scanning manually
+db_res = dbscan(D_k,db_eps,20)
+cluster_members = cluster_membership(ko_mcp,db_res,0.1,0.025);
 plot(cluster_members)
 ```
 
@@ -79,28 +80,21 @@ plot(cluster_members)
 * here we plot the Order Parameter
 
 ```julia
-plot(parameter(ko_mcp),get_measure(kosol,4))
-xlabel("Coupling K")
-ylabel("Order Parameter R");
+plot(parameter(ko_mcp),get_measure(kosol,3), xlabel="Coupling K", ylabel="Order Parameter R")
 ```
 ![Kuramaoto Order Parameter](img/output_6_0.png)
 
 Or do this with a sliding window:
 ```julia
-p_wins, R_grid = measure_on_parameter_sliding_window(ko_mcp, kosol, 4, 0.2, 0.05);
-plot(p_wins,R_grid[1,1,:])
-xlabel("Coupling K")
-ylabel("Order Parameter R");
-title("Slding Window Order Parameter")
+p_wins, R_grid = measure_on_parameter_sliding_window(ko_mcp, kosol, 3, 0.2, 0.025);
+plot(p_wins,R_grid[1,1,:], xlabel="Coupling K", ylabel="Order Parameter R",title="Slding Window Order Parameter")
 ```
 ![Kuramoto Order Parameter Sliding Window](img/output_7_0.png)
 
 Of course we can also get the multidimensional measures
 
 ```julia
-plot(parameter(ko_mcp),get_measure(kosol,1))
-xlabel("Coupling K")
-ylabel("Mean");
+plot(parameter(ko_mcp),get_measure(kosol,1), xlabel="Coupling K", ylabel="Mean")
 ```
 ![Kuramoto Mean](img/output_8_0.png)
 
@@ -124,9 +118,9 @@ m2sd = cluster_measure_std(kosol, db_res, measure_2)
 
 SC = PyPlot.scatter(m1m, m2m, c=colororder[1:length(m1m)])
 PyPlot.errorbar(m1m, m2m, fmt="o", ms=0,ecolor=colororder, xerr=0.005*m1sd, yerr=0.1*m2sd)
-PyPlot.legend(SC, ("Noise","2","3","4","5","6","7","8","9","10","11"))
 PyPlot.xlabel("Average Mean")
 PyPlot.ylabel("Average Std")
+PyPlot.savefig("output_msk.png")
 ```
 
 ![Cluster Means and Stds](img/output_msk.png)
@@ -154,7 +148,7 @@ plot(cluster_meas_res, 1, 2, xlims=xlim_values, title="Means Cluster 2", xlabel=
 ![Kuramoto Cluster 2 Means](img/output_13_0.png)
 
 ```julia
-plot(cluster_meas_res, 1, 3, xlims=xlim_values, title="Means Cluster 2", xlabel="Coupling K")
+plot(cluster_meas_res, 1, 3, xlims=xlim_values, title="Means Cluster 3", xlabel="Coupling K")
 ```
 ![Kuramoto Cluster 3 Means](img/output_14_0.png)
 
@@ -172,7 +166,7 @@ print(cluster_ms[3,1,:])
 With the method [`get_trajectory`](@ref) we can get the full trajectory of an example trial within a certain cluster. This can help us get a further impression of the nature of the trajectories inside the cluster.
 
 ```julia
-IM = PyPlot.imshow(Matrix(get_trajectory(ko_mcp,kosol, db_res,0,only_sol=true)), aspect=4)
+IM = PyPlot.imshow(Matrix(get_trajectory(ko_mcp,kosol, db_res, 3,only_sol=true)), aspect=4)
 PyPlot.ylabel("Oscillator i")
 PyPlot.xlabel("Time")
 cb = PyPlot.colorbar(IM, orientation="horizontal")
@@ -221,12 +215,12 @@ cics = ClusterICSpaces(ko_mcp, kosol, db_res; min_par=1, max_par=4);
 ```
 
 ```julia
-plt[:hist](cics.cross_dim_stds[1], density=true, alpha=0.5, label="Cluster1")
-plt[:hist](cics.cross_dim_stds[2], density=true, alpha=0.5, label="Cluster2")
-plt[:hist](cics.cross_dim_stds[3], density=true, alpha=0.5, label="Cluster3")
-xlabel("Standard Deviation of all ICs in a run")
-ylabel("rel. Magnitude")
-legend();
+PyPlot.plt[:hist](cics.cross_dim_stds[1], density=true, alpha=0.5, label="Cluster1")
+PyPlot.plt[:hist](cics.cross_dim_stds[2], density=true, alpha=0.5, label="Cluster2")
+PyPlot.plt[:hist](cics.cross_dim_stds[3], density=true, alpha=0.5, label="Cluster3")
+PyPlot.xlabel("Standard Deviation of all ICs in a run")
+PyPlot.ylabel("rel. Magnitude")
+PyPlot.legend();
 ```
 ![Kuramoto Cross Dim IC](img/output_19_0.png)
 
@@ -257,17 +251,18 @@ x_locs = 0:(max_weight_maxima+0.05*max_weight_maxima):(sum(weight_maxima)+max_we
 centers = (edges[:,1:end-1] .+ edges[:,2:end]) ./ 2
 heights = diff(edges, dims=2)
 
-fig, ax = subplots()
+fig, ax = PyPlot.subplots()
 
 
 for i_hist=1:n_dim
     ax[:barh](centers[i_hist,:], weights[i_hist,:], height=heights[i_hist,:], left=x_locs[i_hist])
 end
 
-xlabel("IC Dimensions")
-ylabel("IC values")
+PyPlot.xlabel("IC Dimensions")
+PyPlot.ylabel("IC values")
 
 ax[:set_xticks](x_locs)
 ax[:set_xticklabels]([string(i) for i in ICPlot]);
 ```
+
 ![Kuramoto Histograms](img/output_21_0.png)

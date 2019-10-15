@@ -132,7 +132,7 @@ Subtype of [`ParameterVar`](@ref) that varies a lot of "hidden"/"background" par
 
     HiddenParameterVar(name::Symbol, f::Function, new_par, new_val, N_control_par::Int, N_hidden_par::Int, flag_repeat_hidden_pars::Bool=true)
 
-    * `f` : Is the function that returns the hidden parameters. Signature `(i)->pars[i,:]` or `()->pars[i,:]`. 
+    * `f` : Is the function that returns the hidden parameters. Signature `(i)->pars[i,:]` or `()->pars[i,:]`.
 """
 struct HiddenParameterVar <: AbstractHiddenParameterVar
     name::Symbol
@@ -990,7 +990,11 @@ function solve(prob::DEMCBBProblem, alg=nothing, N_t=400::Int, parallel_type=Ens
         solve_i_command = nothing
     else
         sol = solve(prob.p, alg, parallel_type, trajectories=prob.N_mc, dense=false, save_everystep=false, saveat=t_save, savestart=false, parallel_type=parallel_type; kwargs...)
-        solve_i_command = (prob_i) -> solve(prob_i, alg=alg, dense=false, save_everystep=false, saveat_t_save, savestart=false; kwargs...)
+        if alg==nothing
+            solve_i_command = (prob_i) -> solve(prob_i, dense=false, save_everystep=false, saveat=t_save, savestart=false; kwargs...)
+        else
+            solve_i_command = (prob_i) -> solve(prob_i, alg=alg, dense=false, save_everystep=false, saveat=t_save, savestart=false; kwargs...)
+        end
     end
 
     ___, N_dim = size(prob.ic)
