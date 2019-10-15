@@ -1,7 +1,7 @@
 name = "MCBB"
 uuid = "e96e44f0-e827-11e8-0ed4-0f2eba430555"
 authors = ["maximilian-gelbrecht <maximilian.gelbrecht@posteo.de>"]
-version = "0.5.0"
+version = "1.0.0"
 
 [deps]
 Clustering = "aaaa29a8-35af-508c-8bc3-b662a17a0fe5"
