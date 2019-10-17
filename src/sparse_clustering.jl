@@ -76,11 +76,12 @@ function NonzeroSparseMatrix(data::AbstractArray{T,2}, condition, default_value:
         V = zeros(T, N_guess)
 
         for i=1:size(data, 1)
-            for j=1:size(data, 2)
-                if condition(data[i,j])
+            for j=i:size(data, 2)
+                val = data[i,j]
+                if condition(val)
                     I[ii] = i
                     J[ii] = j
-                    V[ii] = data[i,j] - defval
+                    V[ii] = val - defval
                     ii += 1
 
                     if ii > N_guess
