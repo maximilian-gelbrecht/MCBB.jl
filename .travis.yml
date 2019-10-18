@@ -1,24 +1,4 @@
 language: julia
-
-os:
-  - linux
-
-julia:
-  - 1.2
-
-# Uncomment the following lines to allow failures on nightly julia
-# (tests will run but not make your overall status red)
-
-notifications:
-  email: true
-
-script: # the default script is equivalent to the following
-  - julia --project -e 'using Pkg; Pkg.build(); Pkg.test(; coverage=true)'
-  - julia -e 'using Pkg; Pkg.add(PackageSpec(name="Documenter", version="0.23"))' &&
-  julia docs/make.jl
-#  - julia -e 'using Pkg; Pkg.add("Coverage"); using Coverage; Codecov.submit(Codecov.process_folder())';
-
-language: julia
 os:
 - linux
 julia:
