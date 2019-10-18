@@ -1273,7 +1273,7 @@ function Base.sort!(cm::ClusterMembershipResult; ignore_first::Bool=false)
     N_cluster = size(cm.data)[end]
     Nc = zeros(N_cluster)
     for i=1:N_cluster
-        Nc[i] = sum(getindex(cm, [Colon() for i=1:(ndims(cm)-1)]..., i))
+        Nc[i] = sum(getindex(cm.data, [Colon() for i=1:(ndims(cm.data)-1)]..., i))
     end
     if ignore_first
         sortind = [1; (sortperm(Nc[2:end]).+1)]
@@ -1281,7 +1281,7 @@ function Base.sort!(cm::ClusterMembershipResult; ignore_first::Bool=false)
         sortind = sortperm(Nc)
     end
 
-    cm.data = getindex(tmp, [Colon() for i=1:(ndims(cm)-1)]..., sortind)
+    cm.data = getindex(tmp.data, [Colon() for i=1:(ndims(cm.data)-1)]..., sortind)
 end
 
 """
