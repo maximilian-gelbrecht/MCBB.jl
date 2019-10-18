@@ -132,7 +132,7 @@ function solve(prob::ContinuationProblem, N_t=400::Int, rel_transient_time::Floa
             end
         end
 
-        deprob = custom_problem_new_parameters(prob.prob, prob.par_range.new_par(prob.prob.p; Dict(prob.par_range.name => par_vector[istep])...))
+        deprob = remake(prob.prob, p=prob.par_range.new_par(prob.prob.p; Dict(prob.par_range.name => par_vector[istep])...))
 
         new_u0 = sol_i[end]
 
@@ -168,31 +168,4 @@ function solve(prob::ContinuationProblem, N_t=400::Int, rel_transient_time::Floa
     else
         return ContinuationSolution(sol, par_vector, prob.N, get_measure_dimensions(sol, N_dim)...)
     end
-end
-
-# with 1.0 eltype(p) reacts differently so that I got into problems with my struct based paramteres
-function custom_problem_new_parameters(prob::DiscreteProblem,p;kwargs...)
-  u0 = [prob.u0[i] for i in 1:length(prob.u0)]
-  tspan = (prob.tspan[1],prob.tspan[2])
-  DiscreteProblem{isinplace(prob)}(prob.f,u0,tspan,p;
-  callback = prob.callback,
-  kwargs...)
-end
-
-function custom_problem_new_parameters(prob::ODEProblem,p;kwargs...)
-  u0 = [prob.u0[i] for i in 1:length(prob.u0)]
-  tspan = (prob.tspan[1],prob.tspan[2])
-  ODEProblem{isinplace(prob)}(prob.f,u0,tspan,p,prob.problem_type;
-  callback = prob.callback,
-  kwargs...)
-end
-
-function custom_problem_new_parameters(prob::SDEProblem,p;kwargs...)
-  u0 = [prob.u0[i] for i in 1:length(prob.u0)]
-  tspan = (prob.tspan[1],prob.tspan[2])
-  SDEProblem{isinplace(prob)}(prob.f,prob.g,u0,tspan,p;
-  noise_rate_prototype = prob.noise_rate_prototype,
-  noise= prob.noise, seed = prob.seed,
-  callback = prob.callback,
-  kwargs...)
 end
