@@ -2,20 +2,18 @@
 using MCBB
 using DifferentialEquations
 using Distributions
-using LightGraphs
 using StatsBase
 using Clustering
 
 # common setup
-N = 6
+N = 4
 K = 0.5
 nd = Normal(0.5, 0.05) # distribution for eigenfrequencies # mean = 0.5Hz, std = 0.5Hz
 w_i_par = rand(nd,N)
-net = erdos_renyi(N, 0.2)
-A = adjacency_matrix(net)
+A = ones(N,N)
 ic = zeros(N)
 ic_dist = Uniform(-pi,pi)
-kdist = Uniform(0,10)
+kdist = Uniform(0,5)
 pars = kuramoto_network_parameters(K, w_i_par, N, A)
 rp = ODEProblem(kuramoto_network, ic, (0.,40.), pars)
 
@@ -37,7 +35,7 @@ ko_sol = solve(ko_emcp, Rosenbrock23())
 # random + range
 ic_ranges = ()->rand(ic_dist)
 k_range = 1.:0.5:3.
-N_ics = 20
+N_ics = 50
 
 ko_emcp = DEMCBBProblem(rp, ic_ranges, N_ics, pars, (:K, k_range), my_eval_ode_run, tail_frac)
 ko_sol = solve(ko_emcp)
@@ -85,7 +83,7 @@ cisc = ClusterICSpaces(ko_emcp, ko_sol, db_res)
 
 function eval_ode_run_filter(sol, i)
     N_dim = length(sol.prob.u0)
-    state_filter = collect(2:5)
+    state_filter = collect(2:4)
     eval_funcs = [mean, std]
     matrix_eval_funcs = [correlation_ecdf]
     global_eval_funcs = [(x)->sum(x)]
