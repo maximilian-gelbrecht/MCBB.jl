@@ -266,12 +266,6 @@ git-tree-sha1 = "07e7477cab0d2cd967061cfe29abc1674d956925"
 uuid = "c894b116-72e5-5b58-be3c-e6d8d4ac2b12"
 version = "6.0.0"
 
-[[DiffEqMonteCarlo]]
-deps = ["DiffEqBase", "Distributed", "RecursiveArrayTools", "StaticArrays", "Statistics"]
-git-tree-sha1 = "edffd3e114b5c2cad15e7790db6d82f69e3f42ae"
-uuid = "78ddff82-25fc-5f2b-89aa-309469cbf16f"
-version = "0.15.1"
-
 [[DiffEqNoiseProcess]]
 deps = ["DataStructures", "DiffEqBase", "LinearAlgebra", "Random", "RandomNumbers", "RecipesBase", "RecursiveArrayTools", "Requires", "ResettableStacks", "StaticArrays", "Statistics"]
 git-tree-sha1 = "f5333c0aa6208680e48cd24ae6f759c262a1cf85"
