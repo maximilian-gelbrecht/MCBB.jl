@@ -17,3 +17,16 @@ script: # the default script is equivalent to the following
   - julia -e 'using Pkg; Pkg.add(PackageSpec(name="Documenter", version="0.23"))' &&
   julia docs/make.jl
 #  - julia -e 'using Pkg; Pkg.add("Coverage"); using Coverage; Codecov.submit(Codecov.process_folder())';
+
+language: julia
+os:
+- linux
+julia:
+- 1.2
+notifications:
+  email: true
+
+script:
+- julia --check-bounds=yes --color=yes --inline=no -e "using Pkg; Pkg.test(coverage=true)"
+- julia -e 'using Pkg; Pkg.add("Documenter")' &&
+  julia docs/make.jl
