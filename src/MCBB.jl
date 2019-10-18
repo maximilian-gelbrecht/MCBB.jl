@@ -62,18 +62,13 @@ include("systems.jl")
 
 # all functions and methods needed to help you setup EnsembleProblems over the combined initial conditions - parameter space
 include("setup_mc_prob.jl")
-
-# all function needed to evaluate the solutions of the EnsembleProblem
 include("eval_mc_prob.jl")
 
 # all function and needed needed to evaluate (DBSCAN)-clustering
 include("eval_clustering.jl")
-
 include("bif_analysis.jl")
-
 include("custom_mc_prob.jl")
 include("bbclustering.jl")
 include("plots.jl")
-
 include("sparse_clustering.jl")
 end
