@@ -6,14 +6,12 @@ using DifferentialEquations
 using Distributions
 using StatsBase
 
-N = 15
+N = 5
 K = 0.5
 nd = Normal(0.5, 0.2)
 w_i_par = rand(nd,N)
 
-net = erdos_renyi(N, 0.25)
-A = adjacency_matrix(net)
-
+A = ones(N,N)
 ic = zeros(N)
 ic_dist = Uniform(-pi,pi)
 kdist = Uniform(0,5)
