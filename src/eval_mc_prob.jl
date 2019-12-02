@@ -11,7 +11,7 @@ import Distributions, StatsBase
 
 Evaluation functions for the `EnsembleProblem`. Given a set of measures the solution `sol` is evaluated seperatly per dimension. An additional set of global measures take in the complete solution and return a single number or a matrix. Handing over this function to `DEMCBBProblem` (and thus also to `EnsembleProblem`) the expected signature is `(sol, i::Int) -> (results, repeat::Bool)`. Here, there are several more general versions that can be adjusted to the experiment.
 
-    eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:Function,1}, matrix_eval_funcs::Union{AbstractArray, Nothing}=nothing, global_eval_funcs::Union{AbstractArray, Nothing}=nothing; failure_handling::Symbol=:None, cyclic_setback::Bool=false, replace_inf=nothing)
+    eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Array{<:Function,1}, matrix_eval_funcs::Union{AbstractArray, Nothing}=nothing, global_eval_funcs::Union{AbstractArray, Nothing}=nothing; failure_handling::Symbol=:None, cyclic_setback::Bool=false, replace_inf=nothing, flag_past_measures=false, state_filter_only_per_dim=false)
 
 * `sol`: solution of one of the EnsembleProblem runs, should have only timesteps with constant time intervals between them
 * `i`: Int, number of iteration/run
@@ -23,6 +23,7 @@ Evaluation functions for the `EnsembleProblem`. Given a set of measures the solu
 * `cyclic_setback`: Bool, if true ``N*2\\pi`` is substracted from the solution so that the first element of the solution that is analysed is within ``[-\\pi, \\pi]``. Usefull e.g. for phase oscillators.
 * `replace_inf`: Number or Nothing, if a number replaces all Infs in the solution with this number. Can be usefull if one still wants to distinguish between different solutions containing Infs, +Inf is replaced by the Number, -Inf by (-1)*Number.
 * `flag_past_measures::Bool`: If true als function within `eval_funcs` also receive the previous results (of the other measures for the same dimension) as an extra arguments. Thus all functions need to have a signature `(sol::AbstractArray, previous_results::AbstractArray) -> measure`. If false the functions only receive the solution vector, thus the function should have the signature `(sol::AbstractArray) -> measure`
+* `state_filter_only_per_dim`: Only per-dimension measures are affected by the `state_filter`.
 
 # Example function
 
@@ -43,7 +44,7 @@ If one wants to utilze the previous results (and don't compute measures twice), 
         N_dim = length(sol.prob.u0)
         state_filter = collect(1:N_dim)
         meanval(u::AbstractArray, past_measures::AbstractArray) = StatsBase.mean(u)
-        standarddev(u::AbstractArray, past_measures::AbstractArray) = StatsBase.std(u; mean=dim_measures[1], corrected=false)
+        standarddev(u::AbstractArray, past_measures::AbstractArray) = StatsBase.std(u; mean=past_measures[1], corrected=false)
         eval_funcs = [meanval, standarddev, empirical_1D_KL_divergence_hist]
         eval_ode_run(sol, i, state_filter, eval_funcs; flag_past_measures=true)
     end
@@ -71,7 +72,7 @@ Evaluation function that continues each integration and computes the same measur
 
 * all further keyword arguments will be handed over to `solve(prob::DEMCBBProblem, ...)`
 """
-function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::AbstractArray, matrix_eval_funcs::Union{AbstractArray, Nothing}=nothing, global_eval_funcs::Union{AbstractArray, Nothing}=nothing; failure_handling::Symbol=:None, cyclic_setback::Bool=false, replace_inf=nothing, flag_past_measures=false)
+function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::AbstractArray, matrix_eval_funcs::Union{AbstractArray, Nothing}=nothing, global_eval_funcs::Union{AbstractArray, Nothing}=nothing; failure_handling::Symbol=:None, cyclic_setback::Bool=false, replace_inf=nothing, flag_past_measures=false, state_filter_only_per_dim=false)
     N_dim = length(sol.prob.u0)
     N_dim_measures = length(eval_funcs)  # mean and var are always computed
 
@@ -146,6 +147,7 @@ function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Abstract
     matrix_measures = []
     global_measures = zeros(Float64, N_dim_global_measures)
     # per dimension measures
+
     for (ii, i_dim) in enumerate(state_filter)
         sol_i = sol[i_dim,2:end]
         if cyclic_setback
@@ -166,6 +168,10 @@ function eval_ode_run(sol, i, state_filter::Array{Int64,1}, eval_funcs::Abstract
                 dim_measures[i_meas][ii] = eval_funcs[i_meas](sol_i)
             end
         end
+    end
+
+    if state_filter_only_per_dim
+        state_filter = 1:N_dim
     end
 
     # measures using all dimensions
