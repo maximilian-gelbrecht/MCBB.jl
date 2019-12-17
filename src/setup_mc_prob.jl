@@ -355,12 +355,21 @@ DEMCBBProblem(p::DiffEqBase.DEProblem, ic_ranges::Array{T,1}, pars::DEParameters
 DEMCBBProblem(p::DiffEqBase.DEProblem, ic_gens::Function, N_ic::Int, pars::DEParameters, par_range_tuple::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function},Tuple{Symbol,Union{AbstractArray,Function}}}, eval_ode_func::Function, tail_frac::Number) = DEMCBBProblem(p, ic_gens, N_ic, pars, OneDimParameterVar(par_range_tuple...), eval_ode_func, tail_frac)
 DEMCBBProblem(p::DiffEqBase.DEProblem, ic_gens::Union{Array{<:Function,1},Function}, N_ic::Int, pars::DEParameters, par_range_tuple::Union{Tuple{Symbol,Union{AbstractArray,Function} ,<:Function},Tuple{Symbol,Union{AbstractArray,Function}}}, eval_ode_func::Function) = DEMCBBProblem(p,ic_gens,N_ic,pars,OneDimParameterVar(par_range_tuple...),eval_ode_func)
 
+"""
+    save(p::DEMCBBProblem, file_name::String)
 
+Saves `p`. It uses `JLD2`, but it does not fully save every single function contained in `p`. This makes it a bit less errorprone to some loading/saving problems that `JLD2` seems to have. The file has to be loaded with [`load_prob`](@ref).
+"""
 function save(p::DEMCBBProblem, file_name::String)
     N_mc, rel_transient_time, ic, par = p.N_mc, p.rel_transient_time, p.ic, p.par
     JLD2.@save file_name N_mc rel_transient_time ic par
 end
 
+"""
+    load_prob(file_name::String, base_problem::DiffEqBase.DEProblem, eval_func::Function, par_var)
+
+Loads a [`DEMCBBProblem`](@ref), that was saved via [`save`](@ref). The routine needs some additional information to fully recover all functions.
+"""
 function load_prob(file_name::String, base_problem::DiffEqBase.DEProblem, eval_func::Function, par_var)
     JLD2.@load file_name N_mc rel_transient_time ic par
 
@@ -442,14 +451,22 @@ struct DEMCBBSol <: MCBBSol
     solve_command::Function
 end
 
+"""
+    save(sol::DEMCBBSol, file_name::String)
+
+Saves `sol`. It uses `JLD2`, but it does not fully save every single function contained in `sol`. This makes it a bit less errorprone to some loading/saving problems that `JLD2` seems to have. The file has to be loaded with [`load_sol`](@ref).
+"""
 function save(sol::DEMCBBSol, file_name::String)
     sol, N_mc, N_t, N_dim, N_meas, N_meas_dim, N_meas_global, N_meas_matrix = sol.sol, sol.N_mc, sol.N_t, sol.N_dim, sol.N_meas, sol.N_meas_dim, sol.N_meas_global, sol.N_meas_matrix
 
     JLD2.@save file_name sol N_mc N_t N_dim N_meas N_meas_dim N_meas_global N_meas_matrix
-
 end
 
+"""
+    load_sol(file_name::String)
 
+Loads a [`DEMCBBSol`](@ref), that was saved via [`save`](@ref).
+"""
 function load_sol(file_name::String)
     JLD2.@load file_name sol N_mc N_t N_dim N_meas N_meas_dim N_meas_global N_meas_matrix
 

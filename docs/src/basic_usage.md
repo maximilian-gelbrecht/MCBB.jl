@@ -208,6 +208,10 @@ works as the parameter type. See [`DEParameters`](@ref) and subsequent doc strin
 
 It is also possible to investigate setups that have many hidden/background parameters and one/two control parameters. The hidden/background parameters are then treated similar to initial conditions and are randomly generated for each control parameter. See [`HiddenParameterVar`](@ref) and [`DEMCBBProblem`](@ref) for more infos.
 
+## Saving & Loading
+
+`BSON` and `JLD2` provide easy ways to save and load problem and solutions objects. However sometimes they can be a bit errorprone. If one encounters these kind of errors while loading saved JLD objects, one can also used the [`save`](@ref), [`load_prob`](@ref) and [`load_sol`](@ref) routines.
+
 ## Tips & Tricks
 
 The method relies on random sampling, if you want to share scripts or notebooks and reliably get the same results, you should use a constant seed for the RNG with
