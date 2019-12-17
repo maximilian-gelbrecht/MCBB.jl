@@ -6,6 +6,7 @@ import DifferentialEquations.solve # this needs to be directly importet in order
 using Parameters
 import Base.sort, Base.sort!, Base.zero
 import LinearAlgebra.normalize
+using JLD2
 
 """
     ParameterVar
@@ -354,6 +355,30 @@ DEMCBBProblem(p::DiffEqBase.DEProblem, ic_ranges::Array{T,1}, pars::DEParameters
 DEMCBBProblem(p::DiffEqBase.DEProblem, ic_gens::Function, N_ic::Int, pars::DEParameters, par_range_tuple::Union{Tuple{Symbol,Union{AbstractArray,Function},<:Function},Tuple{Symbol,Union{AbstractArray,Function}}}, eval_ode_func::Function, tail_frac::Number) = DEMCBBProblem(p, ic_gens, N_ic, pars, OneDimParameterVar(par_range_tuple...), eval_ode_func, tail_frac)
 DEMCBBProblem(p::DiffEqBase.DEProblem, ic_gens::Union{Array{<:Function,1},Function}, N_ic::Int, pars::DEParameters, par_range_tuple::Union{Tuple{Symbol,Union{AbstractArray,Function} ,<:Function},Tuple{Symbol,Union{AbstractArray,Function}}}, eval_ode_func::Function) = DEMCBBProblem(p,ic_gens,N_ic,pars,OneDimParameterVar(par_range_tuple...),eval_ode_func)
 
+
+function save(p::DEMCBBProblem, file_name::String)
+    N_mc, rel_transient_time, ic, par = p.N_mc, p.rel_transient_time, p.ic, p.par
+    JLD2.@save file_name N_mc rel_transient_time ic par
+end
+
+function load_prob(file_name::String, base_problem::DiffEqBase.DEProblem, eval_func::Function, par_var)
+    JLD2.@load file_name N_mc rel_transient_time ic par
+
+    if typeof(par_var) <: ParameterVar
+        par_var = par_var
+    else
+        par_var = OneDimParameterVar(par_var...)
+    end
+
+    N_dim_ic = size(ic, 2)
+    parameters = base_problem.p
+
+    ic_coupling_problem = define_new_problem(base_problem, ic, par, parameters, N_dim_ic, par_var)
+    mcp = EnsembleProblem(base_problem, prob_func=ic_coupling_problem, output_func=eval_func)
+
+    DEMCBBProblem(mcp, N_mc, rel_transient_time, ic, par, par_var)
+end
+
 """
     parameter(p::DEMCBBProblem, i::Int=1; complex_returns_abs=true)
 
@@ -415,6 +440,22 @@ struct DEMCBBSol <: MCBBSol
     N_meas_global::Int
     N_meas_matrix::Int
     solve_command::Function
+end
+
+function save(sol::DEMCBBSol, file_name::String)
+    sol, N_mc, N_t, N_dim, N_meas, N_meas_dim, N_meas_global, N_meas_matrix = sol.sol, sol.N_mc, sol.N_t, sol.N_dim, sol.N_meas, sol.N_meas_dim, sol.N_meas_global, sol.N_meas_matrix
+
+    JLD2.@save file_name sol N_mc N_t N_dim N_meas N_meas_dim N_meas_global N_meas_matrix
+
+end
+
+
+function load_sol(file_name::String)
+    JLD2.@load file_name sol N_mc N_t N_dim N_meas N_meas_dim N_meas_global N_meas_matrix
+
+    solve_command(prob) = (println("no specialized solve command in JLD2 saved file, using default solve command"); solve(prob))
+
+    DEMCBBSol(sol, N_mc, N_t, N_dim, N_meas, N_meas_dim, N_meas_global, N_meas_matrix, solve_command)
 end
 
 """
@@ -656,6 +697,12 @@ function define_new_problem(prob, ic::AbstractArray, par::AbstractArray, paramet
     end
     new_problem
 end
+
+# without repeat check
+define_new_problem(prob, ic::AbstractArray, par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, var_par::ParameterVar) = (prob, i, repeat) -> remake(prob; u0=ic[i,:], p=var_par(parameters; _new_val_dict(var_par, par, N_dim_ic, i)...))
+
+define_new_problem(prob, ic::AbstractArray, par::AbstractArray, parameters::DEParameters, N_dim_ic::Int, var_par::Union{HiddenParameterVar, MultiDimHiddenParameterVar}) = (prob, i, repeat) -> remake(prob; u0=ic[i,:], p=var_par(i; _new_val_dict(var_par, par, N_dim_ic, i)...))
+
 
 """
     _new_val_dict(var_par::ParameterVar, par::AbstractArray, N_dim_ic::Int, i::Int)
