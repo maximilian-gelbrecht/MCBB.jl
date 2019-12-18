@@ -210,7 +210,7 @@ It is also possible to investigate setups that have many hidden/background param
 
 ## Saving & Loading
 
-`BSON` and `JLD2` provide easy ways to save and load problem and solutions objects. However sometimes they can be a bit errorprone. If one encounters these kind of errors while loading saved JLD objects, one can also used the [`save`](@ref), [`load_prob`](@ref) and [`load_sol`](@ref) routines.
+`BSON` and `JLD2` provide easy ways to save and load problem, solutions and distance matrix objects. However sometimes they can be a bit errorprone espacially when functions are part of the object as is the case within MCBB. If one encounters these kind of errors while loading the saved JLD objects, one can also used the [`save`](@ref), [`load_prob`](@ref), [`load_sol`](@ref), [`load_D`](@ref) and [`load_D_hist`](@ref) routines. They rely on JLD2 as well, but they don't save the function. These are then needed for loading the objects again, though. 
 
 ## Tips & Tricks
 

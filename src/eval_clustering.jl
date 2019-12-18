@@ -84,6 +84,46 @@ _distance_func(D::DistanceMatrixHist) = D.histogram_distance
 Clustering.dbscan(dm::AbstractDistanceMatrix{T}, eps::Number, k::Int) where T<:Number = dbscan(dm.data, eps, k)
 
 """
+    save(dm::DistanceMatrixHist, file_name::String)
+    save(dm::DistanceMatrix, file_name::String)
+
+Saves the distance matrix. It does not save the functions with are part of the struct to avoid errors sometimes caused when loading/saving the object direclty with JLD2. An object saved like this needs to be loaded with [`load_D`](@ref) or [`load_D_hist`](@ref).
+"""
+function save(dm::DistanceMatrixHist, file_name::String)
+    data, weights, relative_parameter, hist_edges, bin_width, ecdf, k_bin = dm.data, dm.weights, dm.relative_parameter, dm.hist_edges, dm.bin_width, dm.ecdf, dm.k_bin
+
+    JLD2.@save file_name data weights relative_parameter hist_edges bin_width ecdf k_bin
+end
+
+function save(dm::DistanceMatrix, file_name::String)
+    data, weights, relative_parameter = dm.data, dm.weights, dm.relative_parameter
+
+    JLD2.@save file_name data weights relative_parameter
+end
+
+"""
+    load_D_hist(file_name::String; distance_func=(x,y)->sum(abs.(x .- y)), matrix_distance_func=nothing, histogram_distance=wasserstein_histogram_distance)
+
+Loads a distance matrix which was computed using the histogram method. Needs all functions that were used to compute the distance matrix orignally.
+"""
+function load_D_hist(file_name::String; distance_func=(x,y)->sum(abs.(x .- y)), matrix_distance_func=nothing, histogram_distance=wasserstein_histogram_distance)
+    JLD2.@load file_name data weights relative_parameter hist_edges bin_width ecdf k_bin
+
+    DistanceMatrixHist(data, weights, distance_func, matrix_distance_func, relative_parameter, histogram_distance, hist_edges, bin_width, ecdf, k_bin)
+end
+
+"""
+    load_D(file_name::String; distance_func=(x,y)->sum(abs.(x .- y)), matrix_distance_func=nothing)
+
+Loads a distance matrix which was computed without the histogram method. Needs all functions that were used to compute the distance matrix orignally.
+"""
+function load_D(file_name::String; distance_func=(x,y)->sum(abs.(x .- y)), matrix_distance_func=nothing)
+    JLD2.@load file_name data weights relative_parameter
+
+    DistanceMatrix(data, weights, distance_func, matrix_distance_func, relative_parameter)
+end
+
+"""
      distance_matrix(sol::myMCSol, prob::myMCProblem, distance_func::Function, weights::AbstractArray; matrix_distance_func::Union{Function, Nothing}=nothing, histogram_distance_func::Union{Function, Nothing}=wasserstein_histogram_distance, relative_parameter::Bool=false, histograms::Bool=false, use_ecdf::Bool=true, k_bin::Number=1, bin_edges::AbstractArray)
 
 Calculate the distance matrix between all individual solutions.

@@ -30,4 +30,6 @@ measure_on_parameter_sliding_window
 k_dist(D::AbstractArray, k::Int=4)
 KNN_dist
 KNN_dist_relative
+load_D
+load_D_hist
 ```
