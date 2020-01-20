@@ -1,6 +1,6 @@
 Library and Script with Example to explore High Dimensional Bifurcations with sample and clustering based methods using Julia language.
 
-It uses Julia 1.x (CI/CD test with Julia 1.2).
+It uses Julia 1.x (CI/CD test with Julia 1.3).
 It is not backwards compatible to Julia < v0.7
 
 [![Build Status](https://travis-ci.com/maximilian-gelbrecht/MCBB.jl.svg?branch=master)](https://travis-ci.com/maximilian-gelbrecht/MCBB.jl/branches)

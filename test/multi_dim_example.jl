@@ -23,6 +23,8 @@ std_range = (i)->rand(Uniform(0.0,0.75))
 new_kura_par(old_par; K=1, std=0.2) = kuramoto_network_parameters(K, rand(Normal(0.5, std), N), N, A)
 par_var = MultiDimParameterVar([OneDimParameterVar(:K,K_range),OneDimParameterVar(:std,std_range)], new_kura_par)
 
+par_var = MultiDimParameterVar([(:K,K_range),(:std,std_range)], new_kura_par)
+
 pars = kuramoto_network_parameters(K, w_i_par, N, A)
 
 # base problem

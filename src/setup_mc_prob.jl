@@ -235,6 +235,8 @@ MultiDimParameterVar(data::Array{HiddenParameterVar,1}, func::Function) = MultiD
 MultiDimParameterVar(parvar::ParameterVar, func::Function) = MultiDimParameterVar([parvar], func)
 MultiDimParameterVar(parvar::ParameterVar) = MultiDimParameterVar(parvar, reconstruct)
 
+MultiDimParameterVar(data::Array{<:Tuple, 1}, func::Function) = MultiDimParameterVar([OneDimParameterVar(data[i]...) for i=1:length(data)], func)
+
 """
     getindex(parvar::MultiDimParameterVar, i::Int)
 
