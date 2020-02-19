@@ -311,9 +311,13 @@ All arguments are identical to the other constructor except for:
 * `ic_ranges`: A range/array or array of ranges/arrays with initial conditions for each trial. If only one range/array is provided its used for all IC dims.
 * Note that there is _no_ `N_ic` argument in constrast to the other constructor
 
-## Hidden / Background Parameter Problem with Identical ICs
+## Hidden / Background Parameter Problem
 
-In case we are varying `hidden`/`background` parameters at each trial and keep the ICs constant, we can use the regular call
+In case we are varying `hidden`/`background` parameters at each trial and , we can use the regular calls above, just with the parameter variation given by a [`HiddenParameterVar`](@ref).
+
+### Hidden / Background Parameter Problem with Identical ICs
+
+It is also possible to use the same IC for all trials with background parameters with
 
     DEMCBBProblem(p::DiffEqBase.DEProblem, ics::Array{Number,1}, pars::DEParameters, par_range_tuple::HiddenParameterVar, eval_ode_func::Function, tail_frac::Number)
 
@@ -814,7 +818,7 @@ Methods that compute `ic` and `par`, (``N_{mc} \\times (N_{dim_{ic}} + N_{par})`
 
 * `N_dim_ic`: system dimension
 * `N_dim`: system dimension + number of parameters that are varied
-* `ic_gens`: A function or an array of functions that generate the initial conditions for each trial.  Function signature is `()->new_value::Number`. If only one function is provided its used for all IC dims, if ``M<N_{dim}`` functions with ``N_{dim}=k\\cdot M`` are provided these functions are repeated ``k`` times (useful e.g. for coupled chaotic oscillators).
+* `ic_gens`: A function or an array of functions that generate the initial conditions for each trial.  Function signature is `()->new_value::Number` or ()->new_value::Array. If only one function is provided its used for all IC dims, if ``M<N_{dim}`` functions with ``N_{dim}=k\\cdot M`` are provided these functions are repeated ``k`` times (useful e.g. for coupled chaotic oscillators).
 * `var_par`: `ParameterVar`, either `MultiDimParameterVarFunc` or `ParameterVarFunc`
 
 # Initial Conditions random, Parameters from arrays/ranges
@@ -828,7 +832,7 @@ If the parameters are varied along arrays/ranges and the initial conditions are 
 * `ic_gens`: A function or an array of functions that generate the initial conditions for each trial.  Function signature is `()->new_value::Number`. If only one function is provided its used for all IC dims, if ``M<N_{dim}`` functions with ``N_{dim}=k\\cdot M`` are provided these functions are repeated ``k`` times (useful e.g. for coupled chaotic oscillators).
 * `var_par`: `ParameterVar`, either `MultiDimParameterVarArray` or `ParameterVarArray`
 """
-_ic_par_matrix(N_dim_ic::Int, N_dim::Int, ic_ranges::Array{<:AbstractArray,1}, var_par::ParameterVarArray) = _ic_par_matrix(N_dim_ic, N_dim, ic_ranges, MultiDimParameterVar(var_par))
+_ic_par_matrix(N_dim_ic::Int, N_dim::Int, ic_ranges::Array{<:AbstractArray,1}, var_par::Union{ParameterVarArray, HiddenParameterVar}) = _ic_par_matrix(N_dim_ic, N_dim, ic_ranges, MultiDimParameterVar(var_par))
 function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, ic_ranges::Array{T,1}, var_par::Union{MultiDimParameterVarArray, MultiDimHiddenParameterVar}) where T <: AbstractArray
     N_ic_pars = zeros(Int, N_dim)
     for (i_range, ic_range) in enumerate(ic_ranges)
@@ -859,14 +863,15 @@ function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, ic_ranges::Array{T,1}, var_pa
              par[i_mc, i_par] = var_par[i_par].new_val(i_ci[N_dim_ic+i_par])
          end
     end
-    (ic, par, N_mc)
+
+    (ic, _check_hiddenparvar(var_par, par, N_mc), N_mc)
 end
 
 # helper function for setup_ic_par_mc_problem()
 
 # uses random generators for IC and Parameter
-_ic_par_matrix(N_dim_ic::Int, N_dim::Int, N_ic::Int, ic_gens::Array{<:Function,1},  var_par::ParameterVarFunc) = _ic_par_matrix(N_dim_ic, N_dim, N_ic, ic_gens, MultiDimParameterVar(var_par))
-function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, N_ic::Int, ic_gens::Array{<:Function,1},  var_par::MultiDimParameterVarFunc)
+_ic_par_matrix(N_dim_ic::Int, N_dim::Int, N_ic::Int, ic_gens::Array{<:Function,1},  var_par::Union{ParameterVarFunc, HiddenParameterVar}) = _ic_par_matrix(N_dim_ic, N_dim, N_ic, ic_gens, MultiDimParameterVar(var_par))
+function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, N_ic::Int, ic_gens::Array{<:Function,1},  var_par::Union{MultiDimParameterVarFunc,MultiDimHiddenParameterVar})
     N_gens = length(ic_gens) # without the parameter geneartor
     if N_dim_ic % (N_gens) != 0
         err("Number of initial cond. genators and Number of initial cond. doesn't fit together")
@@ -900,7 +905,7 @@ function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, N_ic::Int, ic_gens::Array{<:F
             end
         end
     end
-    (ic, par, N_ic)
+    (ic, _check_hiddenparvar(var_par, par, N_ic), N_ic)
 end
 
 # helper function for setup_ic_par_mc_problem()
@@ -926,7 +931,6 @@ function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, N_ic::Int, ic_gens::Array{T,1
             ics[i_ic, 1:N_dim_ic] = ic_gens[1](i_ic)
         end
         ic = zeros(eltype(ic_gens[1](1)),(N_mc, N_dim_ic))
-        par = zeros(typeof(var_par[1].new_val(1)),(N_mc, length(var_par)))
     else
         # ics per dim
         ics = zeros(typeof(ic_gens[1](1)),(N_ic, N_dim_ic))
@@ -938,8 +942,8 @@ function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, N_ic::Int, ic_gens::Array{T,1
             end
         end
         ic = zeros(typeof(ic_gens[1](1)),(N_mc, N_dim_ic))
-        par = zeros(typeof(var_par[1].new_val(1)),(N_mc, length(var_par)))
     end
+    par = zeros(typeof(var_par[1].new_val(1)),(N_mc, length(var_par)))
 
     for (i_mc, i_ci) in enumerate(CartesianIndices(N_ic_pars))
         ic[i_mc,:] = ics[i_ci[1],:]
@@ -947,7 +951,7 @@ function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, N_ic::Int, ic_gens::Array{T,1
             par[i_mc, i_par] = var_par[i_par].new_val(i_ci[2])
         end
     end
-    (ic, par, N_mc)
+    (ic, _check_hiddenparvar(var_par, par, N_mc), N_mc)
 end
 
 # struct identical ics , pseudo matrix
@@ -975,8 +979,34 @@ Base.setindex!(ics::IdenticalICs,v,i::Int, j::Int) = setindex!(ics.data,v,j)
 # for HiddenParameterVar _ic_par_matrix
 
 # TEST THIS
-_ic_par_matrix(N_dim_ic::Int, N_dim::Int, ics::AbstractArray,  var_par::HiddenParameterVar) = _ic_par_matrix(N_dim_ic, N_dim, ics, MultiDimParameterVar(var_par))
-function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, ics::AbstractArray,  var_par::MultiDimHiddenParameterVar)
+_ic_par_matrix(N_dim_ic::Int, N_dim::Int, ics::AbstractArray, var_par::HiddenParameterVar) = _ic_par_matrix(N_dim_ic, N_dim, ics, MultiDimParameterVar(var_par))
+function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, ics::AbstractArray, var_par::MultiDimHiddenParameterVar)
+    par, N_mc = _generate_pars(var_par)
+    (IdenticalICs(ics, N_mc), par, N_mc)
+end
+
+# completely split the par computation in extra routines. THIS WAY THE other ic_par_matricx routines can do be reused
+
+"""
+helper function for the _ic_par_matrix functions. Checks if the var_par is a HiddenParameterVar. If so, it overwrites returns new parameter values accordning to the hiddenparametervar. If not, it just returns the input parameters
+"""
+function _check_hiddenparvar(var_par::MultiDimHiddenParameterVar, par, N_mc)
+    par, N_mc_hidden = _generate_pars(var_par)
+
+    if N_mc != N_mc_hidden
+        error("The number of trials set through the hidden/background parameter configuration and the initial conditions configurations does not agree. They have to be equal!")
+    end
+
+    return par
+end
+_check_hiddenparvar(var_par::ParameterVar, par, N_mc) = par
+
+
+"""
+computes the parameter values when a HiddenParameterVar is handed over for the different _ic_par_matrix routines.
+"""
+_generate_pars(var_par::HiddenParameterVar) = _generate_pars(MultiDimParameterVar(var_par))
+function _generate_pars(var_par::MultiDimHiddenParameterVar)
 
     if var_par[1].flag_repeat_hidden_pars
         N_mc = var_par[1].N_control_par * var_par[1].N_hidden_par
@@ -986,9 +1016,8 @@ function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, ics::AbstractArray,  var_par:
 
     par = zeros(typeof(var_par[1].new_val(1)), (N_mc, length(var_par)))
 
-    par_vals = zeros(typeof(var_par[1].new_val(1)), length(var_par))
-
     if var_par[1].flag_repeat_hidden_pars
+        par_vals = zeros(typeof(var_par[1].new_val(1)), length(var_par))
         for i_par=1:length(var_par)
             par_vals[i_par] = var_par[i_par].new_val(1)
         end
@@ -1009,8 +1038,12 @@ function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, ics::AbstractArray,  var_par:
             end
         end
     end
-    (IdenticalICs(ics, N_mc), par, N_mc)
+
+    (par, N_mc)
 end
+# for HiddenParameterVar but with regular random ICs
+
+
 
 
 """
