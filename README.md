@@ -13,7 +13,7 @@ Moved to GitHub. Some things still need to be updated accordingly.
 
 # Paper
 
-A paper describing the article was just submitted to the arXiv (Link will follow). If you use this package, please always cite this paper.
+A paper describing the article was is published in New Journal of Physics (Open Access) http://dio.org/10.1088/1367-2630/ab7a05
 
 # Documentation
 

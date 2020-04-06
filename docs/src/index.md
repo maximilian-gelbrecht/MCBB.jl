@@ -6,7 +6,7 @@ end
 ```
 # Idea
 
-Here, there will be a desciption of the basic idea and aim of the package and a link to the paper describing the method.
+To get a general idea what MCBB.jl is about, it is recommended to read the paper detailing the method, its motiviation and some application in New Journal of Physics (Open Access) http://dio.org/10.1088/1367-2630/ab7a05
 
 # Contents
 
