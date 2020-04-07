@@ -13,7 +13,7 @@ Moved to GitHub. Some things still need to be updated accordingly.
 
 # Paper
 
-A paper describing the article was is published in New Journal of Physics (Open Access) http://dio.org/10.1088/1367-2630/ab7a05
+A paper describing the article was is published in New Journal of Physics (Open Access) http://doi.org/10.1088/1367-2630/ab7a05
 
 # Documentation
 
