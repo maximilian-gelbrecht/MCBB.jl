@@ -81,7 +81,7 @@ Base.setindex!(dm::AbstractDistanceMatrix, v, I::Vararg) = setindex!(dm.data, v,
 Base.convert(::AbstractArray{T,2}, dm::AbstractDistanceMatrix{T}) where T<:Number = dm.data
 _distance_func(D::DistanceMatrixHist) = D.histogram_distance
 
-Clustering.dbscan(dm::AbstractDistanceMatrix{T}, eps::Number, k::Int) where T<:Number = dbscan(dm.data, eps, k)
+Clustering.dbscan(dm::AbstractDistanceMatrix{T}, eps::Real, k::Int) where T<:Number = dbscan(dm.data, eps, k)
 
 """
     save(dm::DistanceMatrixHist, file_name::String)
@@ -1231,7 +1231,7 @@ function cluster_membership(prob::myMCProblem, clusters::ClusteringResult, windo
         end
         for i_cluster=1:N_cluster
             if normalize
-                memberships[ic,i_cluster] ./= N_c_i
+                memberships[ic,i_cluster] = memberships[ic,i_cluster] ./ N_c_i
             end
         end
 
