@@ -6,9 +6,9 @@ using StatsBase
 using Clustering
 
 # common setup
-N = 4
+N = 5
 K = 0.5
-nd = Normal(0.5, 0.05) # distribution for eigenfrequencies # mean = 0.5Hz, std = 0.5Hz
+nd = Normal(0.5, 0.01) # distribution for eigenfrequencies # mean = 0.5Hz, std = 0.5Hz
 w_i_par = rand(nd,N)
 A = ones(N,N)
 ic = zeros(N)
@@ -35,7 +35,7 @@ ko_sol = solve(ko_emcp, Rosenbrock23())
 # random + range
 ic_ranges = ()->rand(ic_dist)
 k_range = 1.:0.5:3.
-N_ics = 50
+N_ics = 150
 
 ko_emcp = DEMCBBProblem(rp, ic_ranges, N_ics, pars, (:K, k_range), my_eval_ode_run, tail_frac)
 ko_sol = solve(ko_emcp)
@@ -63,16 +63,16 @@ k_range = (i)->rand(kdist)
 ko_emcp = DEMCBBProblem(rp, ic_ranges, N_ics, pars, (:K, k_range), eval_ode_run_all_test, tail_frac)
 ko_sol = solve(ko_emcp)
 
-D = distance_matrix(ko_sol, ko_emcp, [1.,0.5,1.,1.,1], histograms=true, matrix_distance_func=wasserstein_histogram_distance);
+D = distance_matrix(ko_sol, ko_emcp, [1.,0.5,1.,1.,1], histograms=true, matrix_distance_func=wasserstein_histogram_distance,nbin_default=5);
 
-D = distance_matrix(ko_sol, ko_emcp, [1.,0.5,1.,1.,1], matrix_distance_func=wasserstein_histogram_distance);
+D = distance_matrix(ko_sol, ko_emcp, [1.,0.5,1.,1.,1], matrix_distance_func=wasserstein_histogram_distance,nbin_default=5);
 k = 4
-fdist = k_dist(D,k);
+#fdist = k_dist(D,k);
 
 
 
 # analysis
-db_eps = 1
+db_eps = 1000
 db_res = dbscan(D,db_eps,k)
 cluster_meas = cluster_means(ko_sol,db_res);
 cluster_n = cluster_n_noise(db_res);
@@ -97,7 +97,7 @@ D = distance_matrix(ko_sol, ko_emcp, [1.,0.5,1.,1.,1], histograms=true, matrix_d
 
 D_sparse = MCBB.distance_matrix_sparse(ko_sol, ko_emcp, [1.,0.5,1.,1.,1], histograms=true, matrix_distance_func=wasserstein_histogram_distance, sparse_threshold=1.)
 
-db_eps = 1
+db_eps = 100
 db_res = dbscan(D,db_eps,k)
 cluster_meas = cluster_means(ko_sol,db_res);
 cluster_n = cluster_n_noise(db_res);
