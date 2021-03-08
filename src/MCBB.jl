@@ -14,6 +14,22 @@ Abstract type for all problem types defined in this library. Note that the Diffe
 """
 abstract type myMCSol end
 
+"""
+    ParameterVar
+
+Parameter Variation types, these structs holds information about the parameters and how they should be varied. For many cases this struct is automaticlly initialized when calling `DEMCBBProblem` with appropiate Tuples. It assumes that the parameters are itself structs most commonly with a field that has to be varied.
+
+# Type Hierachy
+* `OneDimParameterVar, MultiDimParameterVar <: ParameterVar`
+* `ParameterVarArray, ParameterVarFunc <: OneDimParameterVar`
+* `MulitDimParameterVarArray, MultiDimParameterVarFunc <: MultiDimParameterVar`
+* `AbstractSolverParameterVar <: ParameterVar`
+"""
+abstract type ParameterVar end
+
+abstract type AbstractSolverParameterVar <: ParameterVar end
+
+
 # export all functions declared
 export kuramoto_parameters, kuramoto, kuramoto_network_parameters, kuramoto_network, logistic_parameters, logistic, henon_parameters, henon, roessler_parameters, roessler_network, lotka_volterra, lotka_volterra_parameters, second_order_kuramoto_chain, second_order_kuramoto_chain_parameters, remake_second_order_kuramoto_chain_paramaters
 export second_order_kuramoto, second_order_kuramoto_parameters
@@ -57,8 +73,11 @@ export AbstractDistanceMatrix, DistanceMatrix, DistanceMatrixHist
 export ClusterMembershipResult, ClusterMeasureResult, ClusterMeasureHistogramResult
 export distance_matrix_sparse, distance_matrix_mmap
 export NonzeroSparseMatrix
+export SolverParameterVar
 # Contains example systems
 include("systems.jl")
+include("solver_parametervar.jl")
+
 
 # all functions and methods needed to help you setup EnsembleProblems over the combined initial conditions - parameter space
 include("setup_mc_prob.jl")

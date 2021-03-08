@@ -8,17 +8,6 @@ import Base.sort, Base.sort!, Base.zero
 import LinearAlgebra.normalize
 using JLD2
 
-"""
-    ParameterVar
-
-Parameter Variation types, these structs holds information about the parameters and how they should be varied. For many cases this struct is automaticlly initialized when calling `DEMCBBProblem` with appropiate Tuples. It assumes that the parameters are itself structs most commonly with a field that has to be varied.
-
-# Type Hierachy
-* `OneDimParameterVar, MultiDimParameterVar <: ParameterVar`
-* `ParameterVarArray, ParameterVarFunc <: OneDimParameterVar`
-* `MulitDimParameterVarArray, MultiDimParameterVarFunc <: MultiDimParameterVar`
-"""
-abstract type ParameterVar end
 
 """
     OneDimParameterVar
@@ -109,6 +98,7 @@ OneDimParameterVar(name::Symbol,new_val::AbstractArray,new_par::Function) = Para
 OneDimParameterVar(name::Symbol,new_val::AbstractArray) = ParameterVarArray(name, new_val)
 OneDimParameterVar(name::Symbol,new_val::Function, new_par::Function) = ParameterVarFunc(name, new_val, new_par)
 OneDimParameterVar(name::Symbol,new_val::Function) = ParameterVarFunc(name, new_val)
+
 
 
 abstract type AbstractHiddenParameterVar <: OneDimParameterVar end
@@ -223,15 +213,27 @@ struct MultiDimHiddenParameterVar <: MultiDimParameterVar
     N::Int
 end
 
+struct MultiDimSolverParameterVarFunc <: MultiDimParameterVar
+    data::Array{SolverParameterVarFunc,1}
+    new_par::Function
+    N::Int
+end
+
+struct MultiDimSolverParameterVarArray <: MultiDimParameterVar
+    data::Array{SolverParameterVarArray,1}
+    new_par::Function
+    N::Int
+end
+
 (parvar::MultiDimParameterVarArray)(old_par::DEParameters; kwargs...) = parvar.new_par(old_par; kwargs...)
 (parvar::MultiDimParameterVarFunc)(old_par::DEParameters; kwargs...) = parvar.new_par(old_par; kwargs...)
 (parvar::MultiDimHiddenParameterVar)(i::Int; kwargs...) = parvar.new_par(parvar[1].pars[i,:]...; kwargs...)
 
-
-
 MultiDimParameterVar(data::Array{ParameterVarFunc,1}, func::Function) = MultiDimParameterVarFunc(data, func, length(data))
 MultiDimParameterVar(data::Array{ParameterVarArray,1}, func::Function) = MultiDimParameterVarArray(data, func, length(data))
 MultiDimParameterVar(data::Array{HiddenParameterVar,1}, func::Function) = MultiDimHiddenParameterVar(data, func, length(data))
+MultiDimParameterVar(data::Array{SolverParameterVarArray,1}, func::Function) = MultiDimSolverParameterVarArray(data, func, length(data))
+MultiDimParameterVar(data::Array{SolverParameterVarFunc,1}, func::Function) = MultiDimSolverParameterVarFunc(data, func, length(data))
 MultiDimParameterVar(parvar::ParameterVar, func::Function) = MultiDimParameterVar([parvar], func)
 MultiDimParameterVar(parvar::ParameterVar) = MultiDimParameterVar(parvar, reconstruct)
 
@@ -329,28 +331,40 @@ It is also possible to initialize the type directly with its fields with
 
     DEMCBBProblem(p::EnsembleProblem, N_mc::Int64, rel_transient_time::Float64, ic::AbstractArray, par::AbstractArray, par_range_tuple::ParameterVar)
 """
-struct DEMCBBProblem <: MCBBProblem
-    p::EnsembleProblem
+struct DEMCBBProblem{S,T} <: MCBBProblem
+    p::S
     N_mc::Int64
     rel_transient_time::Float64
     ic::AbstractArray
     par::AbstractArray
-    par_var::ParameterVar
+    par_var::T
 
     function DEMCBBProblem(p::DiffEqBase.DEProblem, ic_gens::Array{<:Function,1}, N_ic::Int, pars::DEParameters, par_range_tuple::ParameterVar, eval_ode_func::Function, tail_frac::Number)
         (ic_coupling_problem, ic, par, N_mc) = setup_ic_par_mc_problem(p, ic_gens, N_ic, pars, par_range_tuple)
         mcp = EnsembleProblem(p, prob_func=ic_coupling_problem, output_func=eval_ode_func)
-        new(mcp, N_mc, tail_frac, ic, par, par_range_tuple)
+        new{typeof(mcp), typeof(par_range_tuple)}(mcp, N_mc, tail_frac, ic, par, par_range_tuple)
     end
 
     function DEMCBBProblem(p::DiffEqBase.DEProblem, ic_ranges::Array{T,1}, pars::DEParameters, par_range_tuple::ParameterVar, eval_ode_func::Function, tail_frac::Number) where T <: Union{AbstractArray, Number}
         (ic_coupling_problem, ic, par, N_mc) = setup_ic_par_mc_problem(p, ic_ranges, pars, par_range_tuple)
         mcp = EnsembleProblem(p, prob_func=ic_coupling_problem, output_func=eval_ode_func)
-        new(mcp, N_mc, tail_frac, ic, par, par_range_tuple)
+        new{typeof(mcp), typeof(par_range_tuple)}(mcp, N_mc, tail_frac, ic, par, par_range_tuple)
+    end
+
+    function DEMCBBProblem(p::DiffEqBase.DEProblem, ic_gens::Array{<:Function,1}, N_ic::Int, pars::DEParameters, parvar::AbstractSolverParameterVar, eval_ode_func::Function, tail_frac::Number)
+        (ic_coupling_problem, ic, par, N_mc) = setup_ic_par_mc_problem(p, ic_gens, N_ic, pars, parvar)
+        mcp = SolverVarEnsembleProblem(p, ic_coupling_problem, eval_ode_func, parvar, par)
+        new{typeof(mcp), typeof(parvar)}(mcp, N_mc, tail_frac, ic, par, parvar)
+    end
+
+    function DEMCBBProblem(p::DiffEqBase.DEProblem, ic_ranges::Array{T,1}, pars::DEParameters, parvar::AbstractSolverParameterVar, eval_ode_func::Function, tail_frac::Number) where T <: Union{AbstractArray, Number}
+        (ic_coupling_problem, ic, par, N_mc) = setup_ic_par_mc_problem(p, ic_ranges, pars, par_range_tuple)
+        mcp = SolverVarEnsembleProblem(p, ic_coupling_problem, eval_ode_func, parvar, par)
+        new{typeof(mcp), typeof(parvar)}(mcp, N_mc, tail_frac, ic, par, parvar)
     end
 
     # Direct Constructor
-    DEMCBBProblem(p::EnsembleProblem, N_mc::Int64, rel_transient_time::Float64, ic::AbstractArray, par::AbstractArray, par_range_tuple::ParameterVar) = new(p, N_mc, rel_transient_time, ic, par, par_range_tuple)
+    DEMCBBProblem(p, N_mc::Int64, rel_transient_time::Float64, ic::AbstractArray, par::AbstractArray, par_range_tuple::ParameterVar) = new{typeof(p), typeof(par_range_tuple)}(p, N_mc, rel_transient_time, ic, par, par_range_tuple)
 end
 DEMCBBProblem(p::DiffEqBase.DEProblem, ic_gens::Function, N_ic::Int, pars::DEParameters, par_range_tuple::ParameterVar, eval_ode_func::Function, tail_frac::Number) = DEMCBBProblem(p, [ic_gens], N_ic, pars, par_range_tuple, eval_ode_func, tail_frac)
 DEMCBBProblem(p::DiffEqBase.DEProblem, ic_gens::Union{Array{<:Function,1},Function}, N_ic::Int, pars::DEParameters, par_range_tuple::ParameterVar, eval_ode_func::Function) = DEMCBBProblem(p,ic_gens,N_ic,pars,par_range_tuple,eval_ode_func, 0.9)
@@ -445,8 +459,8 @@ Its fields are:
 
 Note, in case `N_dim==1` => `N_meas_global == 0` and `N_meas_dim == N_meas`
 """
-struct DEMCBBSol <: MCBBSol
-    sol::EnsembleSolution
+struct DEMCBBSol{T} <: MCBBSol
+    sol::T
     N_mc::Int
     N_t::Int
     N_dim::Int
@@ -832,8 +846,8 @@ If the parameters are varied along arrays/ranges and the initial conditions are 
 * `ic_gens`: A function or an array of functions that generate the initial conditions for each trial.  Function signature is `()->new_value::Number`. If only one function is provided its used for all IC dims, if ``M<N_{dim}`` functions with ``N_{dim}=k\\cdot M`` are provided these functions are repeated ``k`` times (useful e.g. for coupled chaotic oscillators).
 * `var_par`: `ParameterVar`, either `MultiDimParameterVarArray` or `ParameterVarArray`
 """
-_ic_par_matrix(N_dim_ic::Int, N_dim::Int, ic_ranges::Array{<:AbstractArray,1}, var_par::Union{ParameterVarArray, HiddenParameterVar}) = _ic_par_matrix(N_dim_ic, N_dim, ic_ranges, MultiDimParameterVar(var_par))
-function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, ic_ranges::Array{T,1}, var_par::Union{MultiDimParameterVarArray, MultiDimHiddenParameterVar}) where T <: AbstractArray
+_ic_par_matrix(N_dim_ic::Int, N_dim::Int, ic_ranges::Array{<:AbstractArray,1}, var_par::Union{ParameterVarArray, HiddenParameterVar, SolverParameterVarArray}) = _ic_par_matrix(N_dim_ic, N_dim, ic_ranges, MultiDimParameterVar(var_par))
+function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, ic_ranges::Array{T,1}, var_par::Union{MultiDimParameterVarArray, MultiDimHiddenParameterVar,MultiDimSolverParameterVarArray}) where T <: AbstractArray
     N_ic_pars = zeros(Int, N_dim)
     for (i_range, ic_range) in enumerate(ic_ranges)
         N_ic_pars[i_range] = length(collect(ic_range))
@@ -870,8 +884,8 @@ end
 # helper function for setup_ic_par_mc_problem()
 
 # uses random generators for IC and Parameter
-_ic_par_matrix(N_dim_ic::Int, N_dim::Int, N_ic::Int, ic_gens::Array{<:Function,1},  var_par::Union{ParameterVarFunc, HiddenParameterVar}) = _ic_par_matrix(N_dim_ic, N_dim, N_ic, ic_gens, MultiDimParameterVar(var_par))
-function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, N_ic::Int, ic_gens::Array{<:Function,1},  var_par::Union{MultiDimParameterVarFunc,MultiDimHiddenParameterVar})
+_ic_par_matrix(N_dim_ic::Int, N_dim::Int, N_ic::Int, ic_gens::Array{<:Function,1},  var_par::Union{ParameterVarFunc, HiddenParameterVar, SolverParameterVarFunc}) = _ic_par_matrix(N_dim_ic, N_dim, N_ic, ic_gens, MultiDimParameterVar(var_par))
+function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, N_ic::Int, ic_gens::Array{<:Function,1},  var_par::Union{MultiDimParameterVarFunc,MultiDimHiddenParameterVar, MultiDimSolverParameterVarFunc})
     N_gens = length(ic_gens) # without the parameter geneartor
     if N_dim_ic % (N_gens) != 0
         err("Number of initial cond. genators and Number of initial cond. doesn't fit together")
@@ -911,8 +925,8 @@ end
 # helper function for setup_ic_par_mc_problem()
 # uses (random) generator functions for the initial cond. and ranges for Parameter
 # sets it up so that each parameter value has identical ICs
-_ic_par_matrix(N_dim_ic::Int, N_dim::Int, N_ic::Int, ic_gens::Array{<:Function,1},  var_par::ParameterVarArray) = _ic_par_matrix(N_dim_ic, N_dim, N_ic, ic_gens, MultiDimParameterVar(var_par))
-function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, N_ic::Int, ic_gens::Array{T,1},  var_par::MultiDimParameterVarArray) where T<:Function
+_ic_par_matrix(N_dim_ic::Int, N_dim::Int, N_ic::Int, ic_gens::Array{<:Function,1},  var_par::Union{ParameterVarArray,SolverParameterVarArray}) = _ic_par_matrix(N_dim_ic, N_dim, N_ic, ic_gens, MultiDimParameterVar(var_par))
+function _ic_par_matrix(N_dim_ic::Int, N_dim::Int, N_ic::Int, ic_gens::Array{T,1},  var_par::Union{MultiDimParameterVarArray, MultiDimSolverParameterVarArray}) where T<:Function
     if length(var_par)>1
         error("Random IC and Parameter with Ranges is so far only supported for N_par=1")
     end
@@ -1082,6 +1096,7 @@ Custom solve for the `DEMCBBProblem`. Solves the `EnsembleProblem`, but saves an
 * `custom_solve`:: Function/Nothing, custom solve function
 """
 function solve(prob::DEMCBBProblem, alg=nothing, N_t=400::Int, parallel_type=EnsembleDistributed(); flag_check_inf_nan=true, custom_solve::Union{Function,Nothing}=nothing, sort_results=true, kwargs...)
+
     t_save = collect(tsave_array(prob.p.prob, N_t, prob.rel_transient_time))
 
     if custom_solve!=nothing
@@ -1111,7 +1126,6 @@ function solve(prob::DEMCBBProblem, alg=nothing, N_t=400::Int, parallel_type=Ens
     end
     mysol
 end
-solve_euler_inf(prob::DEMCBBProblem, t_save::AbstractArray; dt=0.1) = solve(prob.p, alg=Euler(), dt=dt, num_monte=prob.N_mc, parallel_type=:parfor, dense=false, saveat=t_save, tstops=t_save, savestart=false, save_everystep=false)
 
 """
     get_measure_dimensions(sol, N_dim)

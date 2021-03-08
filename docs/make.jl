@@ -16,7 +16,8 @@ pages = [
         "Clustering Functions" =>"ref/clustering_funcs.md",
         "Continuation" => "ref/continuation.md",
         "Systems" => "ref/systems.md",
-        "Custom Problems" => "ref/custom_problem.md"
+        "Custom Problems" => "ref/custom_problem.md",
+        "Solver Paramter Var" => "ref/solvervar.md"
         ]
     ]
     )

@@ -18,3 +18,6 @@ println("Test Custom Problems")
 @time @test include("custom_problem_example.jl")
 println("testing i/o")
 @time @test include("io.jl")
+
+println("testing solverparametervar ")
+@time @test include("solver_parametervar.jl")

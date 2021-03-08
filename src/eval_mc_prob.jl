@@ -486,36 +486,3 @@ correlation_ecdf(sol::AbstractArray, nbins::Int=30)
 Example function for `matrix_eval_funcs`. This routine calculates the absolute value of the Pearson correlation between the time series of all system dimensions and the ECDF of a histogram fitted to all of these values. It uses the same binning for all calculations with the edges calculated by `0:1. /nbins:1`.
 """
 correlation_ecdf(sol::AbstractArray, nbins::Int=30) = ecdf_hist(correlation_hist(sol, nbins))
-
-
-
-# curve entropy according to Balestrino et al, 2009, Entropy Journal
-# could be used as an additional measure for the clustering
-# bounded [0,1]
-#
-"""
-function curve_entropy(sol::AbstractArray, r_eps::Float64=1e-15)
-    D = mcs_diameter(sol)
-    if D > r_eps
-        ce = log(curve_length(sol)/D)/log(size(sol)[1] - 1)
-    else
-        ce = 0. # if the curve is just a point, its entropy is 0 (the logarithm would yield NaN)
-    end
-    ce
-end
-
-function curve_length(u::AbstractArray)
-    L::Float64 = 0.
-    for it=2:size(u)[1]
-        L += euclidean(u[it,:],u[it-1,:])
-    end
-    L
-end
-
-# Minimal Covering (Hyper)sphere of the points of the Curve
-function mcs_diameter(u::AbstractArray)
-    # miniball routine needs a N_t x d matrix
-    mcs = miniball(u)
-    2. * sqrt(mcs.squared_radius)
-end
-"""

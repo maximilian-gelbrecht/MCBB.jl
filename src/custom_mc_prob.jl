@@ -87,7 +87,6 @@ end
 
 Solves the `CustomMonteCarloProblem` `num_monte`-times.
 
-TO-DO: parallelization!!!!
 """
 function solve(prob::CustomMonteCarloProblem; num_monte::Int=100, rel_transient_time::Real=0.5)
 
