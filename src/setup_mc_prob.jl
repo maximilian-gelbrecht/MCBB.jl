@@ -985,7 +985,7 @@ mutable struct IdenticalICs{T} <: AbstractArray{T,2}
 end
 Base.getindex(ics::IdenticalICs, i::Int) = ics.data
 Base.getindex(ics::IdenticalICs, i::Int, j::Int) = ics.data[j]
-Base.size(ics) = (ics.N, length(ics.data))
+Base.size(ics::IdenticalICs) = (ics.N, length(ics.data))
 Base.setindex!(ics::IdenticalICs,v,i::Int) = setindex!(ics.data,v,i)
 Base.setindex!(ics::IdenticalICs,v,i::Int, j::Int) = setindex!(ics.data,v,j)
 
