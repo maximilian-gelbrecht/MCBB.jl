@@ -1,6 +1,6 @@
 # NEWS
 
-The method is now implemented in [DynamicalSystems.jl](https://github.com/JuliaDynamics/DynamicalSystems.jl), i.e. its sub-libary [Attractors.jl](https://juliadynamics.github.io/Attractors.jl/dev/). See its [docs for more information](https://juliadynamics.github.io/Attractors.jl/dev/examples/#Featurizing-and-grouping-across-parameters-(MCBB)). This repository will thus not be maintained or updated and only serve as an archive
+The method is now implemented in [DynamicalSystems.jl](https://github.com/JuliaDynamics/DynamicalSystems.jl), i.e. its sub-library [Attractors.jl](https://juliadynamics.github.io/Attractors.jl/dev/). See its [docs for more information](https://juliadynamics.github.io/Attractors.jl/dev/examples/#Featurizing-and-grouping-across-parameters-(MCBB)). This repository will thus not be maintained or updated and only serve as an archive.
 
 
 # Package Archive: 
