@@ -1,7 +1,9 @@
 # NEWS
 
-The method is now implemented in [DynamicalSystems.jl](https://github.com/JuliaDynamics/DynamicalSystems.jl), i.e. its sub-libary [Attractors.jl]https://juliadynamics.github.io/Attractors.jl/dev/). See its [docs for more information](https://juliadynamics.github.io/Attractors.jl/dev/examples/#Featurizing-and-grouping-across-parameters-(MCBB)). This repository will thus not be maintained or updated and only serve as an archive
+The method is now implemented in [DynamicalSystems.jl](https://github.com/JuliaDynamics/DynamicalSystems.jl), i.e. its sub-libary [Attractors.jl](https://juliadynamics.github.io/Attractors.jl/dev/). See its [docs for more information](https://juliadynamics.github.io/Attractors.jl/dev/examples/#Featurizing-and-grouping-across-parameters-(MCBB)). This repository will thus not be maintained or updated and only serve as an archive
 
+
+# Package Archive: 
 
 Library and Script with Example to explore High Dimensional Bifurcations with sample and clustering based methods using Julia language.
 
@@ -13,16 +15,16 @@ It is not backwards compatible to Julia < v0.7
 
 
 
-# Paper
+## Paper
 
 A paper describing the article was is published in New Journal of Physics (Open Access) http://doi.org/10.1088/1367-2630/ab7a05
 
-# Documentation
+## Documentation
 
 The documentation can be found at [![doc dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://maximilian-gelbrecht.github.io/MCBB.jl/dev)
 
 
-# Install
+## Install
 
 In `Pkg` shell doing:
 ```
